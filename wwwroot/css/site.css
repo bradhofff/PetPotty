@@ -1,0 +1,352 @@
+/* ============================================================
+   PetPotty - site.css
+   Ported from .NET Framework Styles.css to .NET Core
+   
+   CHANGES FROM OLD VERSION:
+   - Removed all ajax__calendar_* selectors (used ASP.NET AJAX toolkit, not in .NET Core)
+   - Removed table[id*="gv"] selectors (WebForms GridView, replaced by HTML tables)
+   - Removed aspNetDisabled (WebForms specific)
+   - Removed div[id*="phPetTaskGrids"] selectors (WebForms PlaceHolder control)
+   - Replaced with clean Bootstrap 5 compatible selectors
+   - Added accordion theme styles for new task layout
+   - Added modal theme styles
+   ============================================================ */
+
+/* ============================================================
+   CSS VARIABLES — change these to retheme the whole app
+   ============================================================ */
+:root {
+    --pet-primary:   #8B4513; /* Brown */
+    --pet-secondary: #F4A460; /* Sandy Brown */
+    --pet-accent:    #FF6347; /* Tomato */
+    --pet-neutral:   #F5DEB3; /* Wheat */
+    --pet-dark:      #2F4F4F; /* Dark Slate Gray */
+    --pet-success:   #228B22; /* Forest Green */
+    --pet-info:      #4682B4; /* Steel Blue */
+    --pet-warning:   #DAA520; /* Goldenrod */
+}
+
+/* ============================================================
+   BODY & BACKGROUND
+   The paw print checkerboard pattern from the original
+   ============================================================ */
+body {
+    font-family: 'Georgia', serif;
+    background: var(--pet-neutral);
+    min-height: 100vh;
+    background-image:
+        radial-gradient(circle at 25% 25%, var(--pet-primary) 3px, transparent 3px),
+        radial-gradient(circle at 75% 25%, var(--pet-primary) 2px, transparent 2px),
+        radial-gradient(circle at 25% 75%, var(--pet-primary) 2px, transparent 2px),
+        radial-gradient(circle at 75% 75%, var(--pet-primary) 2px, transparent 2px),
+        linear-gradient(45deg, var(--pet-secondary) 25%, transparent 25%),
+        linear-gradient(-45deg, var(--pet-secondary) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, var(--pet-secondary) 75%),
+        linear-gradient(-45deg, transparent 75%, var(--pet-secondary) 75%);
+    background-size: 60px 60px, 60px 60px, 60px 60px, 60px 60px,
+                     30px 30px, 30px 30px, 30px 30px, 30px 30px;
+    background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 15px 15px, 15px 15px;
+    background-attachment: fixed;
+}
+
+/* ============================================================
+   MAIN CONTENT WRAPPER
+   Wraps the page body in a white card over the patterned background.
+   Add class="main-content" to your <div class="container"> in _Layout.cshtml
+   ============================================================ */
+.main-content {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    padding: 30px;
+    margin: 20px auto;
+    backdrop-filter: blur(5px);
+    box-shadow: 0 8px 25px rgba(139, 69, 19, 0.15);
+}
+
+/* ============================================================
+   NAVBAR
+   ============================================================ */
+.navbar {
+    background: linear-gradient(90deg, var(--pet-primary), var(--pet-dark)) !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.navbar-brand {
+    color: white !important;
+    font-weight: bold;
+    font-size: 1.4rem;
+    letter-spacing: 1px;
+}
+
+.nav-link {
+    color: rgba(255, 255, 255, 0.85) !important;
+    transition: color 0.2s ease;
+}
+
+    .nav-link:hover {
+        color: var(--pet-secondary) !important;
+    }
+
+/* ============================================================
+   WELCOME HEADER
+   ============================================================ */
+.welcome-header {
+    background: linear-gradient(135deg, var(--pet-primary), var(--pet-secondary));
+    color: white;
+    padding: 20px;
+    border-radius: 15px;
+    margin-bottom: 30px;
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(139, 69, 19, 0.2);
+}
+
+/* ============================================================
+   SECTION HEADERS
+   The paw print decorator on the right from the original
+   ============================================================ */
+.section-header {
+    color: var(--pet-dark);
+    margin: 30px 0 20px 0;
+    padding: 15px 0;
+    border-bottom: 3px solid var(--pet-secondary);
+    position: relative;
+}
+
+    .section-header::after {
+        content: '🐾';
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 24px;
+        opacity: 0.6;
+    }
+
+/* ============================================================
+   TABLES
+   Replaces the old table[id*="gv"] GridView selectors with
+   clean Bootstrap-compatible table styling
+   ============================================================ */
+.table {
+    border: 2px solid var(--pet-secondary) !important;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    background: white;
+}
+
+.table thead th {
+    background: linear-gradient(90deg, var(--pet-primary), var(--pet-secondary)) !important;
+    color: white !important;
+    padding: 15px 10px !important;
+    font-weight: bold !important;
+    text-align: center !important;
+    border: none !important;
+}
+
+.table td {
+    padding: 12px 10px !important;
+    border-color: var(--pet-neutral) !important;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.table tbody tr:nth-child(even) td {
+    background-color: rgba(244, 164, 96, 0.1) !important;
+}
+
+.table tbody tr:hover td {
+    background-color: rgba(244, 164, 96, 0.2) !important;
+    transition: background-color 0.3s ease;
+}
+
+/* ============================================================
+   ACCORDION — Task sections per pet
+   New in .NET Core version — replaces flat task sections
+   ============================================================ */
+.accordion-item {
+    border: 2px solid var(--pet-secondary) !important;
+    border-radius: 10px !important;
+    margin-bottom: 10px;
+    overflow: hidden;
+}
+
+.accordion-button {
+    background: linear-gradient(135deg, var(--pet-neutral), white) !important;
+    color: var(--pet-dark) !important;
+    font-weight: bold;
+    border-left: 5px solid var(--pet-primary) !important;
+}
+
+    .accordion-button:not(.collapsed) {
+        background: linear-gradient(135deg, var(--pet-secondary), var(--pet-neutral)) !important;
+        color: var(--pet-dark) !important;
+        box-shadow: none !important;
+    }
+
+    .accordion-button::after {
+        filter: invert(20%) sepia(50%) saturate(500%) hue-rotate(10deg);
+    }
+
+.accordion-body {
+    background: white;
+    padding: 0 !important;
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.btn-primary {
+    background-color: var(--pet-primary) !important;
+    border-color: var(--pet-primary) !important;
+    border-radius: 25px;
+    transition: all 0.3s ease;
+}
+
+    .btn-primary:hover {
+        background-color: #654321 !important;
+        border-color: #654321 !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(139, 69, 19, 0.3);
+    }
+
+.btn-success {
+    background-color: var(--pet-success) !important;
+    border-color: var(--pet-success) !important;
+    border-radius: 25px;
+}
+
+.btn-warning {
+    background-color: var(--pet-warning) !important;
+    border-color: var(--pet-warning) !important;
+    border-radius: 25px;
+    color: white !important;
+}
+
+.btn-danger {
+    background-color: #dc3545 !important;
+    border-color: #dc3545 !important;
+    border-radius: 25px;
+}
+
+.btn-secondary {
+    border-radius: 25px;
+}
+
+.btn-link {
+    color: var(--pet-primary) !important;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+    .btn-link:hover {
+        color: var(--pet-dark) !important;
+        text-decoration: underline;
+    }
+
+/* ============================================================
+   FORM CONTROLS
+   ============================================================ */
+.form-control,
+.form-select {
+    border: 2px solid var(--pet-secondary) !important;
+    border-radius: 10px !important;
+    padding: 10px 15px !important;
+}
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: var(--pet-primary) !important;
+        box-shadow: 0 0 0 0.2rem rgba(139, 69, 19, 0.25) !important;
+    }
+
+/* ============================================================
+   MODALS
+   ============================================================ */
+.modal-header {
+    background: linear-gradient(90deg, var(--pet-primary), var(--pet-secondary));
+    color: white;
+    border-radius: 10px 10px 0 0;
+}
+
+    .modal-header .btn-close {
+        filter: invert(1);
+    }
+
+.modal-content {
+    border-radius: 10px;
+    border: 2px solid var(--pet-secondary);
+    overflow: hidden;
+}
+
+/* ============================================================
+   ALERTS / STATUS MESSAGES
+   ============================================================ */
+.alert-success {
+    background-color: rgba(34, 139, 34, 0.1);
+    border: 2px solid var(--pet-success);
+    color: var(--pet-success);
+    border-radius: 10px;
+}
+
+.alert-danger {
+    border-radius: 10px;
+}
+
+/* ============================================================
+   HORIZONTAL RULE
+   ============================================================ */
+hr {
+    border: 2px solid var(--pet-secondary) !important;
+    margin: 40px 0 !important;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 768px) {
+    .main-content {
+        margin: 10px;
+        padding: 20px;
+    }
+
+    .btn {
+        font-size: 14px;
+        padding: 8px 16px;
+    }
+
+    .section-header {
+        font-size: 1.5rem;
+    }
+
+    .table th,
+    .table td {
+        padding: 8px 5px !important;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 576px) {
+    .welcome-header {
+        padding: 15px;
+    }
+
+    .main-content {
+        padding: 15px;
+        margin: 5px;
+    }
+}
+
+/* ============================================================
+   PRINT
+   ============================================================ */
+@media print {
+    body {
+        background: white !important;
+    }
+
+    .main-content {
+        background: white !important;
+        box-shadow: none !important;
+    }
+}

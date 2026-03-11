@@ -1,0 +1,17 @@
+# Secrets — never push these
+appsettings.Development.json
+
+# Build output
+bin/
+obj/
+
+# VS Code
+.vscode/
+*.user
+
+# Mac junk
+.DS_Store
+
+# Rider/Visual Studio
+.vs/
+*.suo

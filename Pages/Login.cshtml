@@ -1,0 +1,10 @@
+@page
+@model LoginModel
+
+<form method="post">
+    <input asp-for="Username" placeholder="Username" />
+    <input asp-for="Password" type="password" placeholder="Password" />
+    <button type="submit">Login</button>
+
+    <div>@Model.ErrorMessage</div>
+</form>

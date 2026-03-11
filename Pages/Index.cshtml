@@ -1,0 +1,22 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Landing";
+}
+
+<main>
+    <section class="row" aria-labelledby="aspnetTitle">
+        <h1 id="aspnetTitle">All Things Pet Potty Tracking and More!</h1>
+        <h2>Get started by logging in or signing up.</h2>
+    </section>
+
+    <div class="row">
+        <section class="col-md-4">
+            <p>
+                <a asp-page="/Login" class="btn btn-primary">Login</a>
+                &nbsp;&nbsp;&nbsp;
+                <a asp-page="/Signup" class="btn btn-light">Signup</a>
+            </p>
+        </section>
+    </div>
+</main>
