@@ -1,6 +1,26 @@
 @page
 @model LoginModel
 
+@if (TempData["LogoutMessage"] != null)
+{
+    <div class="alert alert-logout alert-dismissible fade show" role="alert">
+        <strong>@TempData["LogoutMessage"]</strong><br />
+        Please <a href="/Login" class="alert-link">log in again</a> or
+        <a href="/Signup" class="alert-link">create an account</a>.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@if (TempData["SignupSuccess"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert"
+         style="border: 2px solid #198754; border-radius: 10px;">
+        ✅ <strong>@TempData["SignupSuccess"]</strong><br />
+        Please log in to continue.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
 <form method="post">
     <input asp-for="Username" placeholder="Username" />
     <input asp-for="Password" type="password" placeholder="Password" />

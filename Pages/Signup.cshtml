@@ -1,0 +1,129 @@
+@page
+@model PetPotty.Pages.SignupModel
+@{
+    ViewData["Title"] = "Create Account";
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+
+        <div class="card border-0 shadow-sm" style="border-radius: 15px; overflow: hidden;">
+            <div class="card-header text-white text-center py-4"
+                 style="background: linear-gradient(135deg, var(--pet-primary), var(--pet-secondary));">
+                <h3 class="mb-0">🐾 Create Account</h3>
+                <small>Join Pet Potty Tracker</small>
+            </div>
+
+            <div class="card-body p-4">
+
+                @* Error message *@
+                @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+                {
+                    <div class="alert alert-danger border-2 rounded-3" role="alert">
+                        <strong>⚠️ @Model.ErrorMessage</strong>
+                    </div>
+                }
+
+                <form method="post">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Full Name <span class="text-danger">*</span></label>
+                        <input asp-for="SignupName" class="form-control" placeholder="e.g. Bradley" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Username <span class="text-danger">*</span></label>
+                        <input asp-for="SignupUserName" class="form-control" placeholder="No spaces allowed" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Email <span class="text-danger">*</span></label>
+                        <input asp-for="SignupEmail" type="email" class="form-control" placeholder="example@email.com" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Phone <span class="text-muted fw-normal">(optional)</span></label>
+                        <input asp-for="SignupPhone" type="tel" class="form-control" placeholder="e.g. 555-867-5309" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Password <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <input asp-for="SignupPass" type="password" class="form-control"
+                                   id="signupPass" placeholder="Create a password" required />
+                            <button type="button" class="btn btn-outline-secondary"
+                                    onclick="togglePassword('signupPass', this)" tabindex="-1">
+                                👁
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">Confirm Password <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <input asp-for="SignupConfirmPass" type="password" class="form-control"
+                                   id="signupConfirmPass" placeholder="Re-enter your password" required />
+                            <button type="button" class="btn btn-outline-secondary"
+                                    onclick="togglePassword('signupConfirmPass', this)" tabindex="-1">
+                                👁
+                            </button>
+                        </div>
+                        @* Client-side password match feedback *@
+                        <small id="passMismatch" class="text-danger d-none">Passwords do not match.</small>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                            Create Account
+                        </button>
+                    </div>
+                </form>
+
+            </div>
+
+            <div class="card-footer text-center py-3 bg-light">
+                <small>Already have an account? <a asp-page="/Login" class="fw-bold" style="color: var(--pet-primary);">Log in here</a></small>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Show/hide password toggle
+        function togglePassword(fieldId, btn) {
+            const field = document.getElementById(fieldId);
+            if (field.type === 'password') {
+                field.type = 'text';
+                btn.textContent = '🙈';
+            } else {
+                field.type = 'password';
+                btn.textContent = '👁';
+            }
+        }
+
+        // Live password match check
+        const passField    = document.getElementById('signupPass');
+        const confirmField = document.getElementById('signupConfirmPass');
+        const mismatchMsg  = document.getElementById('passMismatch');
+        const submitBtn    = document.getElementById('submitBtn');
+
+        function checkPasswords() {
+            if (confirmField.value.length === 0) {
+                mismatchMsg.classList.add('d-none');
+                submitBtn.disabled = false;
+                return;
+            }
+            if (passField.value !== confirmField.value) {
+                mismatchMsg.classList.remove('d-none');
+                submitBtn.disabled = true;
+            } else {
+                mismatchMsg.classList.add('d-none');
+                submitBtn.disabled = false;
+            }
+        }
+
+        passField.addEventListener('input', checkPasswords);
+        confirmField.addEventListener('input', checkPasswords);
+    </script>
+}

@@ -71,12 +71,7 @@ body {
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
-.navbar-brand {
-    color: white !important;
-    font-weight: bold;
-    font-size: 1.4rem;
-    letter-spacing: 1px;
-}
+
 
 .nav-link {
     color: rgba(255, 255, 255, 0.85) !important;
@@ -87,6 +82,18 @@ body {
         color: var(--pet-secondary) !important;
     }
 
+    /* Jumping paw in navbar brand */
+.navbar-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.navbar-brand::before {
+    content: '🐾';
+    display: inline-block;
+    animation: pawJump 1.2s ease-in-out infinite;
+}
 /* ============================================================
    WELCOME HEADER
    ============================================================ */
@@ -335,6 +342,12 @@ hr {
         padding: 15px;
         margin: 5px;
     }
+}
+
+@keyframes pawJump {
+    0%, 100% { transform: translateY(0) rotate(0deg);   }
+    30%       { transform: translateY(-6px) rotate(-8deg); }
+    60%       { transform: translateY(-3px) rotate(4deg);  }
 }
 
 /* ============================================================

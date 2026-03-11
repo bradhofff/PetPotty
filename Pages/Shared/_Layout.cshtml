@@ -6,12 +6,126 @@
     <title>@ViewData["Title"] - Pet Potty Tracker</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <style>
+        /* ── Jumping paw on navbar brand ── */
+        .navbar-brand .paw {
+            display: inline-block;
+            animation: pawJump 1.2s ease-in-out infinite;
+            margin-right: 6px;
+        }
+
+        @@keyframes pawJump {
+            0%, 100% { transform: translateY(0)    rotate(0deg);  }
+            30%       { transform: translateY(-6px) rotate(-8deg); }
+            60%       { transform: translateY(-3px) rotate(4deg);  }
+        }
+
+        /* ── Profile dropdown ── */
+        .profile-dropdown .dropdown-toggle::after {
+            display: none;
+        }
+
+        .profile-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: border-color 0.2s ease, background 0.2s ease;
+            cursor: pointer;
+        }
+
+        .profile-avatar:hover {
+            background: rgba(255,255,255,0.3);
+            border-color: var(--pet-secondary);
+        }
+
+        .profile-avatar svg {
+            width: 22px;
+            height: 22px;
+            fill: rgba(255,255,255,0.85);
+        }
+
+        .profile-welcome {
+            color: rgba(255,255,255,0.9);
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+
+        .profile-dropdown .dropdown-menu {
+            min-width: 180px;
+            border: 2px solid var(--pet-secondary);
+            border-radius: 10px;
+            box-shadow: 0 6px 20px rgba(139, 69, 19, 0.2);
+            overflow: hidden;
+            margin-top: 8px !important;
+        }
+
+        .profile-dropdown .dropdown-item {
+            padding: 10px 16px;
+            font-size: 0.9rem;
+            color: var(--pet-dark);
+            transition: background 0.15s ease;
+        }
+
+        .profile-dropdown .dropdown-item:hover {
+            background: rgba(244, 164, 96, 0.2);
+            color: var(--pet-primary);
+        }
+
+        .profile-dropdown .dropdown-item svg {
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        .profile-dropdown .dropdown-divider {
+            border-color: var(--pet-secondary);
+            opacity: 0.4;
+        }
+
+        .dropdown-logout {
+            color: #dc3545 !important;
+        }
+
+        .dropdown-logout:hover {
+            background: rgba(220, 53, 69, 0.1) !important;
+            color: #dc3545 !important;
+        }
+
+        /* ── Logout alert on Login page ── */
+        .alert-logout {
+            background-color: rgba(220, 53, 69, 0.08);
+            border: 2px solid #dc3545;
+            color: #dc3545;
+            border-radius: 10px;
+        }
+
+        .alert-logout .alert-link {
+            color: #dc3545;
+            font-weight: bold;
+            text-decoration: underline;
+        }
+
+        .alert-logout .btn-close {
+            filter: invert(25%) sepia(90%) saturate(500%) hue-rotate(320deg);
+        }
+    </style>
 </head>
 <body>
     <header>
         <nav class="navbar navbar-expand-sm navbar-dark">
             <div class="container">
-                <a class="navbar-brand" asp-page="/Home">🐾 Pet Potty Tracker</a>
+                
+                    <a class="navbar-brand" asp-page="/Home">
+                        <span class="paw"></span>Pet Potty Tracker
+                    </a>
+                
+
                 <button class="navbar-toggler" type="button"
                         data-bs-toggle="collapse"
                         data-bs-target=".navbar-collapse"
@@ -20,6 +134,7 @@
                         aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
+
                 <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
                     <ul class="navbar-nav flex-grow-1">
                         <li class="nav-item">
@@ -32,22 +147,45 @@
                             <a class="nav-link" asp-page="/VetVisits">🏥 Vet Visits</a>
                         </li>
                     </ul>
+
                     @* Right side — only show when logged in *@
                     @if (Context.Session.GetString("name") != null)
                     {
-                        <ul class="navbar-nav">
-                            <li class="nav-item d-flex align-items-center">
-                                <span class="nav-link text-white">
-                                    Welcome, @Context.Session.GetString("name")!
-                                </span>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-page="/EditAccount">Edit Account</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link btn btn-sm ms-2"
-                                   style="background-color: var(--pet-accent); color: white; border-radius: 25px; padding: 6px 16px;"
-                                   asp-page="/Logout">Logout</a>
+                        <ul class="navbar-nav align-items-center">
+                            <li class="nav-item profile-dropdown dropdown">
+                                <a class="nav-link dropdown-toggle d-flex align-items-center gap-2 pe-0"
+                                   href="#"
+                                   role="button"
+                                   data-bs-toggle="dropdown"
+                                   aria-expanded="false">
+                                    <span class="profile-welcome">
+                                        Welcome, @Context.Session.GetString("name")!
+                                    </span>
+                                    <div class="profile-avatar">
+                                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+                                        </svg>
+                                    </div>
+                                </a>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li>
+                                        <a class="dropdown-item" asp-page="/EditAccount">
+                                            <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+                                            </svg>
+                                            Edit Profile
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider" /></li>
+                                    <li>
+                                        <a class="dropdown-item dropdown-logout" asp-page="/Logout">
+                                            <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5-5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
+                                            </svg>
+                                            Logout
+                                        </a>
+                                    </li>
+                                </ul>
                             </li>
                         </ul>
                     }
@@ -57,13 +195,12 @@
     </header>
 
     <div class="container main-content mt-3">
-    <main role="main">
-        @RenderBody()
-    </main>
-</div>
+        <main role="main">
+            @RenderBody()
+        </main>
+    </div>
 
-@await RenderSectionAsync("Modals", required: false)   <!-- ADD THIS -->
-
+    @await RenderSectionAsync("Modals", required: false)
 
     <footer class="border-top footer text-muted mt-3">
         <div class="container text-center py-2">

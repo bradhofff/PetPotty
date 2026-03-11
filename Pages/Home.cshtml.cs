@@ -57,7 +57,7 @@ namespace PetPotty.Pages
         public IActionResult OnGet()
         {
             if (!int.TryParse(HttpContext.Session.GetString("userID"), out int userID))
-                return RedirectToPage("/Login");
+                return RedirectToPage("/Index");
 
             UserID = userID;
             UserName = HttpContext.Session.GetString("name") ?? string.Empty;

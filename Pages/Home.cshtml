@@ -12,7 +12,7 @@
     </div>
 }
 
-<h1>Welcome, @Model.UserName!</h1>
+<h1>Pet Dashboard</h1>
 
 @* ============================================================
    PETS SECTION
@@ -41,6 +41,12 @@
         background-color: #dc3545;
         border-color: #dc3545;
         color: #fff;
+    }
+
+    .task-notes-cell {
+        white-space: normal;
+        word-break: break-word;
+        max-width: 360px;
     }
 </style>
 
@@ -109,12 +115,20 @@
         </a>
         <span class="text-muted">(@(Model.ShowAllTime ? "All Time" : "Past 24 Hours"))</span>
     </div>
+    <button type="button" class="btn btn-sm edit-pets-toggle" id="toggleTaskActionsBtn" aria-pressed="false">
+        Edit Tasks
+    </button>
 </div>
 
 @* Accordion — no data-bs-parent so multiple can stay open simultaneously *@
 <div class="accordion" id="tasksAccordion">
+    @{
+        var petIndex = 0;
+    }
     @foreach (var pet in Model.Pets)
     {
+        var isExpanded = petIndex < 2;
+        petIndex++;
         var taskCount = Model.PetTasks[pet.PetID].Count;
         var collapseId  = $"collapse-{pet.PetID}";
         var headingId   = $"heading-{pet.PetID}";
@@ -122,10 +136,10 @@
         <div class="accordion-item">
             <h2 class="accordion-header" id="@headingId">
                 <div class="d-flex align-items-center w-100 pe-3">
-                    <button class="accordion-button collapsed flex-grow-1" type="button"
+                    <button class="accordion-button @(isExpanded ? "" : "collapsed") flex-grow-1" type="button"
                             data-bs-toggle="collapse"
                             data-bs-target="#@collapseId"
-                            aria-expanded="false"
+                            aria-expanded="@(isExpanded.ToString().ToLower())"
                             aria-controls="@collapseId">
                         @pet.Name's Tasks
                         <span class="badge bg-secondary ms-2">@taskCount</span>
@@ -140,7 +154,7 @@
                 </div>
             </h2>
 
-            <div id="@collapseId" class="accordion-collapse collapse"
+            <div id="@collapseId" class="accordion-collapse collapse @(isExpanded ? "show" : "")"
                  aria-labelledby="@headingId">
                 <div class="accordion-body p-0">
                     @if (taskCount == 0)
@@ -155,26 +169,27 @@
                                     <th>Task Type</th>
                                     <th>Notes</th>
                                     <th>Date & Time</th>
-                                    <th>Actions</th>
+                                    <th class="task-actions-col d-none">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach (var task in Model.PetTasks[pet.PetID])
                                 {
+                                    var createdAtInputValue = task.CreatedAt.ToString("yyyy-MM-ddTHH:mm");
                                     <tr>
                                         <td>@task.TaskType</td>
-                                        <td>@(string.IsNullOrWhiteSpace(task.Notes) ? "-" : task.Notes)</td>
+                                        <td class="task-notes-cell">@(string.IsNullOrWhiteSpace(task.Notes) ? "-" : task.Notes)</td>
                                         <td>@task.CreatedAt.ToString("MM/dd/yyyy hh:mm tt")</td>
-                                        <td>
-                                            <form method="post" asp-page-handler="DeleteTask"
-                                                  asp-route-taskID="@task.TaskID"
-                                                  asp-route-showAllTime="@Model.ShowAllTime"
-                                                  style="display:inline">
-                                                <button class="btn btn-danger btn-sm"
-                                                        onclick="return confirm('Delete this task?');">
-                                                    Delete
-                                                </button>
-                                            </form>
+                                        <td class="task-actions-col d-none">
+                                            <button class="btn btn-warning btn-sm edit-task-btn"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#editTaskModal"
+                                                    data-task-id="@task.TaskID"
+                                                    data-task-type="@task.TaskType"
+                                                    data-task-notes="@task.Notes"
+                                                    data-task-created="@createdAtInputValue">
+                                                Edit
+                                            </button>
                                         </td>
                                     </tr>
                                 }
@@ -368,6 +383,61 @@
         </div>
     </div>
 
+    @* EDIT TASK MODAL *@
+    <div class="modal fade" id="editTaskModal" tabindex="-1" aria-labelledby="editTaskModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editTaskModalLabel">Edit Task</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="post" asp-page-handler="UpdateTask" id="editTaskForm">
+                    <input type="hidden" name="UpdateTaskID" id="editTaskID" />
+                    <input type="hidden" name="ShowAllTime" value="@Model.ShowAllTime.ToString().ToLower()" />
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Task Type</label>
+                            <select name="UpdateTaskType" id="editTaskType" class="form-select" required>
+                                <option value="">-- Select --</option>
+                                <option>Pee</option>
+                                <option>Poop</option>
+                                <option>Pee & Poop</option>
+                                <option>Food</option>
+                                <option>Water</option>
+                                <option>Walk</option>
+                                <option>Other</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Date & Time</label>
+                            <input type="datetime-local" name="UpdateTaskCreatedAt" id="editTaskCreatedAt"
+                                   class="form-control" required />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Notes</label>
+                            <textarea name="UpdateTaskNotes" id="editTaskNotes" class="form-control" rows="3"
+                                      placeholder="Optional notes..."></textarea>
+                        </div>
+                    </div>
+                </form>
+                <form method="post" asp-page-handler="DeleteTask" id="deleteTaskForm">
+                    <input type="hidden" name="taskID" id="deleteTaskID" />
+                    <input type="hidden" name="ShowAllTime" value="@Model.ShowAllTime.ToString().ToLower()" />
+                </form>
+                <div class="modal-footer d-flex justify-content-between">
+                    <button type="submit" form="deleteTaskForm" class="btn btn-danger"
+                            onclick="return confirm('Delete this task?');">
+                        Delete Task
+                    </button>
+                    <div>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" form="editTaskForm" class="btn btn-success">Update Task</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
 } @* end @section Modals *@
 
 @section Scripts {
@@ -384,6 +454,18 @@
             });
         }
 
+        // Task actions hidden by default; Edit Tasks toggles visibility.
+        const toggleTaskActionsBtn = document.getElementById('toggleTaskActionsBtn');
+        const taskActionCells = document.querySelectorAll('.task-actions-col');
+
+        if (toggleTaskActionsBtn) {
+            toggleTaskActionsBtn.addEventListener('click', function () {
+                const isActive = this.classList.toggle('active');
+                this.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+                taskActionCells.forEach(cell => cell.classList.toggle('d-none', !isActive));
+            });
+        }
+
         // Edit Pet modal — populate fields from data attributes
         document.querySelectorAll('.edit-pet-btn').forEach(button => {
             button.addEventListener('click', function () {
@@ -395,6 +477,17 @@
                 document.getElementById('editPetAge').value       = this.dataset.petAge;
                 document.getElementById('editPetBirthdate').value = this.dataset.petBirthdate;
                 document.getElementById('editPetGender').value    = this.dataset.petGender;
+            });
+        });
+
+        // Edit Task modal — populate fields from data attributes
+        document.querySelectorAll('.edit-task-btn').forEach(button => {
+            button.addEventListener('click', function () {
+                document.getElementById('editTaskID').value = this.dataset.taskId;
+                document.getElementById('editTaskType').value = this.dataset.taskType;
+                document.getElementById('editTaskNotes').value = this.dataset.taskNotes || '';
+                document.getElementById('editTaskCreatedAt').value = this.dataset.taskCreated;
+                document.getElementById('deleteTaskID').value = this.dataset.taskId;
             });
         });
 
