@@ -1,0 +1,359 @@
+@page
+@model PetPotty.Pages.MedicationsModel
+@{
+    ViewData["Title"] = "Medications";
+}
+
+@if (TempData["StatusMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["StatusMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@* ── PAGE HEADER ─────────────────────────────────────────── *@
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h1 class="mb-0">💊 Pet Medications</h1>
+</div>
+
+@* ── PET SELECTOR ────────────────────────────────────────── *@
+<div class="card mb-4" style="border: 2px solid var(--pet-secondary); border-radius: 12px;">
+    <div class="card-body">
+        <form method="get">
+            <div class="row align-items-end g-3">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Select Pet</label>
+                    <select name="selectedPetID" class="form-select" onchange="this.form.submit()">
+                        <option value="0">-- Select a Pet --</option>
+                        @foreach (var pet in Model.Pets)
+                        {
+                            <option value="@pet.PetID" selected="@(Model.SelectedPetID == pet.PetID)">
+                                @pet.Name
+                            </option>
+                        }
+                    </select>
+                </div>
+                @if (Model.SelectedPetID > 0)
+                {
+                    <div class="col-auto">
+                        <button type="button" class="btn btn-primary"
+                                data-bs-toggle="modal" data-bs-target="#addMedModal">
+                            ➕ Add Medication
+                        </button>
+                    </div>
+                }
+            </div>
+        </form>
+    </div>
+</div>
+
+@if (Model.SelectedPetID > 0)
+{
+    var selectedPet = Model.Pets.FirstOrDefault(p => p.PetID == Model.SelectedPetID);
+
+    @* ── MEDICATIONS TABLE ───────────────────────────────────── *@
+    <div class="d-flex align-items-center justify-content-between mb-2">
+        <h2 class="mb-0">@selectedPet?.Name's Medications</h2>
+    </div>
+
+    @if (Model.Medications.Count == 0)
+    {
+        <div class="alert" style="border: 2px solid var(--pet-secondary); border-radius: 10px; color: var(--pet-dark);">
+            No medications found for @selectedPet?.Name. Click <strong>Add Medication</strong> to get started.
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive mb-4">
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>Medication</th>
+                        <th>Dosage</th>
+                        <th>Frequency</th>
+                        <th>Notes</th>
+                        <th>Start Date</th>
+                        <th>End Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var med in Model.Medications)
+                    {
+                        <tr>
+                            <td>@med.MedicationName</td>
+                            <td>@med.Dosage</td>
+                            <td>@med.FrequencyDisplay</td>
+                            <td>@(string.IsNullOrWhiteSpace(med.Notes) ? "-" : med.Notes)</td>
+                            <td>@med.StartDate.ToString("MM/dd/yyyy")</td>
+                            <td>@(med.EndDate.HasValue ? med.EndDate.Value.ToString("MM/dd/yyyy") : "-")</td>
+                            <td>
+                                <button class="btn btn-warning btn-sm edit-med-btn"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#editMedModal"
+                                        data-med-id="@med.MedID"
+                                        data-med-name="@med.MedicationName"
+                                        data-med-dosage="@med.Dosage"
+                                        data-med-frequency-type="@med.FrequencyType"
+                                        data-med-frequency-interval="@med.FrequencyInterval"
+                                        data-med-start-date="@med.StartDate.ToString("yyyy-MM-dd")"
+                                        data-med-end-date="@(med.EndDate.HasValue ? med.EndDate.Value.ToString("yyyy-MM-dd") : "")"
+                                        data-med-notes="@med.Notes">
+                                    Edit
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @* ── SCHEDULE SECTION ────────────────────────────────────── *@
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <h2 class="mb-0">
+                📅 Medication Schedule
+                <small class="text-muted fs-6 ms-2">
+                    (@(Model.ShowAllTime ? "All Time" : "Next 30 Days"))
+                </small>
+            </h2>
+            <a href="/Medications?selectedPetID=@Model.SelectedPetID&showAllTime=@(!Model.ShowAllTime)"
+               class="btn btn-link p-0">
+                @(Model.ShowAllTime ? "Show Next 30 Days" : "Show All Time")
+            </a>
+        </div>
+
+        @if (Model.Schedule.Count == 0)
+        {
+            <div class="alert" style="border: 2px solid var(--pet-secondary); border-radius: 10px; color: var(--pet-dark);">
+                No scheduled doses found for this period.
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Medication</th>
+                            <th>Scheduled Date</th>
+                            <th>Confirmed?</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var s in Model.Schedule)
+                        {
+                            var logDateStr = s.ScheduleDate.ToString("yyyy-MM-ddTHH:mm:ss");
+                            <tr class="@(s.IsConfirmed ? "table-success" : "")">
+                                <td>@s.MedicationName</td>
+                                <td>@s.ScheduleDate.ToString("MM/dd/yyyy hh:mm tt")</td>
+                                <td class="text-center">@(s.IsConfirmed ? "✅" : "❌")</td>
+                                <td>
+                                    @if (!s.IsConfirmed)
+                                    {
+                                        <form method="post" asp-page-handler="ConfirmSchedule"
+                                              asp-route-medID="@s.MedID"
+                                              asp-route-logDate="@logDateStr"
+                                              asp-route-selectedPetID="@Model.SelectedPetID"
+                                              asp-route-showAllTime="@Model.ShowAllTime"
+                                              style="display:inline">
+                                            <button class="btn btn-success btn-sm"
+                                                    onclick="return confirm('Confirm medication was given?');">
+                                                ✔ Confirm Dose
+                                            </button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <form method="post" asp-page-handler="UnconfirmSchedule"
+                                              asp-route-medID="@s.MedID"
+                                              asp-route-logDate="@logDateStr"
+                                              asp-route-selectedPetID="@Model.SelectedPetID"
+                                              asp-route-showAllTime="@Model.ShowAllTime"
+                                              style="display:inline">
+                                            <button class="btn btn-warning btn-sm"
+                                                    onclick="return confirm('Undo confirm for this dose?');">
+                                                ↩ Undo Confirm
+                                            </button>
+                                        </form>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+}
+else
+{
+    <div class="text-center py-5 text-muted">
+        <div style="font-size: 4rem;">💊</div>
+        <h4>Select a pet to manage their medications</h4>
+    </div>
+}
+
+@* ── MODALS ──────────────────────────────────────────────── *@
+@section Modals {
+
+    @* ADD MEDICATION MODAL *@
+    <div class="modal fade" id="addMedModal" tabindex="-1" aria-labelledby="addMedModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addMedModalLabel">➕ Add Medication</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="post" asp-page-handler="AddMedication">
+                    <input type="hidden" name="SelectedPetID" value="@Model.SelectedPetID" />
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Medication Name <span class="text-danger">*</span></label>
+                                <input asp-for="NewMedName" class="form-control" placeholder="e.g. Apoquel" required />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Dosage <span class="text-danger">*</span></label>
+                                <input asp-for="NewMedDosage" class="form-control" placeholder="e.g. 10mg" required />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Frequency Type <span class="text-danger">*</span></label>
+                                <select asp-for="NewMedFrequencyType" class="form-select" required>
+                                    <option value="">-- Select --</option>
+                                    <option>Hourly</option>
+                                    <option>Daily</option>
+                                    <option>Weekly</option>
+                                    <option>Monthly</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">
+                                    Interval
+                                    <span class="text-muted fw-normal" id="addIntervalHint">(e.g. every X hours/days)</span>
+                                </label>
+                                <input asp-for="NewMedFrequencyInterval" type="number" min="1"
+                                       class="form-control" placeholder="e.g. 8" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Start Date <span class="text-danger">*</span></label>
+                                <input asp-for="NewMedStartDate" type="date" class="form-control" required />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">
+                                    End Date <span class="text-muted fw-normal">(optional)</span>
+                                </label>
+                                <input asp-for="NewMedEndDate" type="date" class="form-control" />
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Notes</label>
+                                <textarea asp-for="NewMedNotes" class="form-control" rows="2"
+                                          placeholder="Optional notes..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Add Medication</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    @* EDIT MEDICATION MODAL *@
+    <div class="modal fade" id="editMedModal" tabindex="-1" aria-labelledby="editMedModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editMedModalLabel">✏️ Edit Medication</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="post" asp-page-handler="EditMedication" id="editMedForm">
+                    <input type="hidden" asp-for="EditMedID" id="editMedID" />
+                    <input type="hidden" name="SelectedPetID" value="@Model.SelectedPetID" />
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Medication Name <span class="text-danger">*</span></label>
+                                <input asp-for="EditMedName" class="form-control" id="editMedName" required />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Dosage <span class="text-danger">*</span></label>
+                                <input asp-for="EditMedDosage" class="form-control" id="editMedDosage" required />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Frequency Type <span class="text-danger">*</span></label>
+                                <select asp-for="EditMedFrequencyType" class="form-select" id="editMedFrequencyType" required>
+                                    <option value="">-- Select --</option>
+                                    <option>Hourly</option>
+                                    <option>Daily</option>
+                                    <option>Weekly</option>
+                                    <option>Monthly</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Interval</label>
+                                <input asp-for="EditMedFrequencyInterval" type="number" min="1"
+                                       class="form-control" id="editMedFrequencyInterval" placeholder="e.g. 8" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Start Date <span class="text-danger">*</span></label>
+                                <input asp-for="EditMedStartDate" type="date" class="form-control"
+                                       id="editMedStartDate" required />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">End Date <span class="text-muted fw-normal">(optional)</span></label>
+                                <input asp-for="EditMedEndDate" type="date" class="form-control"
+                                       id="editMedEndDate" />
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Notes</label>
+                                <textarea asp-for="EditMedNotes" class="form-control" rows="2"
+                                          id="editMedNotes" placeholder="Optional notes..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+
+                @* Delete form outside edit form *@
+                <form method="post" asp-page-handler="DeleteMedication" id="deleteMedForm">
+                    <input type="hidden" name="medID" id="deleteMedID" />
+                    <input type="hidden" name="SelectedPetID" value="@Model.SelectedPetID" />
+                </form>
+
+                <div class="modal-footer d-flex justify-content-between">
+                    <button type="submit" form="deleteMedForm" class="btn btn-danger"
+                            onclick="return confirm('Delete this medication and all its scheduled doses?');">
+                        Delete
+                    </button>
+                    <div>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" form="editMedForm" class="btn btn-warning">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+} @* end @section Modals *@
+
+@section Scripts {
+    <script>
+        // Populate edit modal from data attributes
+        document.querySelectorAll('.edit-med-btn').forEach(button => {
+            button.addEventListener('click', function () {
+                document.getElementById('editMedID').value              = this.dataset.medId;
+                document.getElementById('deleteMedID').value            = this.dataset.medId;
+                document.getElementById('editMedName').value            = this.dataset.medName;
+                document.getElementById('editMedDosage').value          = this.dataset.medDosage;
+                document.getElementById('editMedFrequencyType').value   = this.dataset.medFrequencyType;
+                document.getElementById('editMedFrequencyInterval').value = this.dataset.medFrequencyInterval || '';
+                document.getElementById('editMedStartDate').value       = this.dataset.medStartDate;
+                document.getElementById('editMedEndDate').value         = this.dataset.medEndDate || '';
+                document.getElementById('editMedNotes').value           = this.dataset.medNotes || '';
+            });
+        });
+    </script>
+}

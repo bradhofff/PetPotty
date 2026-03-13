@@ -47,6 +47,7 @@ builder.Services.AddAuthorization();
 // Any PageModel can now declare IPetService in its constructor and get it injected.
 // This is the .NET Core way — no more static helper classes or newing up data access objects.
 builder.Services.AddScoped<IPetService, PetService>();
+builder.Services.AddScoped<IMedicationService, MedicationService>();
 
 // --------------------
 // Build the app
