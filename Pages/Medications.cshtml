@@ -81,13 +81,15 @@
                 <tbody>
                     @foreach (var med in Model.Medications)
                     {
+                        @* FIX: data attributes now include time in yyyy-MM-ddTHH:mm format
+                           so the datetime-local input in the edit modal gets pre-filled correctly *@
                         <tr>
                             <td>@med.MedicationName</td>
                             <td>@med.Dosage</td>
                             <td>@med.FrequencyDisplay</td>
                             <td>@(string.IsNullOrWhiteSpace(med.Notes) ? "-" : med.Notes)</td>
-                            <td>@med.StartDate.ToString("MM/dd/yyyy")</td>
-                            <td>@(med.EndDate.HasValue ? med.EndDate.Value.ToString("MM/dd/yyyy") : "-")</td>
+                            <td>@med.StartDate.ToString("MM/dd/yyyy hh:mm tt")</td>
+                            <td>@(med.EndDate.HasValue ? med.EndDate.Value.ToString("MM/dd/yyyy hh:mm tt") : "-")</td>
                             <td>
                                 <button class="btn btn-warning btn-sm edit-med-btn"
                                         data-bs-toggle="modal"
@@ -97,8 +99,8 @@
                                         data-med-dosage="@med.Dosage"
                                         data-med-frequency-type="@med.FrequencyType"
                                         data-med-frequency-interval="@med.FrequencyInterval"
-                                        data-med-start-date="@med.StartDate.ToString("yyyy-MM-dd")"
-                                        data-med-end-date="@(med.EndDate.HasValue ? med.EndDate.Value.ToString("yyyy-MM-dd") : "")"
+                                        data-med-start-date="@med.StartDate.ToString("yyyy-MM-ddTHH:mm")"
+                                        data-med-end-date="@(med.EndDate.HasValue ? med.EndDate.Value.ToString("yyyy-MM-ddTHH:mm") : "")"
                                         data-med-notes="@med.Notes">
                                     Edit
                                 </button>
@@ -231,20 +233,22 @@ else
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">
                                     Interval
-                                    <span class="text-muted fw-normal" id="addIntervalHint">(e.g. every X hours/days)</span>
+                                    <span class="text-muted fw-normal">(e.g. every X hours/days)</span>
                                 </label>
                                 <input asp-for="NewMedFrequencyInterval" type="number" min="1"
                                        class="form-control" placeholder="e.g. 8" />
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Start Date <span class="text-danger">*</span></label>
-                                <input asp-for="NewMedStartDate" type="date" class="form-control" required />
+                                <label class="form-label fw-semibold">Start Date & Time <span class="text-danger">*</span></label>
+                                <input asp-for="NewMedStartDate" type="datetime-local" 
+                                       id="newMedStartDate" class="form-control" required />
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">
-                                    End Date <span class="text-muted fw-normal">(optional)</span>
+                                    End Date & Time <span class="text-muted fw-normal">(suggested: 1 month)</span>
                                 </label>
-                                <input asp-for="NewMedEndDate" type="date" class="form-control" />
+                                <input asp-for="NewMedEndDate" type="datetime-local"
+                                       id="newMedEndDate" class="form-control" />
                             </div>
                             <div class="col-12">
                                 <label class="form-label fw-semibold">Notes</label>
@@ -299,13 +303,13 @@ else
                                        class="form-control" id="editMedFrequencyInterval" placeholder="e.g. 8" />
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Start Date <span class="text-danger">*</span></label>
-                                <input asp-for="EditMedStartDate" type="date" class="form-control"
+                                <label class="form-label fw-semibold">Start Date & Time <span class="text-danger">*</span></label>
+                                <input asp-for="EditMedStartDate" type="datetime-local" class="form-control"
                                        id="editMedStartDate" required />
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">End Date <span class="text-muted fw-normal">(optional)</span></label>
-                                <input asp-for="EditMedEndDate" type="date" class="form-control"
+                                <label class="form-label fw-semibold">End Date & Time <span class="text-muted fw-normal">(optional)</span></label>
+                                <input asp-for="EditMedEndDate" type="datetime-local" class="form-control"
                                        id="editMedEndDate" />
                             </div>
                             <div class="col-12">
@@ -341,18 +345,42 @@ else
 
 @section Scripts {
     <script>
-        // Populate edit modal from data attributes
+        // Helper — formats a Date object to yyyy-MM-ddTHH:mm for datetime-local inputs
+        function formatDateTimeLocal(d) {
+            return d.getFullYear() + '-' +
+                String(d.getMonth() + 1).padStart(2, '0') + '-' +
+                String(d.getDate()).padStart(2, '0') + 'T' +
+                String(d.getHours()).padStart(2, '0') + ':' +
+                String(d.getMinutes()).padStart(2, '0');
+        }
+
+        // ── ADD MODAL — default start = now, end = 1 month from now ──
+        const addMedModal = document.getElementById('addMedModal');
+        if (addMedModal) {
+            addMedModal.addEventListener('show.bs.modal', function () {
+                const now = new Date();
+                document.getElementById('newMedStartDate').value = formatDateTimeLocal(now);
+
+                const oneMonthOut = new Date(now);
+                oneMonthOut.setMonth(oneMonthOut.getMonth() + 1);
+                document.getElementById('newMedEndDate').value = formatDateTimeLocal(oneMonthOut);
+            });
+        }
+
+        // ── EDIT MODAL — populate all fields from data attributes ──
         document.querySelectorAll('.edit-med-btn').forEach(button => {
             button.addEventListener('click', function () {
-                document.getElementById('editMedID').value              = this.dataset.medId;
-                document.getElementById('deleteMedID').value            = this.dataset.medId;
-                document.getElementById('editMedName').value            = this.dataset.medName;
-                document.getElementById('editMedDosage').value          = this.dataset.medDosage;
-                document.getElementById('editMedFrequencyType').value   = this.dataset.medFrequencyType;
+                document.getElementById('editMedID').value               = this.dataset.medId;
+                document.getElementById('deleteMedID').value             = this.dataset.medId;
+                document.getElementById('editMedName').value             = this.dataset.medName;
+                document.getElementById('editMedDosage').value           = this.dataset.medDosage;
+                document.getElementById('editMedFrequencyType').value    = this.dataset.medFrequencyType;
                 document.getElementById('editMedFrequencyInterval').value = this.dataset.medFrequencyInterval || '';
-                document.getElementById('editMedStartDate').value       = this.dataset.medStartDate;
-                document.getElementById('editMedEndDate').value         = this.dataset.medEndDate || '';
-                document.getElementById('editMedNotes').value           = this.dataset.medNotes || '';
+                document.getElementById('editMedNotes').value            = this.dataset.medNotes || '';
+
+                // These come in as yyyy-MM-ddTHH:mm already — datetime-local accepts this directly
+                document.getElementById('editMedStartDate').value = this.dataset.medStartDate || '';
+                document.getElementById('editMedEndDate').value   = this.dataset.medEndDate || '';
             });
         });
     </script>
