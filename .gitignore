@@ -1,5 +1,6 @@
 # Secrets — never push these
 appsettings.Development.json
+publish/
 
 # Build output
 bin/
