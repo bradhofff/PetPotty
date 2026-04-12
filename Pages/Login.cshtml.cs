@@ -21,6 +21,11 @@ public class LoginModel : PageModel
 
     public IActionResult OnPost()
     {
+        if (string.IsNullOrWhiteSpace(Username) || string.IsNullOrWhiteSpace(Password))
+{
+    ErrorMessage = "Please enter your username and password.";
+    return Page();
+}
         string connectionString = 
             _configuration.GetConnectionString("DefaultConnection");
 

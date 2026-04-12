@@ -44,12 +44,12 @@ namespace PetPotty.Pages
         [BindProperty] public string NewTaskType { get; set; } = string.Empty;
         [BindProperty] public string NewTaskNotes { get; set; } = string.Empty;
         [BindProperty] public DateTime NewTaskCreatedAt { get; set; } = DateTime.Now;
+
+        // Update Task fields
         [BindProperty] public int UpdateTaskID { get; set; }
         [BindProperty] public string UpdateTaskType { get; set; } = string.Empty;
         [BindProperty] public string UpdateTaskNotes { get; set; } = string.Empty;
         [BindProperty] public DateTime UpdateTaskCreatedAt { get; set; } = DateTime.Now;
-
-        public string StatusMessage { get; set; } = string.Empty;
 
         // ============================================================
         // GET
@@ -57,7 +57,7 @@ namespace PetPotty.Pages
         public IActionResult OnGet()
         {
             if (!int.TryParse(HttpContext.Session.GetString("userID"), out int userID))
-                return RedirectToPage("/Index");
+                return RedirectToPage("/Login");
 
             UserID = userID;
             UserName = HttpContext.Session.GetString("name") ?? string.Empty;
@@ -114,7 +114,24 @@ namespace PetPotty.Pages
         }
 
         // ============================================================
-        // Add Task
+        // Quick Log — instant Pee or Poop with current time, no modal
+        // petID and taskType come from asp-route- on the form
+        // ============================================================
+        public IActionResult OnPostQuickLog(int petID, string taskType)
+        {
+            if (!int.TryParse(HttpContext.Session.GetString("userID"), out int userID))
+                return RedirectToPage("/Login");
+
+            UserID = userID;
+            _petService.AddTask(petID, taskType, string.Empty, DateTime.Now);
+
+            var emoji = taskType == "Pee" ? "💧" : "💩";
+            TempData["StatusMessage"] = $"{emoji} {taskType} logged successfully!";
+            return RedirectToPage(new { showAllTime = ShowAllTime });
+        }
+
+        // ============================================================
+        // Add Task (modal)
         // ============================================================
         public IActionResult OnPostAddTask()
         {
@@ -125,23 +142,6 @@ namespace PetPotty.Pages
             _petService.AddTask(NewTaskPetID, NewTaskType, NewTaskNotes, NewTaskCreatedAt);
 
             TempData["StatusMessage"] = "Task added successfully!";
-            return RedirectToPage();
-        }
-
-        // ============================================================
-        // Delete Task
-        // taskID comes from asp-route-taskID on the form in the Razor view
-        // so it's a method parameter, not a [BindProperty]
-        // ============================================================
-        public IActionResult OnPostDeleteTask(int taskID)
-        {
-            if (!int.TryParse(HttpContext.Session.GetString("userID"), out int userID))
-                return RedirectToPage("/Login");
-
-            UserID = userID;
-            _petService.DeleteTask(taskID);
-
-            TempData["StatusMessage"] = "Task deleted.";
             return RedirectToPage(new { showAllTime = ShowAllTime });
         }
 
@@ -161,12 +161,27 @@ namespace PetPotty.Pages
         }
 
         // ============================================================
+        // Delete Task
+        // taskID comes from asp-route-taskID on the form
+        // ============================================================
+        public IActionResult OnPostDeleteTask(int taskID)
+        {
+            if (!int.TryParse(HttpContext.Session.GetString("userID"), out int userID))
+                return RedirectToPage("/Login");
+
+            UserID = userID;
+            _petService.DeleteTask(taskID);
+
+            TempData["StatusMessage"] = "Task deleted.";
+            return RedirectToPage(new { showAllTime = ShowAllTime });
+        }
+
+        // ============================================================
         // Private helpers
         // ============================================================
         private void LoadData()
         {
             Pets = _petService.GetPetsByUser(UserID);
-            
             foreach (var pet in Pets)
             {
                 PetTasks[pet.PetID] = _petService.GetTasksByPetID(pet.PetID, ShowAllTime);
