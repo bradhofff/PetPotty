@@ -121,7 +121,7 @@
         <nav class="navbar navbar-expand-sm navbar-dark">
             <div class="container">
                 
-                    <a class="navbar-brand" asp-page="/Home">
+                    <a class="navbar-brand" asp-page="@(Context.Session.GetString("name") != null ? "/Home" : "/Index")">
                         <span class="paw"></span>Pet Potty Tracker
                     </a>
                 
@@ -138,14 +138,17 @@
                 <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
                     <ul class="navbar-nav flex-grow-1">
                         <li class="nav-item">
-                            <a class="nav-link" asp-page="/Home">🏠 Home</a>
+                            <a class="nav-link" asp-page="@(Context.Session.GetString("name") != null ? "/Home" : "/Login")">🏠 Home</a>
                         </li>
+                        @if (Context.Session.GetString("name") != null)
+                        {
                         <li class="nav-item">
                             <a class="nav-link" asp-page="/Medications">💊 Medications</a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" asp-page="/VetVisits">🏥 Vet Visits</a>
                         </li>
+                        }
                     </ul>
 
                     @* Right side — only show when logged in *@
