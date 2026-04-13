@@ -387,7 +387,9 @@
                           asp-route-petID="@pet.PetID"
                           asp-route-taskType="Pee"
                           asp-route-showAllTime="@Model.ShowAllTime"
+                          class="quick-log-form"
                           style="display:inline; margin-left: 6px;">
+                        <input type="hidden" name="localTime" />
                         <button type="submit" class="quick-log-btn" title="Quick log Pee">💧</button>
                     </form>
 
@@ -396,7 +398,9 @@
                           asp-route-petID="@pet.PetID"
                           asp-route-taskType="Poop"
                           asp-route-showAllTime="@Model.ShowAllTime"
+                          class="quick-log-form"
                           style="display:inline; margin-left: 4px;">
+                        <input type="hidden" name="localTime" />
                         <button type="submit" class="quick-log-btn" title="Quick log Poop">💩</button>
                     </form>
 
@@ -703,40 +707,48 @@
 
 @section Scripts {
     <script>
-        // ── Accordion state — persist in localStorage, default first 2 open ──
-        const STORAGE_KEY = 'petAccordionState';
+        // ── Accordion — first 2 pets open by default ──
+        document.querySelectorAll('.accordion-collapse').forEach((el, index) => {
+            const btn = document.querySelector(`[data-bs-target="#${el.id}"]`);
+            const shouldOpen = index < 2;
+            el.classList.toggle('show', shouldOpen);
+            if (btn) {
+                btn.classList.toggle('collapsed', !shouldOpen);
+                btn.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+            }
+        });
 
-        function getAccordionState() {
-            try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); }
-            catch { return null; }
-        }
-
-        function saveAccordionState() {
-            const state = {};
-            document.querySelectorAll('.accordion-collapse').forEach(el => {
-                state[el.id] = el.classList.contains('show');
+        // ── Quick log — inject client local time before submit ──
+        document.querySelectorAll('.quick-log-form').forEach(form => {
+            form.addEventListener('submit', function () {
+                const now = new Date();
+                const local = now.getFullYear() + '-' +
+                    String(now.getMonth() + 1).padStart(2, '0') + '-' +
+                    String(now.getDate()).padStart(2, '0') + 'T' +
+                    String(now.getHours()).padStart(2, '0') + ':' +
+                    String(now.getMinutes()).padStart(2, '0') + ':' +
+                    String(now.getSeconds()).padStart(2, '0');
+                this.querySelector('input[name="localTime"]').value = local;
             });
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        });
+
+        // ── Birthdate → Age auto-calc ──
+        function calcAge(birthdateValue) {
+            if (!birthdateValue) return '';
+            const birth = new Date(birthdateValue);
+            const today = new Date();
+            let age = today.getFullYear() - birth.getFullYear();
+            const m = today.getMonth() - birth.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+            return age >= 0 ? String(age) : '';
         }
 
-        function applyAccordionState() {
-            const state = getAccordionState();
-            document.querySelectorAll('.accordion-collapse').forEach((el, index) => {
-                const btn = document.querySelector(`[data-bs-target="#${el.id}"]`);
-                const shouldOpen = state !== null ? state[el.id] === true : index < 2;
-                el.classList.toggle('show', shouldOpen);
-                if (btn) {
-                    btn.classList.toggle('collapsed', !shouldOpen);
-                    btn.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
-                }
-            });
-        }
+        document.getElementById('NewPetBirthdate').addEventListener('change', function () {
+            document.getElementById('NewPetAge').value = calcAge(this.value);
+        });
 
-        applyAccordionState();
-
-        document.querySelectorAll('.accordion-collapse').forEach(el => {
-            el.addEventListener('shown.bs.collapse', saveAccordionState);
-            el.addEventListener('hidden.bs.collapse', saveAccordionState);
+        document.getElementById('editPetBirthdate').addEventListener('change', function () {
+            document.getElementById('editPetAge').value = calcAge(this.value);
         });
 
         // ── Scroll to pet's task accordion ──

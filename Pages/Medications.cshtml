@@ -360,10 +360,7 @@ else
             addMedModal.addEventListener('show.bs.modal', function () {
                 const now = new Date();
                 document.getElementById('newMedStartDate').value = formatDateTimeLocal(now);
-
-                const oneMonthOut = new Date(now);
-                oneMonthOut.setMonth(oneMonthOut.getMonth() + 1);
-                document.getElementById('newMedEndDate').value = formatDateTimeLocal(oneMonthOut);
+                document.getElementById('newMedEndDate').value = '';
             });
         }
 

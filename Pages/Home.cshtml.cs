@@ -117,13 +117,16 @@ namespace PetPotty.Pages
         // Quick Log — instant Pee or Poop with current time, no modal
         // petID and taskType come from asp-route- on the form
         // ============================================================
-        public IActionResult OnPostQuickLog(int petID, string taskType)
+        public IActionResult OnPostQuickLog(int petID, string taskType, string? localTime = null)
         {
             if (!int.TryParse(HttpContext.Session.GetString("userID"), out int userID))
                 return RedirectToPage("/Login");
 
             UserID = userID;
-            _petService.AddTask(petID, taskType, string.Empty, DateTime.Now);
+            var timestamp = (!string.IsNullOrEmpty(localTime) && DateTime.TryParse(localTime, out var parsed))
+                ? parsed
+                : DateTime.Now;
+            _petService.AddTask(petID, taskType, string.Empty, timestamp);
 
             var emoji = taskType == "Pee" ? "💧" : "💩";
             TempData["StatusMessage"] = $"{emoji} {taskType} logged successfully!";
