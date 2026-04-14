@@ -66,7 +66,10 @@ namespace PetPotty.Services
                     MedID          = reader.GetInt32(reader.GetOrdinal("medID")),
                     MedicationName = reader["medicationName"].ToString() ?? string.Empty,
                     ScheduleDate   = reader.GetDateTime(reader.GetOrdinal("scheduleDate")),
-                    IsConfirmed    = reader.GetBoolean(reader.GetOrdinal("isConfirmed"))
+                    IsConfirmed    = reader.GetBoolean(reader.GetOrdinal("isConfirmed")),
+                    ConfirmedAt    = reader.IsDBNull(reader.GetOrdinal("confirmedAt"))
+                                        ? null
+                                        : reader.GetDateTime(reader.GetOrdinal("confirmedAt"))
                 });
             }
             return list;

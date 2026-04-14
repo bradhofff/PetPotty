@@ -1,0 +1,210 @@
+@page
+@model PetPotty.Pages.ProfileModel
+@{
+    ViewData["Title"] = "My Profile";
+}
+
+@if (TempData["ProfileStatus"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["ProfileStatus"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<style>
+    .profile-sidebar {
+        min-width: 180px;
+        border-right: 2px solid var(--pet-secondary, #f4a460);
+        padding-right: 0;
+    }
+
+    .profile-sidebar .nav-link {
+        color: var(--pet-dark, #3b1f0a);
+        border-radius: 8px 0 0 8px;
+        padding: 10px 20px;
+        font-weight: 500;
+        transition: background 0.15s ease;
+    }
+
+    .profile-sidebar .nav-link:hover {
+        background: rgba(244, 164, 96, 0.15);
+        color: var(--pet-primary, #c8762a);
+    }
+
+    .profile-sidebar .nav-link.active {
+        background: rgba(244, 164, 96, 0.25);
+        color: var(--pet-primary, #c8762a);
+        border-right: 3px solid var(--pet-primary, #c8762a);
+        font-weight: 700;
+    }
+
+    .profile-content {
+        flex: 1;
+        padding-left: 2rem;
+    }
+
+    .profile-field-row label {
+        font-weight: 600;
+        color: var(--pet-dark, #3b1f0a);
+        min-width: 110px;
+    }
+
+    .field-display {
+        color: #444;
+        font-size: 1rem;
+        padding: 6px 0;
+    }
+</style>
+
+<h1 class="mb-4">👤 My Profile</h1>
+
+<div class="d-flex align-items-start">
+
+    @* ── LEFT SIDEBAR TAB BAR ─────────────────────────────────── *@
+    <nav class="profile-sidebar me-0 d-flex flex-column nav" id="profileTabs">
+        <a class="nav-link @(Model.ActiveTab == "Profile" ? "active" : "")" href="/Profile">
+            👤 Profile
+        </a>
+        @* Future tabs — uncomment when ready:
+        <a class="nav-link" href="/Profile?tab=Security">
+            🔒 Security
+        </a>
+        *@
+    </nav>
+
+    @* ── MAIN CONTENT AREA ───────────────────────────────────── *@
+    <div class="profile-content">
+
+        @if (Model.ErrorMessage != null)
+        {
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                @Model.ErrorMessage
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        }
+
+        @* ─── PROFILE TAB ──────────────────────────────────────── *@
+        <div class="card" style="border: 2px solid var(--pet-secondary); border-radius: 12px; max-width: 560px;">
+            <div class="card-header d-flex justify-content-between align-items-center"
+                 style="background: rgba(244,164,96,0.12); border-bottom: 1px solid rgba(244,164,96,0.4);">
+                <h5 class="mb-0">Account Details</h5>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="editToggleBtn"
+                        onclick="enableEditing()">
+                    ✏️ Edit
+                </button>
+            </div>
+
+            <form method="post" id="profileForm">
+                <div class="card-body">
+                    <div class="row g-3">
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Name</label>
+                            <input asp-for="ProfileName" class="form-control profile-input"
+                                   id="fieldName" disabled />
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Username</label>
+                            <input asp-for="ProfileUserName" class="form-control profile-input"
+                                   id="fieldUserName" disabled />
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Email</label>
+                            <input asp-for="ProfileEmail" type="email" class="form-control profile-input"
+                                   id="fieldEmail" disabled />
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Phone</label>
+                            <input asp-for="ProfilePhone" type="tel" class="form-control profile-input"
+                                   id="fieldPhone" disabled />
+                        </div>
+
+                    </div>
+
+                    @* ─── PASSWORD CHANGE (hidden until editing) ───── *@
+                    <div id="passwordSection" class="mt-4 d-none">
+                        <hr style="border-color: rgba(244,164,96,0.4);" />
+                        <h6 class="fw-semibold mb-3">Change Password <span class="text-muted fw-normal">(optional)</span></h6>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Current Password</label>
+                                <input asp-for="CurrentPassword" type="password" class="form-control"
+                                       placeholder="Enter current password" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">New Password</label>
+                                <input asp-for="NewPassword" type="password" class="form-control"
+                                       placeholder="New password" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Confirm New Password</label>
+                                <input asp-for="ConfirmPassword" type="password" class="form-control"
+                                       placeholder="Repeat new password" />
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="card-footer d-none" id="saveFooter"
+                     style="background: transparent; border-top: 1px solid rgba(244,164,96,0.4);">
+                    <div class="d-flex gap-2 justify-content-end">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="cancelEditing()">
+                            Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            💾 Save Changes
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Store original values so Cancel can restore them
+        const originalValues = {};
+
+        function enableEditing() {
+            const inputs = document.querySelectorAll('.profile-input');
+            inputs.forEach(input => {
+                originalValues[input.id] = input.value;
+                input.disabled = false;
+            });
+
+            document.getElementById('editToggleBtn').classList.add('d-none');
+            document.getElementById('saveFooter').classList.remove('d-none');
+            document.getElementById('passwordSection').classList.remove('d-none');
+            document.getElementById('fieldName').focus();
+        }
+
+        function cancelEditing() {
+            const inputs = document.querySelectorAll('.profile-input');
+            inputs.forEach(input => {
+                input.value = originalValues[input.id] ?? input.value;
+                input.disabled = true;
+            });
+
+            // Clear password fields
+            document.querySelectorAll('#profileForm input[type="password"]')
+                .forEach(f => f.value = '');
+
+            document.getElementById('editToggleBtn').classList.remove('d-none');
+            document.getElementById('saveFooter').classList.add('d-none');
+            document.getElementById('passwordSection').classList.add('d-none');
+        }
+
+        // If page loaded with an error, re-enable editing automatically
+        @if (Model.ErrorMessage != null)
+        {
+            <text>enableEditing();</text>
+        }
+    </script>
+}

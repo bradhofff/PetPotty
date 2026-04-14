@@ -54,12 +54,21 @@ public class LoginModel : PageModel
                     HttpContext.Session.SetString("userID", userID);
                     HttpContext.Session.SetString("name", name);
 
-                    // Cookie
+                    // Cookie — persistent for 30 days so mobile browsers don't log out on reopen
                     Response.Cookies.Append("userID", userID,
-                        new CookieOptions { Expires = DateTimeOffset.Now.AddMinutes(60) });
+                        new CookieOptions
+                        {
+                            Expires  = DateTimeOffset.Now.AddDays(30),
+                            HttpOnly = true,
+                            SameSite = SameSiteMode.Lax
+                        });
 
                     Response.Cookies.Append("userName", name,
-                        new CookieOptions { Expires = DateTimeOffset.Now.AddMinutes(60) });
+                        new CookieOptions
+                        {
+                            Expires  = DateTimeOffset.Now.AddDays(30),
+                            SameSite = SameSiteMode.Lax
+                        });
 
                     return RedirectToPage("/Home");
                 }

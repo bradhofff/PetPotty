@@ -180,6 +180,18 @@ namespace PetPotty.Pages
         }
 
         // ============================================================
+        // Public helpers
+        // ============================================================
+        public static string TaskTypeEmoji(string taskType) => taskType switch
+        {
+            "Pee"  => "💧 Pee",
+            "Poop" => "💩 Poop",
+            "Walk" => "🦮 Walk",
+            "Play" => "🎾 Play",
+            _      => taskType
+        };
+
+        // ============================================================
         // Private helpers
         // ============================================================
         private void LoadData()

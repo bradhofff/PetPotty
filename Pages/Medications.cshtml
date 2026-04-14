@@ -91,7 +91,7 @@
                             <td>@med.StartDate.ToString("MM/dd/yyyy hh:mm tt")</td>
                             <td>@(med.EndDate.HasValue ? med.EndDate.Value.ToString("MM/dd/yyyy hh:mm tt") : "-")</td>
                             <td>
-                                <button class="btn btn-warning btn-sm edit-med-btn"
+                                <button class="btn btn-sm btn-edit edit-med-btn"
                                         data-bs-toggle="modal"
                                         data-bs-target="#editMedModal"
                                         data-med-id="@med.MedID"
@@ -140,6 +140,7 @@
                             <th>Medication</th>
                             <th>Scheduled Date</th>
                             <th>Confirmed?</th>
+                            <th>Confirmed At</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -151,6 +152,7 @@
                                 <td>@s.MedicationName</td>
                                 <td>@s.ScheduleDate.ToString("MM/dd/yyyy hh:mm tt")</td>
                                 <td class="text-center">@(s.IsConfirmed ? "✅" : "❌")</td>
+                                <td>@(s.ConfirmedAt.HasValue ? s.ConfirmedAt.Value.ToString("MM/dd/yyyy h:mm tt") : "—")</td>
                                 <td>
                                     @if (!s.IsConfirmed)
                                     {
@@ -240,15 +242,24 @@ else
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Start Date & Time <span class="text-danger">*</span></label>
-                                <input asp-for="NewMedStartDate" type="datetime-local" 
+                                <input asp-for="NewMedStartDate" type="datetime-local"
                                        id="newMedStartDate" class="form-control" required />
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">
-                                    End Date & Time <span class="text-muted fw-normal">(suggested: 1 month)</span>
-                                </label>
-                                <input asp-for="NewMedEndDate" type="datetime-local"
-                                       id="newMedEndDate" class="form-control" />
+                            <div class="col-md-6 d-flex flex-column justify-content-end">
+                                <div class="form-check mb-2">
+                                    <input asp-for="NewMedForever" class="form-check-input" type="checkbox"
+                                           id="newMedForever" checked />
+                                    <label class="form-check-label fw-semibold" for="newMedForever">
+                                        Forever? <span class="text-muted fw-normal">(no end date)</span>
+                                    </label>
+                                </div>
+                                <div id="newMedEndDateWrapper" class="d-none">
+                                    <label class="form-label fw-semibold">
+                                        End Date & Time <span class="text-danger">*</span>
+                                    </label>
+                                    <input asp-for="NewMedEndDate" type="datetime-local"
+                                           id="newMedEndDate" class="form-control" />
+                                </div>
                             </div>
                             <div class="col-12">
                                 <label class="form-label fw-semibold">Notes</label>
@@ -307,10 +318,21 @@ else
                                 <input asp-for="EditMedStartDate" type="datetime-local" class="form-control"
                                        id="editMedStartDate" required />
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">End Date & Time <span class="text-muted fw-normal">(optional)</span></label>
-                                <input asp-for="EditMedEndDate" type="datetime-local" class="form-control"
-                                       id="editMedEndDate" />
+                            <div class="col-md-6 d-flex flex-column justify-content-end">
+                                <div class="form-check mb-2">
+                                    <input asp-for="EditMedForever" class="form-check-input" type="checkbox"
+                                           id="editMedForever" />
+                                    <label class="form-check-label fw-semibold" for="editMedForever">
+                                        Forever? <span class="text-muted fw-normal">(no end date)</span>
+                                    </label>
+                                </div>
+                                <div id="editMedEndDateWrapper">
+                                    <label class="form-label fw-semibold">
+                                        End Date & Time <span class="text-danger">*</span>
+                                    </label>
+                                    <input asp-for="EditMedEndDate" type="datetime-local" class="form-control"
+                                           id="editMedEndDate" />
+                                </div>
                             </div>
                             <div class="col-12">
                                 <label class="form-label fw-semibold">Notes</label>
@@ -354,30 +376,78 @@ else
                 String(d.getMinutes()).padStart(2, '0');
         }
 
-        // ── ADD MODAL — default start = now, end = 1 month from now ──
+        // ── ADD MODAL — reset on open: start = now, Forever checked, end date hidden ──
         const addMedModal = document.getElementById('addMedModal');
         if (addMedModal) {
             addMedModal.addEventListener('show.bs.modal', function () {
                 const now = new Date();
                 document.getElementById('newMedStartDate').value = formatDateTimeLocal(now);
-                document.getElementById('newMedEndDate').value = '';
+                document.getElementById('newMedEndDate').value   = '';
+                // Ensure Forever is checked and end date wrapper is hidden
+                document.getElementById('newMedForever').checked = true;
+                document.getElementById('newMedEndDateWrapper').classList.add('d-none');
+                document.getElementById('newMedEndDate').removeAttribute('required');
             });
         }
+
+        // ── Forever checkbox toggle — Add modal ──
+        document.getElementById('newMedForever').addEventListener('change', function () {
+            const wrapper = document.getElementById('newMedEndDateWrapper');
+            const endInput = document.getElementById('newMedEndDate');
+            if (this.checked) {
+                wrapper.classList.add('d-none');
+                endInput.value = '';
+                endInput.removeAttribute('required');
+            } else {
+                wrapper.classList.remove('d-none');
+                endInput.setAttribute('required', 'required');
+            }
+        });
+
+        // ── Forever checkbox toggle — Edit modal ──
+        document.getElementById('editMedForever').addEventListener('change', function () {
+            const wrapper = document.getElementById('editMedEndDateWrapper');
+            const endInput = document.getElementById('editMedEndDate');
+            if (this.checked) {
+                wrapper.classList.add('d-none');
+                endInput.value = '';
+                endInput.removeAttribute('required');
+            } else {
+                wrapper.classList.remove('d-none');
+                endInput.setAttribute('required', 'required');
+            }
+        });
 
         // ── EDIT MODAL — populate all fields from data attributes ──
         document.querySelectorAll('.edit-med-btn').forEach(button => {
             button.addEventListener('click', function () {
-                document.getElementById('editMedID').value               = this.dataset.medId;
-                document.getElementById('deleteMedID').value             = this.dataset.medId;
-                document.getElementById('editMedName').value             = this.dataset.medName;
-                document.getElementById('editMedDosage').value           = this.dataset.medDosage;
-                document.getElementById('editMedFrequencyType').value    = this.dataset.medFrequencyType;
+                document.getElementById('editMedID').value                = this.dataset.medId;
+                document.getElementById('deleteMedID').value              = this.dataset.medId;
+                document.getElementById('editMedName').value              = this.dataset.medName;
+                document.getElementById('editMedDosage').value            = this.dataset.medDosage;
+                document.getElementById('editMedFrequencyType').value     = this.dataset.medFrequencyType;
                 document.getElementById('editMedFrequencyInterval').value = this.dataset.medFrequencyInterval || '';
-                document.getElementById('editMedNotes').value            = this.dataset.medNotes || '';
+                document.getElementById('editMedNotes').value             = this.dataset.medNotes || '';
 
                 // These come in as yyyy-MM-ddTHH:mm already — datetime-local accepts this directly
                 document.getElementById('editMedStartDate').value = this.dataset.medStartDate || '';
-                document.getElementById('editMedEndDate').value   = this.dataset.medEndDate || '';
+
+                const endDate = this.dataset.medEndDate || '';
+                const forever = !endDate;
+                const foreverChk = document.getElementById('editMedForever');
+                const wrapper    = document.getElementById('editMedEndDateWrapper');
+                const endInput   = document.getElementById('editMedEndDate');
+
+                foreverChk.checked = forever;
+                if (forever) {
+                    wrapper.classList.add('d-none');
+                    endInput.value = '';
+                    endInput.removeAttribute('required');
+                } else {
+                    wrapper.classList.remove('d-none');
+                    endInput.value = endDate;
+                    endInput.setAttribute('required', 'required');
+                }
             });
         });
     </script>

@@ -26,9 +26,10 @@ builder.Services.AddDistributedMemoryCache();
 // Session configuration — replaces System.Web.SessionState from .NET Framework
 builder.Services.AddSession(options =>
 {
-    options.IdleTimeout = TimeSpan.FromMinutes(60);
-    options.Cookie.HttpOnly = true;    // JS cannot access this cookie (XSS protection)
-    options.Cookie.IsEssential = true; // Cookie consent laws — this one is always allowed
+    options.IdleTimeout = TimeSpan.FromDays(30);   // Keep sessions alive for 30 days of inactivity
+    options.Cookie.HttpOnly = true;                 // JS cannot access this cookie (XSS protection)
+    options.Cookie.IsEssential = true;              // Cookie consent laws — this one is always allowed
+    options.Cookie.MaxAge = TimeSpan.FromDays(30);  // Make session cookie persistent (survives browser close)
 });
 
 // Cookie authentication — modern replacement for FormsAuthentication from .NET Framework.
@@ -38,7 +39,9 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     {
         options.LoginPath = "/Login";
         options.AccessDeniedPath = "/AccessDenied";
-        options.ExpireTimeSpan = TimeSpan.FromMinutes(60);
+        options.ExpireTimeSpan = TimeSpan.FromDays(30);       // Stay logged in for 30 days
+        options.SlidingExpiration = true;                      // Reset expiry on each active request
+        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest; // HTTP ok for local dev, HTTPS on VPS
     });
 
 builder.Services.AddAuthorization();

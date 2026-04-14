@@ -125,7 +125,7 @@
                 <td>@pet.Birthdate.ToShortDateString()</td>
                 <td>@pet.Gender</td>
                 <td class="pet-actions-col d-none">
-                    <button class="btn btn-warning btn-sm edit-pet-btn"
+                    <button class="btn btn-sm btn-edit edit-pet-btn"
                             data-bs-toggle="modal"
                             data-bs-target="#editPetModal"
                             data-pet-id="@pet.PetID"
@@ -251,11 +251,11 @@
                                     var timeDisplay = task.CreatedAt.ToString("h:mm tt");
                                     var createdAtInputValue = task.CreatedAt.ToString("yyyy-MM-ddTHH:mm");
                                     <tr>
-                                        <td>@task.TaskType</td>
+                                        <td>@HomeModel.TaskTypeEmoji(task.TaskType)</td>
                                         <td>@timeDisplay</td>
                                         <td class="task-notes-cell">@(string.IsNullOrWhiteSpace(task.Notes) ? "-" : task.Notes)</td>
                                         <td class="task-actions-col d-none">
-                                            <button class="btn btn-warning btn-sm edit-task-btn"
+                                            <button class="btn btn-sm btn-edit edit-task-btn"
                                                     data-bs-toggle="modal"
                                                     data-bs-target="#editTaskModal"
                                                     data-task-id="@task.TaskID"
@@ -524,6 +524,8 @@
                 const isActive = this.classList.toggle('active');
                 this.setAttribute('aria-pressed', isActive ? 'true' : 'false');
                 petActionCells.forEach(cell => cell.classList.toggle('d-none', !isActive));
+                // Solid red on edit buttons when mode is active
+                document.querySelectorAll('.edit-pet-btn').forEach(btn => btn.classList.toggle('active', isActive));
             });
         }
 
@@ -536,6 +538,8 @@
                 const isActive = this.classList.toggle('active');
                 this.setAttribute('aria-pressed', isActive ? 'true' : 'false');
                 taskActionCells.forEach(cell => cell.classList.toggle('d-none', !isActive));
+                // Solid red on edit buttons when mode is active
+                document.querySelectorAll('.edit-task-btn').forEach(btn => btn.classList.toggle('active', isActive));
             });
         }
 

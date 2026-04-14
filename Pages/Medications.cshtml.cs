@@ -32,6 +32,7 @@ namespace PetPotty.Pages
         [BindProperty] public int? NewMedFrequencyInterval { get; set; }
         [BindProperty] public DateTime NewMedStartDate { get; set; } = DateTime.Today;
         [BindProperty] public DateTime? NewMedEndDate { get; set; }
+        [BindProperty] public bool NewMedForever { get; set; } = true;
         [BindProperty] public string NewMedNotes { get; set; } = string.Empty;
 
         // ── Edit Medication fields ───────────────────────────────────
@@ -42,6 +43,7 @@ namespace PetPotty.Pages
         [BindProperty] public int? EditMedFrequencyInterval { get; set; }
         [BindProperty] public DateTime EditMedStartDate { get; set; } = DateTime.Today;
         [BindProperty] public DateTime? EditMedEndDate { get; set; }
+        [BindProperty] public bool EditMedForever { get; set; }
         [BindProperty] public string EditMedNotes { get; set; } = string.Empty;
 
         // ── GET ──────────────────────────────────────────────────────
@@ -62,10 +64,25 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+
+            if (!NewMedForever)
+            {
+                if (!NewMedEndDate.HasValue)
+                {
+                    TempData["StatusMessage"] = "Error: End date is required when Forever is unchecked.";
+                    return RedirectToPage(new { selectedPetID = SelectedPetID, showAllTime = ShowAllTime });
+                }
+                if (NewMedEndDate.Value <= NewMedStartDate)
+                {
+                    TempData["StatusMessage"] = "Error: End date must be after start date.";
+                    return RedirectToPage(new { selectedPetID = SelectedPetID, showAllTime = ShowAllTime });
+                }
+            }
+
             _medService.AddMedication(
                 SelectedPetID, NewMedName, NewMedDosage,
                 NewMedFrequencyType, NewMedFrequencyInterval,
-                NewMedStartDate, NewMedEndDate,
+                NewMedStartDate, NewMedForever ? null : NewMedEndDate,
                 NewMedNotes);
 
             TempData["StatusMessage"] = $"{NewMedName} added successfully!";
@@ -79,10 +96,25 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+
+            if (!EditMedForever)
+            {
+                if (!EditMedEndDate.HasValue)
+                {
+                    TempData["StatusMessage"] = "Error: End date is required when Forever is unchecked.";
+                    return RedirectToPage(new { selectedPetID = SelectedPetID, showAllTime = ShowAllTime });
+                }
+                if (EditMedEndDate.Value <= EditMedStartDate)
+                {
+                    TempData["StatusMessage"] = "Error: End date must be after start date.";
+                    return RedirectToPage(new { selectedPetID = SelectedPetID, showAllTime = ShowAllTime });
+                }
+            }
+
             _medService.UpdateMedication(
                 EditMedID, EditMedName, EditMedDosage,
                 EditMedFrequencyType, EditMedFrequencyInterval,
-                EditMedStartDate, EditMedEndDate,
+                EditMedStartDate, EditMedForever ? null : EditMedEndDate,
                 EditMedNotes);
 
             TempData["StatusMessage"] = $"{EditMedName} updated successfully!";

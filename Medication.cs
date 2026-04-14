@@ -25,5 +25,6 @@ namespace PetPotty.Models
         public string MedicationName { get; set; } = string.Empty;
         public DateTime ScheduleDate { get; set; }
         public bool IsConfirmed { get; set; }
+        public DateTime? ConfirmedAt { get; set; }
     }
 }

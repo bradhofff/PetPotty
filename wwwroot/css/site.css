@@ -240,6 +240,31 @@ body {
     border-radius: 25px;
 }
 
+/* Row-level Edit buttons — orange outline by default, solid red when active */
+.btn-edit {
+    background: transparent !important;
+    border: 2px solid #fd7e14 !important;
+    color: #fd7e14 !important;
+    border-radius: 25px;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+    .btn-edit:hover {
+        background: rgba(253, 126, 20, 0.12) !important;
+        color: #fd7e14 !important;
+    }
+
+    .btn-edit.active {
+        background: #dc3545 !important;
+        border-color: #dc3545 !important;
+        color: white !important;
+    }
+
+    .btn-edit.active:hover {
+        background: #bb2d3b !important;
+        border-color: #bb2d3b !important;
+    }
+
 .btn-link {
     color: var(--pet-primary) !important;
     text-decoration: none;
