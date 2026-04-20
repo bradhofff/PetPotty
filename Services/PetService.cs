@@ -45,7 +45,7 @@ namespace PetPotty.Services
         public List<TaskItem> GetTasksByPetID(int petID, bool allTime)
         {
             var tasks = new List<TaskItem>();
-            string sp = allTime ? "GetTasksByPetID" : "GetTasksByPetID_Past24";
+            string sp = allTime ? "GetTasksByPetID" : "GetTasksByPetID_Recent";
 
             using var conn = new SqlConnection(_connStr);
             using var cmd = new SqlCommand(sp, conn)

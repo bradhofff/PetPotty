@@ -147,12 +147,12 @@
    TASKS SECTION
    ============================================================ *@
 <div class="d-flex align-items-center justify-content-between mb-3">
-    <div class="d-flex align-items-center gap-3">
+    <div class="d-flex align-items-center gap-2">
         <h2 class="mb-0">Tasks</h2>
-        <a href="/Home?showAllTime=@(!Model.ShowAllTime)" class="btn btn-link p-0">
-            @(Model.ShowAllTime ? "Show Past 24 Hours" : "Show All Time")
+        <span class="text-muted">(@(Model.ShowAllTime ? "All Time" : "Recent"))</span>
+        <a href="/Home?showAllTime=@(!Model.ShowAllTime)" class="btn btn-link p-0 ms-1">
+            @(Model.ShowAllTime ? "Show Recent" : "Show All Time")
         </a>
-        <span class="text-muted">(@(Model.ShowAllTime ? "All Time" : "Past 24 Hours"))</span>
     </div>
     <button type="button" class="btn btn-sm edit-pets-toggle" id="toggleTaskActionsBtn" aria-pressed="false">
         Edit Tasks
