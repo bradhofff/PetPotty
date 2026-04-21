@@ -147,12 +147,14 @@
    TASKS SECTION
    ============================================================ *@
 <div class="d-flex align-items-center justify-content-between mb-3">
-    <div class="d-flex align-items-center gap-2">
+    <div class="d-flex align-items-center gap-3">
         <h2 class="mb-0">Tasks</h2>
-        <span class="text-muted">(@(Model.ShowAllTime ? "All Time" : "Recent"))</span>
-        <a href="/Home?showAllTime=@(!Model.ShowAllTime)" class="btn btn-link p-0 ms-1">
-            @(Model.ShowAllTime ? "Show Recent" : "Show All Time")
-        </a>
+        <div class="seg-toggle">
+            <a href="/Home?showAllTime=false"
+               class="seg-option @(!Model.ShowAllTime ? "seg-active" : "")">Recent</a>
+            <a href="/Home?showAllTime=true"
+               class="seg-option @(Model.ShowAllTime ? "seg-active" : "")">All Time</a>
+        </div>
     </div>
     <button type="button" class="btn btn-sm edit-pets-toggle" id="toggleTaskActionsBtn" aria-pressed="false">
         Edit Tasks

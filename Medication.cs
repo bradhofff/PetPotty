@@ -12,10 +12,10 @@ namespace PetPotty.Models
         public DateTime? EndDate { get; set; }
         public string Notes { get; set; } = string.Empty;
 
-        // Display helper — "Every 8 Hours", "Every 2 Days" etc
+        // Display helper — "Every 1 daily", "Every 8 hourly" etc
         public string FrequencyDisplay =>
             FrequencyInterval.HasValue
-                ? $"Every {FrequencyInterval} {FrequencyType.TrimEnd('s')}(s)"
+                ? $"Every {FrequencyInterval} {FrequencyType.ToLower()}"
                 : FrequencyType;
     }
 

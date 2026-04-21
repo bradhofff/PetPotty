@@ -13,36 +13,44 @@
 }
 
 @* ── PAGE HEADER ─────────────────────────────────────────── *@
-<div class="d-flex align-items-center justify-content-between mb-4">
-    <h1 class="mb-0">💊 Pet Medications</h1>
+<div class="mb-4">
+    <h1 class="mb-1 fw-bold" style="color: var(--pet-dark);">💊 Medications</h1>
+    <p class="text-muted mb-0" style="font-size: 1.05rem;">Keep every dose on track.</p>
 </div>
 
 @* ── PET SELECTOR ────────────────────────────────────────── *@
-<div class="card mb-4" style="border: 2px solid var(--pet-secondary); border-radius: 12px;">
-    <div class="card-body">
+<div class="card mb-4" style="border: 2px solid var(--pet-secondary); border-radius: 14px; box-shadow: 0 2px 10px rgba(139,69,19,0.08);">
+    <div class="card-body py-3 px-4">
         <form method="get">
-            <div class="row align-items-end g-3">
+            <div class="row align-items-center g-3">
+                <div class="col-auto">
+                    <label class="form-label fw-semibold mb-0" style="color: var(--pet-dark); font-size: 0.95rem;">
+                        🐾 Choose a pet
+                    </label>
+                </div>
                 <div class="col-md-4">
-                    <label class="form-label fw-semibold">Select Pet</label>
-                    <select name="selectedPetID" class="form-select" onchange="this.form.submit()">
+                    <select name="selectedPetID" class="form-select" onchange="this.form.submit()"
+                            style="border-radius: 30px; border: 2px solid var(--pet-secondary);">
                         <option value="0">-- Select a Pet --</option>
                         @foreach (var pet in Model.Pets)
                         {
+                            string petEmoji = pet.Type?.ToLower() switch {
+                                "cat"   => "🐱",
+                                "dog"   => "🐕",
+                                "bird"  => "🐦",
+                                "fish"  => "🐟",
+                                "rabbit"=> "🐰",
+                                _       => "🐾"
+                            };
+                            string label = string.IsNullOrWhiteSpace(pet.Breed)
+                                ? $"{petEmoji} {pet.Name}"
+                                : $"{petEmoji} {pet.Name} — {pet.Breed}";
                             <option value="@pet.PetID" selected="@(Model.SelectedPetID == pet.PetID)">
-                                @pet.Name
+                                @label
                             </option>
                         }
                     </select>
                 </div>
-                @if (Model.SelectedPetID > 0)
-                {
-                    <div class="col-auto">
-                        <button type="button" class="btn btn-primary"
-                                data-bs-toggle="modal" data-bs-target="#addMedModal">
-                            ➕ Add Medication
-                        </button>
-                    </div>
-                }
             </div>
         </form>
     </div>
@@ -52,108 +60,147 @@
 {
     var selectedPet = Model.Pets.FirstOrDefault(p => p.PetID == Model.SelectedPetID);
 
-    @* ── MEDICATIONS TABLE ───────────────────────────────────── *@
-    <div class="d-flex align-items-center justify-content-between mb-2">
-        <h2 class="mb-0">@selectedPet?.Name's Medications</h2>
+    @* ── MEDICATIONS SECTION ─────────────────────────────────── *@
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h2 class="mb-0 fw-semibold" style="color: var(--pet-dark); font-size: 1.35rem;">
+            @selectedPet?.Name's Medications
+        </h2>
+        <button type="button"
+                class="btn btn-primary"
+                style="border-radius: 30px; padding: 8px 22px; font-weight: 600;"
+                data-bs-toggle="modal" data-bs-target="#addMedModal">
+            + Add Medication
+        </button>
     </div>
 
     @if (Model.Medications.Count == 0)
     {
-        <div class="alert" style="border: 2px solid var(--pet-secondary); border-radius: 10px; color: var(--pet-dark);">
-            No medications found for @selectedPet?.Name. Click <strong>Add Medication</strong> to get started.
+        <div class="alert mb-4" style="border: 2px solid var(--pet-secondary); border-radius: 12px; color: var(--pet-dark); background: rgba(244,164,96,0.08);">
+            No medications found for @selectedPet?.Name. Click <strong>+ Add Medication</strong> to get started.
         </div>
     }
     else
     {
-        <div class="table-responsive mb-4">
-            <table class="table table-bordered">
-                <thead>
-                    <tr>
-                        <th>Medication</th>
-                        <th>Dosage</th>
-                        <th>Frequency</th>
-                        <th>Notes</th>
-                        <th>Start Date</th>
-                        <th>End Date</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var med in Model.Medications)
-                    {
-                        @* FIX: data attributes now include time in yyyy-MM-ddTHH:mm format
-                           so the datetime-local input in the edit modal gets pre-filled correctly *@
-                        <tr>
-                            <td>@med.MedicationName</td>
-                            <td>@med.Dosage</td>
-                            <td>@med.FrequencyDisplay</td>
-                            <td>@(string.IsNullOrWhiteSpace(med.Notes) ? "-" : med.Notes)</td>
-                            <td>@med.StartDate.ToString("MM/dd/yyyy hh:mm tt")</td>
-                            <td>@(med.EndDate.HasValue ? med.EndDate.Value.ToString("MM/dd/yyyy hh:mm tt") : "-")</td>
-                            <td>
-                                <button class="btn btn-sm btn-edit edit-med-btn"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#editMedModal"
-                                        data-med-id="@med.MedID"
-                                        data-med-name="@med.MedicationName"
-                                        data-med-dosage="@med.Dosage"
-                                        data-med-frequency-type="@med.FrequencyType"
-                                        data-med-frequency-interval="@med.FrequencyInterval"
-                                        data-med-start-date="@med.StartDate.ToString("yyyy-MM-ddTHH:mm")"
-                                        data-med-end-date="@(med.EndDate.HasValue ? med.EndDate.Value.ToString("yyyy-MM-ddTHH:mm") : "")"
-                                        data-med-notes="@med.Notes">
-                                    Edit
-                                </button>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+        @* ── MEDICATION CARDS ────────────────────────────────────── *@
+        <div class="row g-3 mb-4">
+            @foreach (var med in Model.Medications)
+            {
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 position-relative"
+                         style="border: 2px solid var(--pet-secondary); border-radius: 14px; box-shadow: 0 2px 10px rgba(139,69,19,0.07);">
+                        @* Edit button — top right *@
+                        <button class="btn btn-edit btn-sm edit-med-btn position-absolute"
+                                style="top: 12px; right: 12px; font-size: 0.8rem; padding: 4px 12px;"
+                                data-bs-toggle="modal"
+                                data-bs-target="#editMedModal"
+                                data-med-id="@med.MedID"
+                                data-med-name="@med.MedicationName"
+                                data-med-dosage="@med.Dosage"
+                                data-med-frequency-type="@med.FrequencyType"
+                                data-med-frequency-interval="@med.FrequencyInterval"
+                                data-med-start-date="@med.StartDate.ToString("yyyy-MM-ddTHH:mm")"
+                                data-med-end-date="@(med.EndDate.HasValue ? med.EndDate.Value.ToString("yyyy-MM-ddTHH:mm") : "")"
+                                data-med-notes="@med.Notes">
+                            ✏️ Edit
+                        </button>
+
+                        <div class="card-body pb-3 pt-3 pe-3" style="padding-left: 1.25rem;">
+                            @* Medication name *@
+                            <h5 class="fw-bold mb-1 pe-5" style="color: var(--pet-dark); font-size: 1.1rem;">
+                                @med.MedicationName
+                            </h5>
+                            @* Dosage *@
+                            <p class="mb-2 text-muted" style="font-size: 0.92rem;">@med.Dosage</p>
+
+                            @* Meta rows *@
+                            <div style="font-size: 0.88rem; color: #555;">
+                                <div class="d-flex align-items-start mb-1">
+                                    <span class="fw-semibold me-2" style="min-width: 80px; color: var(--pet-dark);">Frequency</span>
+                                    <span>@med.FrequencyDisplay</span>
+                                </div>
+                                <div class="d-flex align-items-start mb-1">
+                                    <span class="fw-semibold me-2" style="min-width: 80px; color: var(--pet-dark);">Start</span>
+                                    <span>@med.StartDate.ToString("MMM d, yyyy")</span>
+                                </div>
+                                <div class="d-flex align-items-start mb-2">
+                                    <span class="fw-semibold me-2" style="min-width: 80px; color: var(--pet-dark);">End</span>
+                                    @if (med.EndDate.HasValue)
+                                    {
+                                        <span>@med.EndDate.Value.ToString("MMM d, yyyy")</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="fw-semibold" style="color: var(--pet-accent);">Forever</span>
+                                    }
+                                </div>
+                            </div>
+
+                            @* Notes *@
+                            @if (!string.IsNullOrWhiteSpace(med.Notes))
+                            {
+                                <p class="mb-0 fst-italic" style="font-size: 0.84rem; color: #888; border-top: 1px solid rgba(244,164,96,0.4); padding-top: 8px;">
+                                    @med.Notes
+                                </p>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
         </div>
 
         @* ── SCHEDULE SECTION ────────────────────────────────────── *@
         <div class="d-flex align-items-center justify-content-between mb-3">
-            <h2 class="mb-0">
+            <h2 class="mb-0 fw-semibold" style="color: var(--pet-dark); font-size: 1.2rem;">
                 📅 Medication Schedule
-                <small class="text-muted fs-6 ms-2">
-                    (@(Model.ShowAllTime ? "All Time" : "Next 30 Days"))
-                </small>
             </h2>
-            <a href="/Medications?selectedPetID=@Model.SelectedPetID&showAllTime=@(!Model.ShowAllTime)"
-               class="btn btn-link p-0">
-                @(Model.ShowAllTime ? "Show Next 30 Days" : "Show All Time")
-            </a>
+            <div class="seg-toggle">
+                <a href="/Medications?selectedPetID=@Model.SelectedPetID&showAllTime=false"
+                   class="seg-option @(!Model.ShowAllTime ? "seg-active" : "")">30 Days</a>
+                <a href="/Medications?selectedPetID=@Model.SelectedPetID&showAllTime=true"
+                   class="seg-option @(Model.ShowAllTime ? "seg-active" : "")">All Time</a>
+            </div>
         </div>
 
         @if (Model.Schedule.Count == 0)
         {
-            <div class="alert" style="border: 2px solid var(--pet-secondary); border-radius: 10px; color: var(--pet-dark);">
+            <div class="alert" style="border: 2px solid var(--pet-secondary); border-radius: 12px; color: var(--pet-dark); background: rgba(244,164,96,0.08);">
                 No scheduled doses found for this period.
             </div>
         }
         else
         {
             <div class="table-responsive">
-                <table class="table table-bordered">
+                <table class="table" style="border-radius: 12px; overflow: hidden;">
                     <thead>
                         <tr>
                             <th>Medication</th>
-                            <th>Scheduled Date</th>
-                            <th>Confirmed?</th>
+                            <th>Scheduled</th>
+                            <th class="text-center">Confirmed?</th>
                             <th>Confirmed At</th>
-                            <th>Actions</th>
+                            <th class="text-center">Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var s in Model.Schedule)
                         {
                             var logDateStr = s.ScheduleDate.ToString("yyyy-MM-ddTHH:mm:ss");
-                            <tr class="@(s.IsConfirmed ? "table-success" : "")">
-                                <td>@s.MedicationName</td>
-                                <td>@s.ScheduleDate.ToString("MM/dd/yyyy hh:mm tt")</td>
-                                <td class="text-center">@(s.IsConfirmed ? "✅" : "❌")</td>
-                                <td>@(s.ConfirmedAt.HasValue ? s.ConfirmedAt.Value.ToString("MM/dd/yyyy h:mm tt") : "—")</td>
-                                <td>
+                            <tr>
+                                <td class="fw-semibold">@s.MedicationName</td>
+                                <td>@s.ScheduleDate.ToString("MMM d, h:mm tt")</td>
+                                <td class="text-center">
+                                    @if (s.IsConfirmed)
+                                    {
+                                        <span class="fw-semibold" style="color: var(--pet-success);">✓ Yes</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="fw-semibold" style="color: #dc3545;">✕ No</span>
+                                    }
+                                </td>
+                                <td style="color: #666; font-size: 0.9rem;">
+                                    @(s.ConfirmedAt.HasValue ? s.ConfirmedAt.Value.ToString("MMM d, h:mm tt") : "—")
+                                </td>
+                                <td class="text-center">
                                     @if (!s.IsConfirmed)
                                     {
                                         <form method="post" asp-page-handler="ConfirmSchedule"
@@ -162,7 +209,8 @@
                                               asp-route-selectedPetID="@Model.SelectedPetID"
                                               asp-route-showAllTime="@Model.ShowAllTime"
                                               style="display:inline">
-                                            <button class="btn btn-success btn-sm"
+                                            <button class="btn btn-sm btn-success"
+                                                    style="border-radius: 20px; padding: 4px 14px; font-size: 0.82rem;"
                                                     onclick="return confirm('Confirm medication was given?');">
                                                 ✔ Confirm Dose
                                             </button>
@@ -176,9 +224,10 @@
                                               asp-route-selectedPetID="@Model.SelectedPetID"
                                               asp-route-showAllTime="@Model.ShowAllTime"
                                               style="display:inline">
-                                            <button class="btn btn-warning btn-sm"
+                                            <button class="btn btn-sm"
+                                                    style="border-radius: 20px; padding: 4px 14px; font-size: 0.82rem; border: 2px solid #6c757d; color: #6c757d; background: transparent;"
                                                     onclick="return confirm('Undo confirm for this dose?');">
-                                                ↩ Undo Confirm
+                                                ↩ Undo
                                             </button>
                                         </form>
                                     }
@@ -194,8 +243,9 @@
 else
 {
     <div class="text-center py-5 text-muted">
-        <div style="font-size: 4rem;">💊</div>
-        <h4>Select a pet to manage their medications</h4>
+        <div style="font-size: 4rem; margin-bottom: 1rem;">💊</div>
+        <h4 style="color: var(--pet-dark);">Select a pet to manage their medications</h4>
+        <p class="text-muted">Choose from the dropdown above to get started.</p>
     </div>
 }
 
