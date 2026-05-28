@@ -120,7 +120,7 @@ namespace PetPotty.Services
         public void DeleteMedication(int medID)
         {
             using var conn = new SqlConnection(_connStr);
-            using var cmd = new SqlCommand("DeleteMedication", conn)
+            using var cmd = new SqlCommand("DeleteMedicationByID", conn)
             {
                 CommandType = CommandType.StoredProcedure
             };
@@ -129,15 +129,16 @@ namespace PetPotty.Services
             cmd.ExecuteNonQuery();
         }
 
-        public void ConfirmSchedule(int medID, DateTime logDate)
+        public void ConfirmSchedule(int medID, DateTime logDate, DateTime confirmedAt)
         {
             using var conn = new SqlConnection(_connStr);
             using var cmd = new SqlCommand("ConfirmMedicationSchedule", conn)
             {
                 CommandType = CommandType.StoredProcedure
             };
-            cmd.Parameters.AddWithValue("@medID",   medID);
-            cmd.Parameters.AddWithValue("@logDate", logDate);
+            cmd.Parameters.AddWithValue("@medID",       medID);
+            cmd.Parameters.AddWithValue("@logDate",     logDate);
+            cmd.Parameters.AddWithValue("@confirmedAt", confirmedAt);
             conn.Open();
             cmd.ExecuteNonQuery();
         }

@@ -4,6 +4,46 @@
     ViewData["Title"] = "Medications";
 }
 
+<style>
+    .med-card {
+        border: 2px solid var(--pet-secondary);
+        border-radius: 14px;
+        box-shadow: 0 2px 10px rgba(139,69,19,0.07);
+    }
+
+    .med-card-edit-btn {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        border: 2px solid #fd7e14;
+        color: #fd7e14;
+        background: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.82rem;
+        opacity: 0;
+        transition: opacity 0.18s ease, background 0.18s ease, color 0.18s ease;
+        cursor: pointer;
+        padding: 0;
+        line-height: 1;
+        z-index: 2;
+    }
+
+    .med-card:hover .med-card-edit-btn,
+    .med-card-edit-btn:focus {
+        opacity: 1;
+    }
+
+    .med-card-edit-btn:hover {
+        background: #fd7e14;
+        color: white;
+    }
+</style>
+
 @if (TempData["StatusMessage"] != null)
 {
     <div class="alert alert-success alert-dismissible fade show" role="alert">
@@ -86,11 +126,8 @@
             @foreach (var med in Model.Medications)
             {
                 <div class="col-md-6 col-lg-4">
-                    <div class="card h-100 position-relative"
-                         style="border: 2px solid var(--pet-secondary); border-radius: 14px; box-shadow: 0 2px 10px rgba(139,69,19,0.07);">
-                        @* Edit button — top right *@
-                        <button class="btn btn-edit btn-sm edit-med-btn position-absolute"
-                                style="top: 12px; right: 12px; font-size: 0.8rem; padding: 4px 12px;"
+                    <div class="card h-100 position-relative med-card">
+                        <button class="med-card-edit-btn edit-med-btn"
                                 data-bs-toggle="modal"
                                 data-bs-target="#editMedModal"
                                 data-med-id="@med.MedID"
@@ -100,8 +137,9 @@
                                 data-med-frequency-interval="@med.FrequencyInterval"
                                 data-med-start-date="@med.StartDate.ToString("yyyy-MM-ddTHH:mm")"
                                 data-med-end-date="@(med.EndDate.HasValue ? med.EndDate.Value.ToString("yyyy-MM-ddTHH:mm") : "")"
-                                data-med-notes="@med.Notes">
-                            ✏️ Edit
+                                data-med-notes="@med.Notes"
+                                title="Edit @med.MedicationName">
+                            ✏️
                         </button>
 
                         <div class="card-body pb-3 pt-3 pe-3" style="padding-left: 1.25rem;">
@@ -175,8 +213,8 @@
                         <tr>
                             <th>Medication</th>
                             <th>Scheduled</th>
-                            <th class="text-center">Confirmed?</th>
-                            <th>Confirmed At</th>
+                            <th class="text-center">Dosage Given?</th>
+                            <th>Dosage At</th>
                             <th class="text-center">Action</th>
                         </tr>
                     </thead>
@@ -203,18 +241,17 @@
                                 <td class="text-center">
                                     @if (!s.IsConfirmed)
                                     {
-                                        <form method="post" asp-page-handler="ConfirmSchedule"
-                                              asp-route-medID="@s.MedID"
-                                              asp-route-logDate="@logDateStr"
-                                              asp-route-selectedPetID="@Model.SelectedPetID"
-                                              asp-route-showAllTime="@Model.ShowAllTime"
-                                              style="display:inline">
-                                            <button class="btn btn-sm btn-success"
-                                                    style="border-radius: 20px; padding: 4px 14px; font-size: 0.82rem;"
-                                                    onclick="return confirm('Confirm medication was given?');">
-                                                ✔ Confirm Dose
-                                            </button>
-                                        </form>
+                                        <button type="button"
+                                                class="btn btn-sm btn-success confirm-dose-btn"
+                                                style="border-radius: 20px; padding: 4px 14px; font-size: 0.82rem;"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#confirmDoseModal"
+                                                data-med-id="@s.MedID"
+                                                data-med-name="@s.MedicationName"
+                                                data-log-date="@logDateStr"
+                                                data-scheduled-display="@s.ScheduleDate.ToString("MMM d, h:mm tt")">
+                                            ✔ Confirm Dose
+                                        </button>
                                     }
                                     else
                                     {
@@ -413,6 +450,45 @@ else
         </div>
     </div>
 
+    @* CONFIRM DOSE MODAL *@
+    <div class="modal fade" id="confirmDoseModal" tabindex="-1" aria-labelledby="confirmDoseModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="confirmDoseModalLabel">Confirm Dose</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="post" asp-page-handler="ConfirmSchedule">
+                    <input type="hidden" name="medID" id="confirmDoseMedID" />
+                    <input type="hidden" name="logDate" id="confirmDoseLogDate" />
+                    <input type="hidden" name="SelectedPetID" value="@Model.SelectedPetID" />
+                    <input type="hidden" name="ShowAllTime" value="@Model.ShowAllTime.ToString().ToLower()" />
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Medication</label>
+                            <input type="text" class="form-control" id="confirmDoseMedName" readonly />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Scheduled Dose</label>
+                            <input type="text" class="form-control" id="confirmDoseScheduledDisplay" readonly />
+                        </div>
+                        <div>
+                            <label class="form-label fw-semibold">
+                                Confirmed Date & Time <span class="text-danger">*</span>
+                            </label>
+                            <input type="datetime-local" name="confirmedAt" id="confirmDoseConfirmedAt"
+                                   class="form-control" required />
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success">Confirm Dose</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
 } @* end @section Modals *@
 
 @section Scripts {
@@ -425,6 +501,17 @@ else
                 String(d.getHours()).padStart(2, '0') + ':' +
                 String(d.getMinutes()).padStart(2, '0');
         }
+
+        // ── Confirm Dose modal — default confirmed time to now ──
+        document.querySelectorAll('.confirm-dose-btn').forEach(button => {
+            button.addEventListener('click', function () {
+                document.getElementById('confirmDoseMedID').value = this.dataset.medId;
+                document.getElementById('confirmDoseLogDate').value = this.dataset.logDate;
+                document.getElementById('confirmDoseMedName').value = this.dataset.medName;
+                document.getElementById('confirmDoseScheduledDisplay').value = this.dataset.scheduledDisplay;
+                document.getElementById('confirmDoseConfirmedAt').value = formatDateTimeLocal(new Date());
+            });
+        });
 
         // ── ADD MODAL — reset on open: start = now, Forever checked, end date hidden ──
         const addMedModal = document.getElementById('addMedModal');

@@ -135,13 +135,13 @@ namespace PetPotty.Pages
         }
 
         // ── Confirm Schedule ─────────────────────────────────────────
-        public IActionResult OnPostConfirmSchedule(int medID, DateTime logDate)
+        public IActionResult OnPostConfirmSchedule(int medID, DateTime logDate, DateTime confirmedAt)
         {
             if (!int.TryParse(HttpContext.Session.GetString("userID"), out int userID))
                 return RedirectToPage("/Login");
 
             UserID = userID;
-            _medService.ConfirmSchedule(medID, logDate);
+            _medService.ConfirmSchedule(medID, logDate, confirmedAt);
 
             TempData["StatusMessage"] = "Dose confirmed!";
             return RedirectToPage(new { selectedPetID = SelectedPetID, showAllTime = ShowAllTime });

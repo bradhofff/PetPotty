@@ -13,7 +13,7 @@ namespace PetPotty.Services
                               string frequencyType, int? frequencyInterval,
                               DateTime startDate, DateTime? endDate, string notes);
         void DeleteMedication(int medID);
-        void ConfirmSchedule(int medID, DateTime logDate);
+        void ConfirmSchedule(int medID, DateTime logDate, DateTime confirmedAt);
         void UnconfirmSchedule(int medID, DateTime logDate);
     }
 }
