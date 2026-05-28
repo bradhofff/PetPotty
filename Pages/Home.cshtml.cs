@@ -22,6 +22,11 @@ namespace PetPotty.Pages
         [BindProperty(SupportsGet = true)]
         public bool ShowAllTime { get; set; } = false;
 
+        [BindProperty]
+        public string TaskAccordionState { get; set; } = string.Empty;
+
+        public string InitialTaskAccordionState { get; set; } = string.Empty;
+
         // Add Pet fields
         [BindProperty] public string NewPetName { get; set; } = string.Empty;
         [BindProperty] public string NewPetType { get; set; } = string.Empty;
@@ -61,6 +66,7 @@ namespace PetPotty.Pages
 
             UserID = userID;
             UserName = HttpContext.Session.GetString("name") ?? string.Empty;
+            InitialTaskAccordionState = TempData["TaskAccordionState"] as string ?? string.Empty;
 
             LoadData();
             return Page();
@@ -130,6 +136,7 @@ namespace PetPotty.Pages
 
             var emoji = taskType == "Pee" ? "💧" : "💩";
             TempData["StatusMessage"] = $"{emoji} {taskType} logged successfully!";
+            PreserveTaskAccordionState();
             return RedirectToPage(new { showAllTime = ShowAllTime });
         }
 
@@ -145,6 +152,7 @@ namespace PetPotty.Pages
             _petService.AddTask(NewTaskPetID, NewTaskType, NewTaskNotes, NewTaskCreatedAt);
 
             TempData["StatusMessage"] = "Task added successfully!";
+            PreserveTaskAccordionState();
             return RedirectToPage(new { showAllTime = ShowAllTime });
         }
 
@@ -160,6 +168,7 @@ namespace PetPotty.Pages
             _petService.UpdateTask(UpdateTaskID, UpdateTaskType, UpdateTaskNotes, UpdateTaskCreatedAt);
 
             TempData["StatusMessage"] = "Task updated successfully!";
+            PreserveTaskAccordionState();
             return RedirectToPage(new { showAllTime = ShowAllTime });
         }
 
@@ -176,6 +185,7 @@ namespace PetPotty.Pages
             _petService.DeleteTask(taskID);
 
             TempData["StatusMessage"] = "Task deleted.";
+            PreserveTaskAccordionState();
             return RedirectToPage(new { showAllTime = ShowAllTime });
         }
 
@@ -200,6 +210,14 @@ namespace PetPotty.Pages
             foreach (var pet in Pets)
             {
                 PetTasks[pet.PetID] = _petService.GetTasksByPetID(pet.PetID, ShowAllTime);
+            }
+        }
+
+        private void PreserveTaskAccordionState()
+        {
+            if (!string.IsNullOrWhiteSpace(TaskAccordionState) && TaskAccordionState.Length <= 4096)
+            {
+                TempData["TaskAccordionState"] = TaskAccordionState;
             }
         }
     }

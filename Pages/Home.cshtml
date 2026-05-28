@@ -192,6 +192,7 @@
                           class="quick-log-form"
                           style="display:inline; margin-left: 6px;">
                         <input type="hidden" name="localTime" />
+                        <input type="hidden" name="TaskAccordionState" class="task-accordion-state-input" />
                         <button type="submit" class="quick-log-btn" title="Quick log Pee">💧</button>
                     </form>
 
@@ -203,6 +204,7 @@
                           class="quick-log-form"
                           style="display:inline; margin-left: 4px;">
                         <input type="hidden" name="localTime" />
+                        <input type="hidden" name="TaskAccordionState" class="task-accordion-state-input" />
                         <button type="submit" class="quick-log-btn" title="Quick log Poop">💩</button>
                     </form>
 
@@ -422,6 +424,8 @@
                 </div>
                 <form method="post" asp-page-handler="AddTask">
                     <input type="hidden" name="NewTaskPetID" id="newTaskPetID" />
+                    <input type="hidden" name="ShowAllTime" value="@Model.ShowAllTime.ToString().ToLower()" />
+                    <input type="hidden" name="TaskAccordionState" class="task-accordion-state-input" />
                     <div class="modal-body">
                         <div class="mb-3">
                             <label class="form-label">Task Type</label>
@@ -467,6 +471,7 @@
                 <form method="post" asp-page-handler="UpdateTask" id="editTaskForm">
                     <input type="hidden" name="UpdateTaskID" id="editTaskID" />
                     <input type="hidden" name="ShowAllTime" value="@Model.ShowAllTime.ToString().ToLower()" />
+                    <input type="hidden" name="TaskAccordionState" class="task-accordion-state-input" />
                     <div class="modal-body">
                         <div class="mb-3">
                             <label class="form-label">Task Type</label>
@@ -496,6 +501,7 @@
                 <form method="post" asp-page-handler="DeleteTask" id="deleteTaskForm">
                     <input type="hidden" name="taskID" id="deleteTaskID" />
                     <input type="hidden" name="ShowAllTime" value="@Model.ShowAllTime.ToString().ToLower()" />
+                    <input type="hidden" name="TaskAccordionState" class="task-accordion-state-input" />
                 </form>
                 <div class="modal-footer d-flex justify-content-between">
                     <button type="submit" form="deleteTaskForm" class="btn btn-danger"
@@ -542,6 +548,86 @@
                 document.querySelectorAll('.edit-task-btn').forEach(btn => btn.classList.toggle('active', isActive));
             });
         }
+
+        // Remember each pet's task accordion state across full page refreshes.
+        const tasksAccordion = document.getElementById('tasksAccordion');
+        const taskAccordionStateKey = 'petPotty.tasksAccordionState.@Model.UserID';
+        const serverTaskAccordionState = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.InitialTaskAccordionState));
+
+        function parseTaskAccordionState(rawState) {
+            if (!rawState) return {};
+
+            try {
+                return JSON.parse(rawState) || {};
+            } catch {
+                return {};
+            }
+        }
+
+        function readTaskAccordionState() {
+            const serverState = parseTaskAccordionState(serverTaskAccordionState);
+            if (Object.keys(serverState).length > 0) {
+                return serverState;
+            }
+
+            try {
+                return parseTaskAccordionState(localStorage.getItem(taskAccordionStateKey));
+            } catch {
+                return {};
+            }
+        }
+
+        function getTaskAccordionState() {
+            const state = {};
+            if (!tasksAccordion) return state;
+
+            tasksAccordion.querySelectorAll('.accordion-collapse').forEach(collapse => {
+                state[collapse.id] = collapse.classList.contains('show');
+            });
+
+            return state;
+        }
+
+        function writeTaskAccordionState() {
+            const serializedState = JSON.stringify(getTaskAccordionState());
+
+            document.querySelectorAll('.task-accordion-state-input').forEach(input => {
+                input.value = serializedState;
+            });
+
+            try {
+                localStorage.setItem(taskAccordionStateKey, serializedState);
+            } catch {
+                // The hidden form field still carries state through the next redirect.
+            }
+        }
+
+        function setTaskAccordionState(collapse, isExpanded) {
+            const button = document.querySelector('[aria-controls="' + collapse.id + '"]');
+            collapse.classList.toggle('show', isExpanded);
+            button?.classList.toggle('collapsed', !isExpanded);
+            button?.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+        }
+
+        if (tasksAccordion) {
+            const savedState = readTaskAccordionState();
+
+            tasksAccordion.querySelectorAll('.accordion-collapse').forEach(collapse => {
+                if (Object.prototype.hasOwnProperty.call(savedState, collapse.id)) {
+                    setTaskAccordionState(collapse, savedState[collapse.id]);
+                }
+
+                collapse.addEventListener('shown.bs.collapse', writeTaskAccordionState);
+                collapse.addEventListener('hidden.bs.collapse', writeTaskAccordionState);
+            });
+
+            writeTaskAccordionState();
+        }
+
+        new Set(Array.from(document.querySelectorAll('.task-accordion-state-input'))
+            .map(input => input.form)
+            .filter(Boolean))
+            .forEach(form => form.addEventListener('submit', writeTaskAccordionState));
 
         // BUG FIX 1: Quick log — inject client local time before submit to avoid UTC offset
         document.querySelectorAll('.quick-log-form').forEach(form => {
