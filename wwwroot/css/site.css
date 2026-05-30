@@ -34,6 +34,7 @@ body {
     font-family: 'Georgia', serif;
     background: var(--pet-neutral);
     min-height: 100vh;
+    padding-top: 74px;
     background-image:
         radial-gradient(circle at 25% 25%, var(--pet-primary) 3px, transparent 3px),
         radial-gradient(circle at 75% 25%, var(--pet-primary) 2px, transparent 2px),
@@ -252,15 +253,23 @@ body {
     gap: 2px;
 }
 
+.seg-toggle form {
+    margin: 0;
+}
+
 .seg-option {
+    background: transparent;
+    border: 0;
     padding: 4px 14px;
     border-radius: 999px;
     font-size: 0.82rem;
     font-weight: 500;
     color: #777;
+    font-family: inherit;
     text-decoration: none !important;
     transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
     white-space: nowrap;
+    cursor: pointer;
 }
 
     .seg-option:hover:not(.seg-active) {

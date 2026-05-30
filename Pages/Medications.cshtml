@@ -61,7 +61,7 @@
 @* ── PET SELECTOR ────────────────────────────────────────── *@
 <div class="card mb-4" style="border: 2px solid var(--pet-secondary); border-radius: 14px; box-shadow: 0 2px 10px rgba(139,69,19,0.08);">
     <div class="card-body py-3 px-4">
-        <form method="get">
+        <form method="post" asp-page-handler="SelectPet">
             <div class="row align-items-center g-3">
                 <div class="col-auto">
                     <label class="form-label fw-semibold mb-0" style="color: var(--pet-dark); font-size: 0.95rem;">
@@ -192,10 +192,14 @@
                 📅 Medication Schedule
             </h2>
             <div class="seg-toggle">
-                <a href="/Medications?selectedPetID=@Model.SelectedPetID&showAllTime=false"
-                   class="seg-option @(!Model.ShowAllTime ? "seg-active" : "")">30 Days</a>
-                <a href="/Medications?selectedPetID=@Model.SelectedPetID&showAllTime=true"
-                   class="seg-option @(Model.ShowAllTime ? "seg-active" : "")">All Time</a>
+                <form method="post" asp-page-handler="SetScheduleView">
+                    <input type="hidden" name="showAllTime" value="false" />
+                    <button type="submit" class="seg-option @(!Model.ShowAllTime ? "seg-active" : "")">30 Days</button>
+                </form>
+                <form method="post" asp-page-handler="SetScheduleView">
+                    <input type="hidden" name="showAllTime" value="true" />
+                    <button type="submit" class="seg-option @(Model.ShowAllTime ? "seg-active" : "")">All Time</button>
+                </form>
             </div>
         </div>
 
@@ -256,11 +260,9 @@
                                     else
                                     {
                                         <form method="post" asp-page-handler="UnconfirmSchedule"
-                                              asp-route-medID="@s.MedID"
-                                              asp-route-logDate="@logDateStr"
-                                              asp-route-selectedPetID="@Model.SelectedPetID"
-                                              asp-route-showAllTime="@Model.ShowAllTime"
                                               style="display:inline">
+                                            <input type="hidden" name="medID" value="@s.MedID" />
+                                            <input type="hidden" name="logDate" value="@logDateStr" />
                                             <button class="btn btn-sm"
                                                     style="border-radius: 20px; padding: 4px 14px; font-size: 0.82rem; border: 2px solid #6c757d; color: #6c757d; background: transparent;"
                                                     onclick="return confirm('Undo confirm for this dose?');">
@@ -461,8 +463,6 @@ else
                 <form method="post" asp-page-handler="ConfirmSchedule">
                     <input type="hidden" name="medID" id="confirmDoseMedID" />
                     <input type="hidden" name="logDate" id="confirmDoseLogDate" />
-                    <input type="hidden" name="SelectedPetID" value="@Model.SelectedPetID" />
-                    <input type="hidden" name="ShowAllTime" value="@Model.ShowAllTime.ToString().ToLower()" />
                     <div class="modal-body">
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Medication</label>

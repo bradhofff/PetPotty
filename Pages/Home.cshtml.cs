@@ -18,8 +18,8 @@ namespace PetPotty.Pages
         public int UserID { get; set; }
         public List<Pet> Pets { get; set; } = new();
         public Dictionary<int, List<TaskItem>> PetTasks { get; set; } = new();
+        public Dictionary<int, List<TaskItem>> PetAllTasks { get; set; } = new();
 
-        [BindProperty(SupportsGet = true)]
         public bool ShowAllTime { get; set; } = false;
 
         // Add Pet fields
@@ -61,6 +61,7 @@ namespace PetPotty.Pages
 
             UserID = userID;
             UserName = HttpContext.Session.GetString("name") ?? string.Empty;
+            ShowAllTime = GetShowAllTime();
 
             LoadData();
             return Page();
@@ -115,7 +116,6 @@ namespace PetPotty.Pages
 
         // ============================================================
         // Quick Log — instant Pee or Poop with current time, no modal
-        // petID and taskType come from asp-route- on the form
         // ============================================================
         public IActionResult OnPostQuickLog(int petID, string taskType, string? localTime = null)
         {
@@ -123,14 +123,28 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            ShowAllTime = GetShowAllTime();
             var timestamp = (!string.IsNullOrEmpty(localTime) && DateTime.TryParse(localTime, out var parsed))
                 ? parsed
                 : DateTime.Now;
             _petService.AddTask(petID, taskType, string.Empty, timestamp);
 
             var emoji = taskType == "Pee" ? "💧" : "💩";
-            TempData["StatusMessage"] = $"{emoji} {taskType} logged successfully!";
-            return RedirectToPage(new { showAllTime = ShowAllTime });
+            var petName = GetPetName(UserID, petID);
+            TempData["StatusMessage"] = string.IsNullOrWhiteSpace(petName)
+                ? $"{emoji} {taskType} logged successfully!"
+                : $"{emoji} {taskType} logged successfully for {petName}!";
+            return RedirectToPage();
+        }
+
+        public IActionResult OnPostSetTaskView(bool showAllTime)
+        {
+            if (!int.TryParse(HttpContext.Session.GetString("userID"), out int userID))
+                return RedirectToPage("/Login");
+
+            UserID = userID;
+            HttpContext.Session.SetString("homeShowAllTime", showAllTime.ToString());
+            return RedirectToPage();
         }
 
         // ============================================================
@@ -142,10 +156,14 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            ShowAllTime = GetShowAllTime();
             _petService.AddTask(NewTaskPetID, NewTaskType, NewTaskNotes, NewTaskCreatedAt);
 
-            TempData["StatusMessage"] = "Task added successfully!";
-            return RedirectToPage(new { showAllTime = ShowAllTime });
+            var petName = GetPetName(UserID, NewTaskPetID);
+            TempData["StatusMessage"] = string.IsNullOrWhiteSpace(petName)
+                ? "Task added successfully!"
+                : $"Task added successfully for {petName}!";
+            return RedirectToPage();
         }
 
         // ============================================================
@@ -157,15 +175,15 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            ShowAllTime = GetShowAllTime();
             _petService.UpdateTask(UpdateTaskID, UpdateTaskType, UpdateTaskNotes, UpdateTaskCreatedAt);
 
             TempData["StatusMessage"] = "Task updated successfully!";
-            return RedirectToPage(new { showAllTime = ShowAllTime });
+            return RedirectToPage();
         }
 
         // ============================================================
         // Delete Task
-        // taskID comes from asp-route-taskID on the form
         // ============================================================
         public IActionResult OnPostDeleteTask(int taskID)
         {
@@ -173,10 +191,11 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            ShowAllTime = GetShowAllTime();
             _petService.DeleteTask(taskID);
 
             TempData["StatusMessage"] = "Task deleted.";
-            return RedirectToPage(new { showAllTime = ShowAllTime });
+            return RedirectToPage();
         }
 
         // ============================================================
@@ -191,15 +210,59 @@ namespace PetPotty.Pages
             _      => taskType
         };
 
+        public static string LastActivityLabel(List<TaskItem> tasks, string taskType)
+        {
+            if (tasks.Count == 0)
+                return "No tasks found";
+
+            var lastTask = tasks
+                .Where(task => IsActivityMatch(task.TaskType, taskType))
+                .OrderByDescending(task => task.CreatedAt)
+                .FirstOrDefault();
+
+            if (lastTask == null)
+                return $"No {taskType.ToLower()} found";
+
+            var elapsed = DateTime.Now - lastTask.CreatedAt;
+            if (elapsed < TimeSpan.Zero)
+                elapsed = TimeSpan.Zero;
+
+            if (elapsed.TotalDays > 7)
+                return $"Last {taskType.ToLower()}: More than a week ago...";
+
+            var timeText = lastTask.CreatedAt.ToString("h:mm tt");
+            if (elapsed.TotalHours > 24)
+                timeText = $"{lastTask.CreatedAt:dddd} {timeText}";
+
+            return $"Last {taskType.ToLower()}: {timeText}";
+        }
+
         // ============================================================
         // Private helpers
         // ============================================================
+        private static bool IsActivityMatch(string taskType, string activityType)
+        {
+            return taskType == activityType || taskType == "Pee & Poop" && (activityType == "Pee" || activityType == "Poop");
+        }
+
+        private string? GetPetName(int userID, int petID)
+        {
+            return _petService.GetPetsByUser(userID)
+                .FirstOrDefault(pet => pet.PetID == petID)?.Name;
+        }
+
+        private bool GetShowAllTime()
+        {
+            return bool.TryParse(HttpContext.Session.GetString("homeShowAllTime"), out var showAllTime) && showAllTime;
+        }
+
         private void LoadData()
         {
             Pets = _petService.GetPetsByUser(UserID);
             foreach (var pet in Pets)
             {
                 PetTasks[pet.PetID] = _petService.GetTasksByPetID(pet.PetID, ShowAllTime);
+                PetAllTasks[pet.PetID] = ShowAllTime ? PetTasks[pet.PetID] : _petService.GetTasksByPetID(pet.PetID, true);
             }
         }
     }

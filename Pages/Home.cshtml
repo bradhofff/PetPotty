@@ -78,11 +78,38 @@
         transition: background 0.15s ease, transform 0.1s ease;
         line-height: 1.2;
     }
+    .quick-log-form {
+        align-items: center;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+    .quick-log-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.25em;
+        height: 1.25em;
+        margin-right: 4px;
+        font-size: 1rem;
+        line-height: 1;
+        vertical-align: -0.12em;
+    }
     .quick-log-pill:hover {
         background: rgba(244,164,96,0.18);
         transform: scale(1.04);
     }
     .quick-log-pill:active { transform: scale(0.96); }
+    .quick-log-label {
+        color: #111;
+        font-size: 0.8rem;
+        font-weight: 400;
+        line-height: 1.2;
+        margin-bottom: 5px;
+        max-width: 220px;
+        text-align: center;
+        width: max-content;
+    }
 
     /* Add Task button inside card */
     .add-task-card-btn {
@@ -224,7 +251,7 @@
 
 @if (TempData["StatusMessage"] != null)
 {
-    <div class="alert alert-success alert-dismissible fade show" role="alert">
+    <div class="alert alert-success alert-dismissible fade show status-auto-dismiss" role="alert">
         @TempData["StatusMessage"]
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
@@ -270,6 +297,9 @@ else
             string birthdateDisplay = pet.Birthdate != default
                 ? pet.Birthdate.ToString("MMM d, yyyy")
                 : "—";
+            var quickLogTasks = Model.PetAllTasks[pet.PetID];
+            string lastPeeLabel = PetPotty.Pages.HomeModel.LastActivityLabel(quickLogTasks, "Pee");
+            string lastPoopLabel = PetPotty.Pages.HomeModel.LastActivityLabel(quickLogTasks, "Poop");
 
             <div class="col-md-6 col-lg-4">
                 <div class="pet-card">
@@ -319,20 +349,20 @@ else
                     @* Quick-log buttons *@
                     <div class="d-flex gap-2 mb-3">
                         <form method="post" asp-page-handler="QuickLog"
-                              asp-route-petID="@pet.PetID"
-                              asp-route-taskType="Pee"
-                              asp-route-showAllTime="@Model.ShowAllTime"
                               class="quick-log-form flex-fill">
+                            <input type="hidden" name="petID" value="@pet.PetID" />
+                            <input type="hidden" name="taskType" value="Pee" />
+                            <div class="quick-log-label">@lastPeeLabel</div>
                             <input type="hidden" name="localTime" />
-                            <button type="submit" class="quick-log-pill w-100">💧 Pee</button>
+                            <button type="submit" class="quick-log-pill w-100"><span class="quick-log-icon">💧</span>Pee</button>
                         </form>
                         <form method="post" asp-page-handler="QuickLog"
-                              asp-route-petID="@pet.PetID"
-                              asp-route-taskType="Poop"
-                              asp-route-showAllTime="@Model.ShowAllTime"
                               class="quick-log-form flex-fill">
+                            <input type="hidden" name="petID" value="@pet.PetID" />
+                            <input type="hidden" name="taskType" value="Poop" />
+                            <div class="quick-log-label">@lastPoopLabel</div>
                             <input type="hidden" name="localTime" />
-                            <button type="submit" class="quick-log-pill w-100">💩 Poop</button>
+                            <button type="submit" class="quick-log-pill w-100"><span class="quick-log-icon">💩</span>Poop</button>
                         </form>
                     </div>
 
@@ -356,11 +386,15 @@ else
 <div class="d-flex align-items-center justify-content-between mb-3">
     <div class="d-flex align-items-center gap-3">
         <h2 class="mb-0 fw-semibold" style="font-size: 1.2rem; color: var(--pet-dark);">Task log</h2>
-        <div class="seg-toggle">
-            <a href="/Home?showAllTime=false"
-               class="seg-option @(!Model.ShowAllTime ? "seg-active" : "")">Recent</a>
-            <a href="/Home?showAllTime=true"
-               class="seg-option @(Model.ShowAllTime ? "seg-active" : "")">All Time</a>
+        <div class="seg-toggle" role="group" aria-label="Task log range">
+            <form method="post" asp-page-handler="SetTaskView">
+                <input type="hidden" name="showAllTime" value="false" />
+                <button type="submit" class="seg-option @(!Model.ShowAllTime ? "seg-active" : "")">Recent</button>
+            </form>
+            <form method="post" asp-page-handler="SetTaskView">
+                <input type="hidden" name="showAllTime" value="true" />
+                <button type="submit" class="seg-option @(Model.ShowAllTime ? "seg-active" : "")">All Time</button>
+            </form>
         </div>
     </div>
     <button type="button" class="btn-edit-tasks" id="toggleTaskActionsBtn" aria-pressed="false">
@@ -667,7 +701,6 @@ else
                 </div>
                 <form method="post" asp-page-handler="UpdateTask" id="editTaskForm">
                     <input type="hidden" name="UpdateTaskID" id="editTaskID" />
-                    <input type="hidden" name="ShowAllTime" value="@Model.ShowAllTime.ToString().ToLower()" />
                     <div class="modal-body">
                         <div class="mb-3">
                             <label class="form-label">Task Type</label>
@@ -697,7 +730,6 @@ else
                 </form>
                 <form method="post" asp-page-handler="DeleteTask" id="deleteTaskForm">
                     <input type="hidden" name="taskID" id="deleteTaskID" />
-                    <input type="hidden" name="ShowAllTime" value="@Model.ShowAllTime.ToString().ToLower()" />
                 </form>
                 <div class="modal-footer d-flex justify-content-between">
                     <button type="submit" form="deleteTaskForm" class="btn btn-danger"
@@ -717,6 +749,13 @@ else
 
 @section Scripts {
     <script>
+        const statusBanner = document.querySelector('.status-auto-dismiss');
+        if (statusBanner) {
+            setTimeout(() => {
+                bootstrap.Alert.getOrCreateInstance(statusBanner).close();
+            }, 10000);
+        }
+
         // ── Edit Tasks toggle — show/hide ✏️ pencil buttons in task rows ──
         const toggleTaskActionsBtn = document.getElementById('toggleTaskActionsBtn');
         if (toggleTaskActionsBtn) {

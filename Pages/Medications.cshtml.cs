@@ -22,8 +22,8 @@ namespace PetPotty.Pages
         public List<Medication> Medications { get; set; } = new();
         public List<MedSchedule> Schedule { get; set; } = new();
 
-        [BindProperty(SupportsGet = true)] public int SelectedPetID { get; set; } = 0;
-        [BindProperty(SupportsGet = true)] public bool ShowAllTime { get; set; } = false;
+        [BindProperty] public int SelectedPetID { get; set; } = 0;
+        [BindProperty] public bool ShowAllTime { get; set; } = false;
 
         // ── Add Medication fields ────────────────────────────────────
         [BindProperty] public string NewMedName { get; set; } = string.Empty;
@@ -57,6 +57,26 @@ namespace PetPotty.Pages
             return Page();
         }
 
+        public IActionResult OnPostSelectPet(int selectedPetID)
+        {
+            if (!int.TryParse(HttpContext.Session.GetString("userID"), out int userID))
+                return RedirectToPage("/Login");
+
+            UserID = userID;
+            SetSelectedPetID(selectedPetID);
+            return RedirectToPage();
+        }
+
+        public IActionResult OnPostSetScheduleView(bool showAllTime)
+        {
+            if (!int.TryParse(HttpContext.Session.GetString("userID"), out int userID))
+                return RedirectToPage("/Login");
+
+            UserID = userID;
+            HttpContext.Session.SetString("medicationsShowAllTime", showAllTime.ToString());
+            return RedirectToPage();
+        }
+
         // ── Add Medication ───────────────────────────────────────────
         public IActionResult OnPostAddMedication()
         {
@@ -64,18 +84,20 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            RestoreStateFromSession();
+            SetSelectedPetID(SelectedPetID);
 
             if (!NewMedForever)
             {
                 if (!NewMedEndDate.HasValue)
                 {
                     TempData["StatusMessage"] = "Error: End date is required when Forever is unchecked.";
-                    return RedirectToPage(new { selectedPetID = SelectedPetID, showAllTime = ShowAllTime });
+                    return RedirectToPage();
                 }
                 if (NewMedEndDate.Value <= NewMedStartDate)
                 {
                     TempData["StatusMessage"] = "Error: End date must be after start date.";
-                    return RedirectToPage(new { selectedPetID = SelectedPetID, showAllTime = ShowAllTime });
+                    return RedirectToPage();
                 }
             }
 
@@ -86,7 +108,7 @@ namespace PetPotty.Pages
                 NewMedNotes);
 
             TempData["StatusMessage"] = $"{NewMedName} added successfully!";
-            return RedirectToPage(new { selectedPetID = SelectedPetID, showAllTime = ShowAllTime });
+            return RedirectToPage();
         }
 
         // ── Edit Medication ──────────────────────────────────────────
@@ -96,18 +118,20 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            RestoreStateFromSession();
+            SetSelectedPetID(SelectedPetID);
 
             if (!EditMedForever)
             {
                 if (!EditMedEndDate.HasValue)
                 {
                     TempData["StatusMessage"] = "Error: End date is required when Forever is unchecked.";
-                    return RedirectToPage(new { selectedPetID = SelectedPetID, showAllTime = ShowAllTime });
+                    return RedirectToPage();
                 }
                 if (EditMedEndDate.Value <= EditMedStartDate)
                 {
                     TempData["StatusMessage"] = "Error: End date must be after start date.";
-                    return RedirectToPage(new { selectedPetID = SelectedPetID, showAllTime = ShowAllTime });
+                    return RedirectToPage();
                 }
             }
 
@@ -118,7 +142,7 @@ namespace PetPotty.Pages
                 EditMedNotes);
 
             TempData["StatusMessage"] = $"{EditMedName} updated successfully!";
-            return RedirectToPage(new { selectedPetID = SelectedPetID, showAllTime = ShowAllTime });
+            return RedirectToPage();
         }
 
         // ── Delete Medication ────────────────────────────────────────
@@ -128,10 +152,11 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            RestoreStateFromSession();
             _medService.DeleteMedication(medID);
 
             TempData["StatusMessage"] = "Medication deleted.";
-            return RedirectToPage(new { selectedPetID = SelectedPetID, showAllTime = ShowAllTime });
+            return RedirectToPage();
         }
 
         // ── Confirm Schedule ─────────────────────────────────────────
@@ -141,10 +166,11 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            RestoreStateFromSession();
             _medService.ConfirmSchedule(medID, logDate, confirmedAt);
 
             TempData["StatusMessage"] = "Dose confirmed!";
-            return RedirectToPage(new { selectedPetID = SelectedPetID, showAllTime = ShowAllTime });
+            return RedirectToPage();
         }
 
         // ── Unconfirm Schedule ───────────────────────────────────────
@@ -154,22 +180,43 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            RestoreStateFromSession();
             _medService.UnconfirmSchedule(medID, logDate);
 
             TempData["StatusMessage"] = "Dose unconfirmed.";
-            return RedirectToPage(new { selectedPetID = SelectedPetID, showAllTime = ShowAllTime });
+            return RedirectToPage();
         }
 
         // ── Helpers ──────────────────────────────────────────────────
         private void LoadData()
         {
             Pets = _petService.GetPetsByUser(UserID);
+            RestoreStateFromSession();
+
+            if (SelectedPetID > 0 && Pets.All(pet => pet.PetID != SelectedPetID))
+            {
+                SetSelectedPetID(0);
+            }
 
             if (SelectedPetID > 0)
             {
                 Medications = _medService.GetMedicationsByPetID(SelectedPetID);
                 Schedule    = _medService.GetScheduleByPetID(SelectedPetID, ShowAllTime);
             }
+        }
+
+        private void RestoreStateFromSession()
+        {
+            if (SelectedPetID <= 0 && int.TryParse(HttpContext.Session.GetString("medicationsSelectedPetID"), out var selectedPetID))
+                SelectedPetID = selectedPetID;
+
+            ShowAllTime = bool.TryParse(HttpContext.Session.GetString("medicationsShowAllTime"), out var showAllTime) && showAllTime;
+        }
+
+        private void SetSelectedPetID(int selectedPetID)
+        {
+            SelectedPetID = selectedPetID;
+            HttpContext.Session.SetString("medicationsSelectedPetID", selectedPetID.ToString());
         }
     }
 }
