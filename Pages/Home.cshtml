@@ -445,19 +445,13 @@ else
                                 DateTime? prevDate = null;
                                 @foreach (var task in tasks)
                                 {
+                                    var taskDateValue = task.CreatedAt.ToString("yyyy-MM-dd");
                                     bool isNewDay = prevDate == null || task.CreatedAt.Date != prevDate.Value.Date;
                                     if (isNewDay)
                                     {
-                                        string dayLabel;
-                                        var today = DateTime.Today;
-                                        if (task.CreatedAt.Date == today)
-                                            dayLabel = "Today";
-                                        else if (task.CreatedAt.Date == today.AddDays(-1))
-                                            dayLabel = "Yesterday";
-                                        else
-                                            dayLabel = task.CreatedAt.ToString("dddd, MMM d");
+                                        var dayLabel = task.CreatedAt.ToString("dddd, MMM d");
 
-                                        <div><span class="task-date-pill">@dayLabel</span></div>
+                                        <div><span class="task-date-pill" data-task-date="@taskDateValue">@dayLabel</span></div>
                                     }
                                     prevDate = task.CreatedAt.Date;
 
@@ -756,6 +750,37 @@ else
             }, 10000);
         }
 
+        function formatLocalDateKey(date) {
+            return date.getFullYear() + '-' +
+                String(date.getMonth() + 1).padStart(2, '0') + '-' +
+                String(date.getDate()).padStart(2, '0');
+        }
+
+        document.querySelectorAll('.task-date-pill[data-task-date]').forEach(pill => {
+            const taskDate = pill.dataset.taskDate;
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(today.getDate() - 1);
+
+            if (taskDate === formatLocalDateKey(today)) {
+                pill.textContent = 'Today';
+                return;
+            }
+
+            if (taskDate === formatLocalDateKey(yesterday)) {
+                pill.textContent = 'Yesterday';
+                return;
+            }
+
+            const [year, month, day] = taskDate.split('-').map(Number);
+            const localDate = new Date(year, month - 1, day);
+            pill.textContent = localDate.toLocaleDateString(undefined, {
+                weekday: 'long',
+                month: 'short',
+                day: 'numeric'
+            });
+        });
+
         // ── Edit Tasks toggle — show/hide ✏️ pencil buttons in task rows ──
         const toggleTaskActionsBtn = document.getElementById('toggleTaskActionsBtn');
         if (toggleTaskActionsBtn) {
@@ -772,9 +797,7 @@ else
         document.querySelectorAll('.quick-log-form').forEach(form => {
             form.addEventListener('submit', function () {
                 const now = new Date();
-                const local = now.getFullYear() + '-' +
-                    String(now.getMonth() + 1).padStart(2, '0') + '-' +
-                    String(now.getDate()).padStart(2, '0') + 'T' +
+                const local = formatLocalDateKey(now) + 'T' +
                     String(now.getHours()).padStart(2, '0') + ':' +
                     String(now.getMinutes()).padStart(2, '0') + ':' +
                     String(now.getSeconds()).padStart(2, '0');
@@ -832,9 +855,7 @@ else
                 document.getElementById('newTaskPetID').value          = this.dataset.petId;
                 document.getElementById('addTaskPetName').textContent  = this.dataset.petName;
                 const now = new Date();
-                const formatted = now.getFullYear() + '-' +
-                    String(now.getMonth() + 1).padStart(2, '0') + '-' +
-                    String(now.getDate()).padStart(2, '0') + 'T' +
+                const formatted = formatLocalDateKey(now) + 'T' +
                     String(now.getHours()).padStart(2, '0') + ':' +
                     String(now.getMinutes()).padStart(2, '0');
                 document.getElementById('newTaskCreatedAt').value = formatted;
