@@ -1,7 +1,7 @@
 @page
 @model PetPotty.Pages.HomeModel
 @{
-    ViewData["Title"] = "Home";
+    ViewData["Title"] = "Dashboard";
 }
 
 <style>
@@ -249,6 +249,8 @@
     }
 </style>
 
+<div class="home-dashboard">
+
 @if (TempData["StatusMessage"] != null)
 {
     <div class="alert alert-success alert-dismissible fade show status-auto-dismiss" role="alert">
@@ -258,14 +260,18 @@
 }
 
 @* ── WELCOME HEADER ───────────────────────────────────────── *@
-<div class="home-welcome mb-4">
-    <h1>Welcome, @Model.UserName! 🐾</h1>
-    <p>Here's how the gang is doing today.</p>
+<div class="home-welcome dashboard-heading mb-4">
+    <div>
+        <p class="dashboard-kicker">Your care dashboard</p>
+        <h1>Good to see you, @Model.UserName.</h1>
+        <p>Everything your pets need today, in one calm view.</p>
+    </div>
+    <div class="dashboard-date">@DateTime.Today.ToString("dddd, MMMM d")</div>
 </div>
 
 @* ── YOUR PETS ────────────────────────────────────────────── *@
-<div class="d-flex align-items-center justify-content-between mb-3">
-    <h2 class="mb-0 fw-semibold" style="font-size: 1.2rem; color: var(--pet-dark);">Your pets</h2>
+<div class="d-flex align-items-center justify-content-between dashboard-section-heading mb-3">
+    <div><p class="dashboard-kicker mb-1">AT A GLANCE</p><h2 class="mb-0 fw-semibold">Your pets</h2></div>
     <button type="button" class="btn btn-primary btn-sm"
             style="border-radius: 999px; padding: 6px 18px; font-weight: 600;"
             data-bs-toggle="modal" data-bs-target="#addPetModal">
@@ -301,7 +307,7 @@ else
             string lastPeeLabel = PetPotty.Pages.HomeModel.LastActivityLabel(quickLogTasks, "Pee");
             string lastPoopLabel = PetPotty.Pages.HomeModel.LastActivityLabel(quickLogTasks, "Poop");
 
-            <div class="col-md-6 col-lg-4">
+            <div class="col-md-6 col-xxl-4">
                 <div class="pet-card">
 
                     @* Hover-reveal edit pencil *@
@@ -383,9 +389,9 @@ else
 }
 
 @* ── TASK LOG ─────────────────────────────────────────────── *@
-<div class="d-flex align-items-center justify-content-between mb-3">
+<div class="d-flex align-items-center justify-content-between dashboard-section-heading task-log-heading mb-3">
     <div class="d-flex align-items-center gap-3">
-        <h2 class="mb-0 fw-semibold" style="font-size: 1.2rem; color: var(--pet-dark);">Task log</h2>
+        <div><p class="dashboard-kicker mb-1">WHAT JUST HAPPENED</p><h2 class="mb-0 fw-semibold">Recent activity</h2></div>
         <div class="seg-toggle" role="group" aria-label="Task log range">
             <form method="post" asp-page-handler="SetTaskView">
                 <input type="hidden" name="showAllTime" value="false" />
@@ -506,6 +512,8 @@ else
         }
     </div>
 }
+
+</div>
 
 @* ── MODALS ──────────────────────────────────────────────── *@
 @section Modals {

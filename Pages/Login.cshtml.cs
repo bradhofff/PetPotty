@@ -19,8 +19,18 @@ public class LoginModel : PageModel
 
     public string ErrorMessage { get; set; }
 
+    public IActionResult OnGet()
+    {
+        return IsAuthenticated() ? RedirectToPage("/Home") : Page();
+    }
+
     public IActionResult OnPost()
     {
+        if (IsAuthenticated())
+        {
+            return RedirectToPage("/Home");
+        }
+
         if (string.IsNullOrWhiteSpace(Username) || string.IsNullOrWhiteSpace(Password))
 {
     ErrorMessage = "Please enter your username and password.";
@@ -84,5 +94,10 @@ public class LoginModel : PageModel
                 return Page();
             }
         }
+    }
+
+    private bool IsAuthenticated()
+    {
+        return !string.IsNullOrEmpty(HttpContext.Session.GetString("userID"));
     }
 }

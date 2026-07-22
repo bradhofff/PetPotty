@@ -1,30 +1,48 @@
 @page
 @model LoginModel
-
-@if (TempData["LogoutMessage"] != null)
-{
-    <div class="alert alert-logout alert-dismissible fade show" role="alert">
-        <strong>@TempData["LogoutMessage"]</strong><br />
-        Please <a href="/Login" class="alert-link">log in again</a> or
-        <a href="/Signup" class="alert-link">create an account</a>.
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
+@{
+    ViewData["Title"] = "Log in";
 }
 
-@if (TempData["SignupSuccess"] != null)
-{
-    <div class="alert alert-success alert-dismissible fade show" role="alert"
-         style="border: 2px solid #198754; border-radius: 10px;">
-        ✅ <strong>@TempData["SignupSuccess"]</strong><br />
-        Please log in to continue.
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+<div class="simple-auth-page">
+    <div class="row g-0 auth-shell">
+        <div class="col-lg-6 auth-brand-panel">
+            <div class="auth-brand-copy">
+                <p class="eyebrow">WELCOME BACK</p>
+                <h1>Your pack is waiting.</h1>
+                <p>Pick up right where you left off with every routine, record, and reminder close at hand.</p>
+                <div class="auth-mini-preview" aria-hidden="true"><span>🐕</span><div><b>Scout's day</b><small>4 of 5 care tasks complete</small><i></i></div></div>
+            </div>
+        </div>
+        <div class="col-lg-6 auth-form-panel">
+            <div class="auth-form-wrap">
+                <h2>Log in to PackTracker</h2>
+                <p class="text-muted">Enter your account details to continue.</p>
+
+                @if (TempData["LogoutMessage"] != null)
+                {
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>@TempData["LogoutMessage"]</strong><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Dismiss"></button></div>
+                }
+                @if (TempData["SignupSuccess"] != null)
+                {
+                    <div class="alert alert-success alert-dismissible fade show" role="alert"><strong>@TempData["SignupSuccess"]</strong><br />Please log in to continue.<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Dismiss"></button></div>
+                }
+
+                <form method="post">
+                    <div asp-validation-summary="ModelOnly" class="text-danger small mb-3" role="alert"></div>
+                    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+                    {
+                        <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+                    }
+                    <div class="mb-3"><label asp-for="Username" class="form-label">Username</label><input asp-for="Username" class="form-control" autocomplete="username" placeholder="Enter your username" /><span asp-validation-for="Username" class="text-danger small"></span></div>
+                    <div class="mb-4"><div class="d-flex justify-content-between"><label asp-for="Password" class="form-label">Password</label></div><input asp-for="Password" type="password" class="form-control" autocomplete="current-password" placeholder="Enter your password" /><span asp-validation-for="Password" class="text-danger small"></span></div>
+                    <button type="submit" class="btn auth-primary-btn w-100">Log in <span aria-hidden="true">→</span></button>
+                </form>
+                <p class="auth-switch">New to PackTracker? <a asp-page="/Signup">Create an account</a></p>
+                <a asp-page="/Index" class="auth-back-link">← Back to home</a>
+            </div>
+        </div>
     </div>
-}
+</div>
 
-<form method="post">
-    <input asp-for="Username" placeholder="Username" />
-    <input asp-for="Password" type="password" placeholder="Password" />
-    <button type="submit">Login</button>
-
-    <div>@Model.ErrorMessage</div>
-</form>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

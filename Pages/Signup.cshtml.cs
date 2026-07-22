@@ -24,10 +24,18 @@ namespace PetPotty.Pages
         public string ErrorMessage   { get; set; } = string.Empty;
         public string SuccessMessage { get; set; } = string.Empty;
 
-        public void OnGet() { }
+        public IActionResult OnGet()
+        {
+            return IsAuthenticated() ? RedirectToPage("/Home") : Page();
+        }
 
         public IActionResult OnPost()
         {
+            if (IsAuthenticated())
+            {
+                return RedirectToPage("/Home");
+            }
+
             // Manual validation
             if (string.IsNullOrWhiteSpace(SignupName) ||
                 string.IsNullOrWhiteSpace(SignupUserName) ||
@@ -94,6 +102,11 @@ namespace PetPotty.Pages
 
                 return Page();
             }
+        }
+
+        private bool IsAuthenticated()
+        {
+            return !string.IsNullOrEmpty(HttpContext.Session.GetString("userID"));
         }
     }
 }

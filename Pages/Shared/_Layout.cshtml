@@ -29,8 +29,8 @@
             width: 38px;
             height: 38px;
             border-radius: 50%;
-            background: rgba(255,255,255,0.2);
-            border: 2px solid rgba(255,255,255,0.5);
+            background: rgba(255,255,255,0.16);
+            border: 2px solid rgba(255,255,255,0.6);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -39,18 +39,18 @@
         }
 
         .profile-avatar:hover {
-            background: rgba(255,255,255,0.3);
-            border-color: var(--pet-secondary);
+            background: rgba(255,255,255,0.28);
+            border-color: #fff;
         }
 
         .profile-avatar svg {
             width: 22px;
             height: 22px;
-            fill: rgba(255,255,255,0.85);
+            fill: #fff;
         }
 
         .profile-welcome {
-            color: rgba(255,255,255,0.9);
+            color: #fff;
             font-size: 0.9rem;
             white-space: nowrap;
         }
@@ -118,79 +118,68 @@
 </head>
 <body>
     <header>
-        <nav class="navbar navbar-expand-sm navbar-dark fixed-top">
+        <nav class="navbar navbar-expand-lg navbar-dark site-navbar sticky-top" aria-label="Primary navigation">
             <div class="container">
-                
-                    <a class="navbar-brand" asp-page="@(Context.Session.GetString("name") != null ? "/Home" : "/Index")">
-                        <span class="paw"></span>Pack Tracker
-                    </a>
-                
+                <a class="navbar-brand" asp-page="@(Context.Session.GetString("userID") != null ? "/Home" : "/Index")">
+                    <span class="paw" aria-hidden="true">🐾</span>
+                    <span>PackTracker</span>
+                </a>
 
                 <button class="navbar-toggler" type="button"
                         data-bs-toggle="collapse"
-                        data-bs-target=".navbar-collapse"
-                        aria-controls="navbarSupportedContent"
+                        data-bs-target="#primaryNavigation"
+                        aria-controls="primaryNavigation"
                         aria-expanded="false"
                         aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
 
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link" asp-page="@(Context.Session.GetString("name") != null ? "/Home" : "/Login")">🏠 Home</a>
-                        </li>
-                        @if (Context.Session.GetString("name") != null)
-                        {
-                        <li class="nav-item">
-                            <a class="nav-link" asp-page="/Medications">💊 Medications</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" asp-page="/VetVisits">🏥 Vet Visits</a>
-                        </li>
-                        }
-                    </ul>
-
-                    @* Right side — only show when logged in *@
-                    @if (Context.Session.GetString("name") != null)
+                <div class="navbar-collapse collapse" id="primaryNavigation">
+                    @if (Context.Session.GetString("userID") != null)
                     {
-                        <ul class="navbar-nav align-items-center">
+                    <ul class="navbar-nav me-auto ms-lg-4">
+                        <li class="nav-item"><a class="nav-link" asp-page="/Home">🏠 Dashboard</a></li>
+                        <li class="nav-item"><a class="nav-link" asp-page="/Medications">💊 Medications</a></li>
+                        <li class="nav-item"><a class="nav-link" asp-page="/VetVisits">🏥 Vet Visits</a></li>
+                    </ul>
+                    }
+                    else
+                    {
+                    <ul class="navbar-nav me-auto ms-lg-4">
+                        <li class="nav-item"><a class="nav-link" asp-page="/Index" asp-fragment="features">✨ Features</a></li>
+                    </ul>
+                    }
+
+                    @if (Context.Session.GetString("userID") != null)
+                    {
+                        <ul class="navbar-nav align-items-lg-center">
                             <li class="nav-item profile-dropdown dropdown">
-                                <a class="nav-link dropdown-toggle d-flex align-items-center gap-2 pe-0"
+                                <a class="nav-link dropdown-toggle d-flex align-items-center gap-2 pe-lg-0"
                                    href="#"
                                    role="button"
                                    data-bs-toggle="dropdown"
                                    aria-expanded="false">
-                                    <span class="profile-welcome">
-                                        Welcome, @Context.Session.GetString("name")!
-                                    </span>
-                                    <div class="profile-avatar">
+                                    <span class="profile-welcome">Welcome, @Context.Session.GetString("name")!</span>
+                                    <div class="profile-avatar" aria-hidden="true">
                                         <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                             <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
                                         </svg>
                                     </div>
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end">
-                                    <li>
-                                        <a class="dropdown-item" asp-page="/Profile">
-                                            <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
-                                            </svg>
-                                            Edit Profile
-                                        </a>
-                                    </li>
+                                    <li><a class="dropdown-item" asp-page="/Profile">Edit Profile</a></li>
                                     <li><hr class="dropdown-divider" /></li>
-                                    <li>
-                                        <a class="dropdown-item dropdown-logout" asp-page="/Logout">
-                                            <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5-5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
-                                            </svg>
-                                            Logout
-                                        </a>
-                                    </li>
+                                    <li><a class="dropdown-item dropdown-logout" asp-page="/Logout">Logout</a></li>
                                 </ul>
                             </li>
                         </ul>
+                    }
+                    else
+                    {
+                        <div class="site-navbar-actions d-flex flex-column flex-lg-row gap-2 mt-3 mt-lg-0">
+                            <a asp-page="/Login" class="btn pt-btn-secondary">Log in</a>
+                            <a asp-page="/Signup" class="btn pt-btn-primary">Sign up</a>
+                        </div>
                     }
                 </div>
             </div>
