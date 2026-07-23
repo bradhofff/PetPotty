@@ -36,6 +36,10 @@ readable by the static-file middleware.
   `.jpg` are rejected in the modal without creating a pet or file.
 - Replace a pet image and confirm the old file is removed, the new file exists,
   and the database path changes.
+- Select a photo, drag and zoom it in the circular crop editor, and confirm the
+  pet card matches the portion shown inside the crop circle.
+- Use **Reset to default** and confirm the database path becomes `NULL`, the
+  uploaded file is removed, and the emoji placeholder returns.
 - Exercise the user2 reset process with an imaged pet. No user2 reset code is
   present in this repository, so also verify that the external reset process
   handles files referenced by the rows it deletes; otherwise those files need

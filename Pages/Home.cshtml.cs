@@ -184,6 +184,28 @@ namespace PetPotty.Pages
         }
 
         // ============================================================
+        // Reset Pet Profile Image
+        // ============================================================
+        public IActionResult OnPostResetPetImage()
+        {
+            if (!int.TryParse(HttpContext.Session.GetString("userID"), out int userID))
+                return RedirectToPage("/Login");
+
+            UserID = userID;
+            var pet = _petService.GetPetByID(UserID, EditPetID);
+            if (pet == null)
+                return RedirectToPage();
+
+            // Clear the database reference first so a filesystem cleanup issue
+            // can never leave the UI pointing at a missing image.
+            _petService.UpdatePetProfileImagePath(EditPetID, null);
+            _petImageStorage.Delete(pet.ProfileImagePath);
+
+            TempData["StatusMessage"] = $"{pet.Name}'s profile picture was reset.";
+            return RedirectToPage();
+        }
+
+        // ============================================================
         // Quick Log — instant Pee or Poop with current time, no modal
         // ============================================================
         public IActionResult OnPostQuickLog(int petID, string taskType, string? localTime = null)

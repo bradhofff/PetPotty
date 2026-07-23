@@ -84,6 +84,96 @@
         object-fit: cover;
         display: none;
     }
+    .pet-photo-actions {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin: -4px 0 14px;
+    }
+    .pet-photo-action {
+        border: 0;
+        background: transparent;
+        color: var(--pet-primary);
+        font-size: 0.82rem;
+        font-weight: 600;
+        padding: 3px 8px;
+    }
+    .pet-photo-action:hover { text-decoration: underline; }
+    .pet-photo-action.text-danger { color: #dc3545 !important; }
+
+    /* LinkedIn-style crop editor */
+    .pet-crop-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 2000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 18px;
+        background: rgba(18, 24, 31, 0.72);
+    }
+    .pet-crop-overlay.is-open { display: flex; }
+    .pet-crop-dialog {
+        width: min(440px, 100%);
+        border-radius: 16px;
+        background: white;
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.32);
+        overflow: hidden;
+    }
+    .pet-crop-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 18px;
+        border-bottom: 1px solid #e4e7eb;
+    }
+    .pet-crop-header h2 {
+        margin: 0;
+        color: var(--pet-dark);
+        font-size: 1.05rem;
+        font-weight: 700;
+    }
+    .pet-crop-body {
+        padding: 18px;
+        text-align: center;
+    }
+    .pet-crop-canvas-wrap {
+        width: min(320px, 100%);
+        aspect-ratio: 1;
+        margin: 0 auto;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #232a31;
+        cursor: grab;
+        touch-action: none;
+        user-select: none;
+    }
+    .pet-crop-canvas-wrap.is-dragging { cursor: grabbing; }
+    #petCropCanvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+    }
+    .pet-crop-help {
+        color: #6c757d;
+        font-size: 0.82rem;
+        margin: 10px 0 14px;
+    }
+    .pet-crop-zoom {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        max-width: 320px;
+        margin: 0 auto;
+    }
+    .pet-crop-zoom input { flex: 1; }
+    .pet-crop-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 14px 18px;
+        border-top: 1px solid #e4e7eb;
+    }
 
     /* Quick-log pill buttons */
     .quick-log-pill {
@@ -569,6 +659,12 @@ else
                             <img alt="Selected pet photo preview" />
                             <span>🐾</span>
                         </div>
+                        <div class="pet-photo-actions">
+                            <button type="button" class="pet-photo-action clear-selected-pet-image d-none"
+                                    data-input="NewPetImage" data-preview="addPetImagePreview" data-emoji="🐾">
+                                Use default
+                            </button>
+                        </div>
                         <div class="mb-3">
                             <label asp-for="NewPetImage" class="form-label">Profile picture <span class="text-muted">(optional)</span></label>
                             <input asp-for="NewPetImage" type="file" class="form-control pet-image-input"
@@ -643,6 +739,19 @@ else
                             <img alt="Current pet profile photo" />
                             <span>🐾</span>
                         </div>
+                        <div class="pet-photo-actions">
+                            <button type="button" class="pet-photo-action clear-selected-pet-image d-none"
+                                    id="cancelPetImageReplacement"
+                                    data-input="EditPetImage" data-preview="editPetImagePreview">
+                                Cancel replacement
+                            </button>
+                            <button type="submit" form="resetPetImageForm"
+                                    class="pet-photo-action text-danger d-none"
+                                    id="resetPetImageButton"
+                                    onclick="return confirm('Reset this pet profile picture to the default? The uploaded file will be removed.');">
+                                Reset to default
+                            </button>
+                        </div>
                         <div class="mb-3">
                             <label asp-for="EditPetImage" class="form-label">Replace profile picture <span class="text-muted">(optional)</span></label>
                             <input asp-for="EditPetImage" type="file" class="form-control pet-image-input"
@@ -693,6 +802,9 @@ else
 
                 <form method="post" asp-page-handler="DeletePet" id="deletePetForm">
                     <input type="hidden" name="EditPetID" id="deletePetID" />
+                </form>
+                <form method="post" asp-page-handler="ResetPetImage" id="resetPetImageForm">
+                    <input type="hidden" name="EditPetID" id="resetPetImageID" />
                 </form>
 
                 <div class="modal-footer d-flex justify-content-between">
@@ -810,6 +922,34 @@ else
         </div>
     </div>
 
+    @* PROFILE IMAGE CROP OVERLAY *@
+    <div class="pet-crop-overlay" id="petCropOverlay" role="dialog" aria-modal="true"
+         aria-labelledby="petCropTitle">
+        <div class="pet-crop-dialog">
+            <div class="pet-crop-header">
+                <h2 id="petCropTitle">Choose how the photo appears</h2>
+                <button type="button" class="btn-close" id="cancelPetCropTop" aria-label="Cancel cropping"></button>
+            </div>
+            <div class="pet-crop-body">
+                <div class="pet-crop-canvas-wrap" id="petCropCanvasWrap">
+                    <canvas id="petCropCanvas" width="320" height="320"
+                            aria-label="Drag the photo to position it inside the circular crop"></canvas>
+                </div>
+                <p class="pet-crop-help">Drag the photo to reposition it. The area inside the circle becomes the profile picture.</p>
+                <div class="pet-crop-zoom">
+                    <span aria-hidden="true">−</span>
+                    <input type="range" id="petCropZoom" min="1" max="3" value="1" step="0.01"
+                           aria-label="Photo zoom" />
+                    <span aria-hidden="true">＋</span>
+                </div>
+            </div>
+            <div class="pet-crop-footer">
+                <button type="button" class="btn btn-secondary" id="cancelPetCrop">Cancel</button>
+                <button type="button" class="btn btn-primary" id="applyPetCrop">Apply photo</button>
+            </div>
+        </div>
+    </div>
+
 } @* end @section Modals *@
 
 @section Scripts {
@@ -844,9 +984,119 @@ else
             else image.onerror();
         }
 
+        const currentEditImage = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.EditPetCurrentImagePath));
+        const cropOverlay = document.getElementById('petCropOverlay');
+        const cropCanvas = document.getElementById('petCropCanvas');
+        const cropCanvasWrap = document.getElementById('petCropCanvasWrap');
+        const cropContext = cropCanvas.getContext('2d');
+        const cropZoom = document.getElementById('petCropZoom');
+        const cropSize = 320;
+        const cropDiameter = 260;
+        const cropLeft = (cropSize - cropDiameter) / 2;
+        const previewUrls = new WeakMap();
+        let cropState = null;
+        let cropDragging = false;
+        let lastPointerX = 0;
+        let lastPointerY = 0;
+
+        function configureEditPhoto(imagePath, emoji, petID) {
+            const resetButton = document.getElementById('resetPetImageButton');
+            const clearReplacement = document.getElementById('cancelPetImageReplacement');
+            const editImageInput = document.getElementById('EditPetImage');
+            const priorPreviewUrl = previewUrls.get(editImageInput);
+            if (priorPreviewUrl) {
+                URL.revokeObjectURL(priorPreviewUrl);
+                previewUrls.delete(editImageInput);
+            }
+            editImageInput.value = '';
+            document.getElementById('resetPetImageID').value = petID || '';
+            resetButton.classList.toggle('d-none', !imagePath);
+            clearReplacement.classList.add('d-none');
+            clearReplacement.dataset.currentImage = imagePath || '';
+            clearReplacement.dataset.emoji = emoji || '🐾';
+            setPetImagePreview('editPetImagePreview', imagePath, emoji);
+        }
+
         if (modalToOpen === 'editPetModal') {
-            const currentEditImage = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.EditPetCurrentImagePath));
-            setPetImagePreview('editPetImagePreview', currentEditImage, '🐾');
+            configureEditPhoto(currentEditImage, '🐾', @Model.EditPetID);
+        }
+
+        function clampCropPosition() {
+            const drawnWidth = cropState.image.naturalWidth * cropState.scale * cropState.zoom;
+            const drawnHeight = cropState.image.naturalHeight * cropState.scale * cropState.zoom;
+            const maxX = Math.max(0, (drawnWidth - cropDiameter) / 2);
+            const maxY = Math.max(0, (drawnHeight - cropDiameter) / 2);
+            cropState.offsetX = Math.max(-maxX, Math.min(maxX, cropState.offsetX));
+            cropState.offsetY = Math.max(-maxY, Math.min(maxY, cropState.offsetY));
+        }
+
+        function drawCropEditor() {
+            if (!cropState) return;
+            clampCropPosition();
+
+            const drawnWidth = cropState.image.naturalWidth * cropState.scale * cropState.zoom;
+            const drawnHeight = cropState.image.naturalHeight * cropState.scale * cropState.zoom;
+            const imageX = (cropSize - drawnWidth) / 2 + cropState.offsetX;
+            const imageY = (cropSize - drawnHeight) / 2 + cropState.offsetY;
+
+            cropContext.clearRect(0, 0, cropSize, cropSize);
+            cropContext.drawImage(cropState.image, imageX, imageY, drawnWidth, drawnHeight);
+
+            cropContext.save();
+            cropContext.beginPath();
+            cropContext.rect(0, 0, cropSize, cropSize);
+            cropContext.arc(cropSize / 2, cropSize / 2, cropDiameter / 2, 0, Math.PI * 2, true);
+            cropContext.fillStyle = 'rgba(8, 13, 18, 0.68)';
+            cropContext.fill('evenodd');
+            cropContext.restore();
+
+            cropContext.beginPath();
+            cropContext.arc(cropSize / 2, cropSize / 2, cropDiameter / 2, 0, Math.PI * 2);
+            cropContext.strokeStyle = '#ffffff';
+            cropContext.lineWidth = 3;
+            cropContext.stroke();
+        }
+
+        function closeCropEditor(clearSelection) {
+            if (!cropState) return;
+            const input = cropState.input;
+            if (clearSelection) input.value = '';
+            URL.revokeObjectURL(cropState.sourceUrl);
+            cropState = null;
+            cropDragging = false;
+            cropCanvasWrap.classList.remove('is-dragging');
+            cropOverlay.classList.remove('is-open');
+            document.body.style.overflow = '';
+            input.focus();
+        }
+
+        function openCropEditor(input, file) {
+            const sourceUrl = URL.createObjectURL(file);
+            const image = new Image();
+            image.onload = () => {
+                cropState = {
+                    input,
+                    image,
+                    sourceUrl,
+                    scale: Math.max(cropDiameter / image.naturalWidth, cropDiameter / image.naturalHeight),
+                    zoom: 1,
+                    offsetX: 0,
+                    offsetY: 0
+                };
+                cropZoom.value = '1';
+                cropOverlay.classList.add('is-open');
+                document.body.style.overflow = 'hidden';
+                drawCropEditor();
+                document.getElementById('applyPetCrop').focus();
+            };
+            image.onerror = () => {
+                URL.revokeObjectURL(sourceUrl);
+                input.value = '';
+                input.classList.add('is-invalid');
+                input.parentElement.querySelector('.pet-image-client-error').textContent =
+                    'The selected image could not be opened.';
+            };
+            image.src = sourceUrl;
         }
 
         document.querySelectorAll('.pet-image-input').forEach(input => {
@@ -870,7 +1120,107 @@ else
                     return;
                 }
 
-                setPetImagePreview(this.dataset.preview, URL.createObjectURL(file), '🐾');
+                openCropEditor(this, file);
+            });
+        });
+
+        cropZoom.addEventListener('input', function () {
+            if (!cropState) return;
+            cropState.zoom = Number(this.value);
+            drawCropEditor();
+        });
+
+        cropCanvasWrap.addEventListener('pointerdown', event => {
+            if (!cropState) return;
+            cropDragging = true;
+            lastPointerX = event.clientX;
+            lastPointerY = event.clientY;
+            cropCanvasWrap.classList.add('is-dragging');
+            cropCanvasWrap.setPointerCapture(event.pointerId);
+        });
+
+        cropCanvasWrap.addEventListener('pointermove', event => {
+            if (!cropDragging || !cropState) return;
+            const rect = cropCanvas.getBoundingClientRect();
+            cropState.offsetX += (event.clientX - lastPointerX) * (cropSize / rect.width);
+            cropState.offsetY += (event.clientY - lastPointerY) * (cropSize / rect.height);
+            lastPointerX = event.clientX;
+            lastPointerY = event.clientY;
+            drawCropEditor();
+        });
+
+        function finishCropDrag() {
+            cropDragging = false;
+            cropCanvasWrap.classList.remove('is-dragging');
+        }
+        cropCanvasWrap.addEventListener('pointerup', finishCropDrag);
+        cropCanvasWrap.addEventListener('pointercancel', finishCropDrag);
+
+        document.getElementById('cancelPetCrop').addEventListener('click', () => closeCropEditor(true));
+        document.getElementById('cancelPetCropTop').addEventListener('click', () => closeCropEditor(true));
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && cropState) closeCropEditor(true);
+        });
+
+        document.getElementById('applyPetCrop').addEventListener('click', function () {
+            if (!cropState) return;
+
+            const outputSize = 512;
+            const outputCanvas = document.createElement('canvas');
+            outputCanvas.width = outputSize;
+            outputCanvas.height = outputSize;
+            const outputContext = outputCanvas.getContext('2d');
+            const drawnWidth = cropState.image.naturalWidth * cropState.scale * cropState.zoom;
+            const drawnHeight = cropState.image.naturalHeight * cropState.scale * cropState.zoom;
+            const imageX = (cropSize - drawnWidth) / 2 + cropState.offsetX;
+            const imageY = (cropSize - drawnHeight) / 2 + cropState.offsetY;
+            const outputScale = outputSize / cropDiameter;
+
+            outputContext.drawImage(
+                cropState.image,
+                (imageX - cropLeft) * outputScale,
+                (imageY - cropLeft) * outputScale,
+                drawnWidth * outputScale,
+                drawnHeight * outputScale
+            );
+
+            const activeState = cropState;
+            outputCanvas.toBlob(blob => {
+                if (!blob || cropState !== activeState) return;
+
+                const croppedFile = new File([blob], 'pet-profile.jpg', {
+                    type: 'image/jpeg',
+                    lastModified: Date.now()
+                });
+                const transfer = new DataTransfer();
+                transfer.items.add(croppedFile);
+                activeState.input.files = transfer.files;
+
+                const priorPreviewUrl = previewUrls.get(activeState.input);
+                if (priorPreviewUrl) URL.revokeObjectURL(priorPreviewUrl);
+                const previewUrl = URL.createObjectURL(blob);
+                previewUrls.set(activeState.input, previewUrl);
+                setPetImagePreview(activeState.input.dataset.preview, previewUrl, '🐾');
+
+                const clearButton = document.querySelector(
+                    `.clear-selected-pet-image[data-input="${activeState.input.id}"]`
+                );
+                if (clearButton) clearButton.classList.remove('d-none');
+                closeCropEditor(false);
+            }, 'image/jpeg', 0.9);
+        });
+
+        document.querySelectorAll('.clear-selected-pet-image').forEach(button => {
+            button.addEventListener('click', function () {
+                const input = document.getElementById(this.dataset.input);
+                input.value = '';
+                const previewUrl = previewUrls.get(input);
+                if (previewUrl) {
+                    URL.revokeObjectURL(previewUrl);
+                    previewUrls.delete(input);
+                }
+                setPetImagePreview(this.dataset.preview, this.dataset.currentImage || '', this.dataset.emoji || '🐾');
+                this.classList.add('d-none');
             });
         });
 
@@ -959,8 +1309,7 @@ else
                 document.getElementById('editPetAge').value       = this.dataset.petAge;
                 document.getElementById('editPetBirthdate').value = this.dataset.petBirthdate;
                 document.getElementById('editPetGender').value    = this.dataset.petGender;
-                document.getElementById('EditPetImage').value     = '';
-                setPetImagePreview('editPetImagePreview', this.dataset.petImage, this.dataset.petEmoji);
+                configureEditPhoto(this.dataset.petImage, this.dataset.petEmoji, this.dataset.petId);
             });
         });
 
