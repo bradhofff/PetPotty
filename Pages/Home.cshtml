@@ -63,6 +63,26 @@
         display: flex; align-items: center; justify-content: center;
         font-size: 1.7rem;
         flex-shrink: 0;
+        overflow: hidden;
+    }
+    .pet-avatar img {
+        width: 52px; height: 52px;
+        object-fit: cover;
+        display: block;
+    }
+    .pet-image-preview {
+        width: 88px; height: 88px;
+        border-radius: 50%;
+        background: rgba(244,164,96,0.22);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 2.4rem;
+        overflow: hidden;
+        margin: 0 auto 12px;
+    }
+    .pet-image-preview img {
+        width: 88px; height: 88px;
+        object-fit: cover;
+        display: none;
     }
 
     /* Quick-log pill buttons */
@@ -321,13 +341,26 @@ else
                             data-pet-age="@pet.Age"
                             data-pet-birthdate="@petBirthdate"
                             data-pet-gender="@pet.Gender"
+                            data-pet-image="@pet.ProfileImagePath"
+                            data-pet-emoji="@petEmoji"
                             title="Edit @pet.Name">
                         ✏️
                     </button>
 
                     @* Avatar + info *@
                     <div class="d-flex align-items-center gap-3 mb-3">
-                        <div class="pet-avatar">@petEmoji</div>
+                        <div class="pet-avatar">
+                            @if (!string.IsNullOrWhiteSpace(pet.ProfileImagePath))
+                            {
+                                <img src="@pet.ProfileImagePath" alt="@pet.Name profile photo"
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';" />
+                                <span style="display:none">@petEmoji</span>
+                            }
+                            else
+                            {
+                                <span>@petEmoji</span>
+                            }
+                        </div>
                         <div>
                             <div class="d-flex align-items-center gap-2 flex-wrap">
                                 <span class="fw-bold" style="font-size: 1.1rem; color: var(--pet-dark);">@pet.Name</span>
@@ -526,8 +559,23 @@ else
                     <h5 class="modal-title" id="addPetModalLabel">🐾 Add New Pet</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form method="post" asp-page-handler="AddPet">
+                <form method="post" asp-page-handler="AddPet" enctype="multipart/form-data" id="addPetForm">
                     <div class="modal-body">
+                        @if (Model.ModalToOpen == "addPetModal" && Model.PetImageError != null)
+                        {
+                            <div class="alert alert-danger" role="alert">@Model.PetImageError</div>
+                        }
+                        <div class="pet-image-preview" id="addPetImagePreview">
+                            <img alt="Selected pet photo preview" />
+                            <span>🐾</span>
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="NewPetImage" class="form-label">Profile picture <span class="text-muted">(optional)</span></label>
+                            <input asp-for="NewPetImage" type="file" class="form-control pet-image-input"
+                                   accept="image/jpeg,image/png,.jpg,.jpeg,.png" data-preview="addPetImagePreview" />
+                            <div class="form-text">JPEG or PNG, up to 2 MB.</div>
+                            <div class="invalid-feedback pet-image-client-error"></div>
+                        </div>
                         <div class="mb-3">
                             <label class="form-label">Name</label>
                             <input asp-for="NewPetName" class="form-control" required />
@@ -584,9 +632,24 @@ else
                     <h5 class="modal-title" id="editPetModalLabel">✏️ Edit Pet</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form method="post" asp-page-handler="EditPet" id="editPetForm">
+                <form method="post" asp-page-handler="EditPet" enctype="multipart/form-data" id="editPetForm">
                     <input type="hidden" asp-for="EditPetID" id="editPetID" />
                     <div class="modal-body">
+                        @if (Model.ModalToOpen == "editPetModal" && Model.PetImageError != null)
+                        {
+                            <div class="alert alert-danger" role="alert">@Model.PetImageError</div>
+                        }
+                        <div class="pet-image-preview" id="editPetImagePreview">
+                            <img alt="Current pet profile photo" />
+                            <span>🐾</span>
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="EditPetImage" class="form-label">Replace profile picture <span class="text-muted">(optional)</span></label>
+                            <input asp-for="EditPetImage" type="file" class="form-control pet-image-input"
+                                   accept="image/jpeg,image/png,.jpg,.jpeg,.png" data-preview="editPetImagePreview" />
+                            <div class="form-text">JPEG or PNG, up to 2 MB.</div>
+                            <div class="invalid-feedback pet-image-client-error"></div>
+                        </div>
                         <div class="mb-3">
                             <label class="form-label">Name</label>
                             <input asp-for="EditPetName" class="form-control" id="editPetName" required />
@@ -758,6 +821,59 @@ else
             }, 10000);
         }
 
+        const modalToOpen = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ModalToOpen));
+        if (modalToOpen) {
+            bootstrap.Modal.getOrCreateInstance(document.getElementById(modalToOpen)).show();
+        }
+
+        function setPetImagePreview(previewID, imagePath, emoji) {
+            const preview = document.getElementById(previewID);
+            const image = preview.querySelector('img');
+            const fallback = preview.querySelector('span');
+            image.onload = () => {
+                image.style.display = 'block';
+                fallback.style.display = 'none';
+            };
+            image.onerror = () => {
+                image.style.display = 'none';
+                image.removeAttribute('src');
+                fallback.style.display = 'inline';
+            };
+            fallback.textContent = emoji || '🐾';
+            if (imagePath) image.src = imagePath;
+            else image.onerror();
+        }
+
+        if (modalToOpen === 'editPetModal') {
+            const currentEditImage = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.EditPetCurrentImagePath));
+            setPetImagePreview('editPetImagePreview', currentEditImage, '🐾');
+        }
+
+        document.querySelectorAll('.pet-image-input').forEach(input => {
+            input.addEventListener('change', function () {
+                const file = this.files[0];
+                const error = this.parentElement.querySelector('.pet-image-client-error');
+                this.classList.remove('is-invalid');
+                error.textContent = '';
+                if (!file) return;
+
+                if (file.size > 2 * 1024 * 1024) {
+                    this.value = '';
+                    this.classList.add('is-invalid');
+                    error.textContent = 'The pet photo must be 2 MB or smaller.';
+                    return;
+                }
+                if (!['image/jpeg', 'image/png'].includes(file.type)) {
+                    this.value = '';
+                    this.classList.add('is-invalid');
+                    error.textContent = 'Only JPEG and PNG pet photos are allowed.';
+                    return;
+                }
+
+                setPetImagePreview(this.dataset.preview, URL.createObjectURL(file), '🐾');
+            });
+        });
+
         function formatLocalDateKey(date) {
             return date.getFullYear() + '-' +
                 String(date.getMonth() + 1).padStart(2, '0') + '-' +
@@ -843,6 +959,8 @@ else
                 document.getElementById('editPetAge').value       = this.dataset.petAge;
                 document.getElementById('editPetBirthdate').value = this.dataset.petBirthdate;
                 document.getElementById('editPetGender').value    = this.dataset.petGender;
+                document.getElementById('EditPetImage').value     = '';
+                setPetImagePreview('editPetImagePreview', this.dataset.petImage, this.dataset.petEmoji);
             });
         });
 

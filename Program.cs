@@ -6,6 +6,7 @@
 // ============================================================
 
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.Extensions.FileProviders;
 using PetPotty.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -51,6 +52,7 @@ builder.Services.AddAuthorization();
 // This is the .NET Core way — no more static helper classes or newing up data access objects.
 builder.Services.AddScoped<IPetService, PetService>();
 builder.Services.AddScoped<IMedicationService, MedicationService>();
+builder.Services.AddSingleton<IPetImageStorage, PetImageStorage>();
 
 // --------------------
 // Build the app
@@ -71,6 +73,18 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles(); // Serves wwwroot files (CSS, JS, images)
+
+var configuredUploadRoot = builder.Configuration["PetImages:UploadRoot"]
+    ?? (app.Environment.IsDevelopment() ? "uploads" : "/var/www/petpotty/uploads");
+var uploadRoot = Path.IsPathRooted(configuredUploadRoot)
+    ? configuredUploadRoot
+    : Path.GetFullPath(configuredUploadRoot, app.Environment.ContentRootPath);
+Directory.CreateDirectory(uploadRoot);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(uploadRoot),
+    RequestPath = "/uploads"
+});
 app.UseRouting();     // Figures out which page/route handles this request
 
 // Session must come BEFORE UseAuthentication so session is available during auth

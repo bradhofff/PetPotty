@@ -21,5 +21,6 @@ namespace PetPotty.Models
         public DateTime Birthdate { get; set; }
         public string Gender { get; set; } = string.Empty;
         public DateTime createdAt { get; set; }
+        public string? ProfileImagePath { get; set; }
     }
 }

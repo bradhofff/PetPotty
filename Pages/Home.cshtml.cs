@@ -8,10 +8,14 @@ namespace PetPotty.Pages
     public class HomeModel : PageModel
     {
         private readonly IPetService _petService;
+        private readonly IPetImageStorage _petImageStorage;
+        private readonly ILogger<HomeModel> _logger;
 
-        public HomeModel(IPetService petService)
+        public HomeModel(IPetService petService, IPetImageStorage petImageStorage, ILogger<HomeModel> logger)
         {
             _petService = petService;
+            _petImageStorage = petImageStorage;
+            _logger = logger;
         }
 
         public string UserName { get; set; } = string.Empty;
@@ -21,6 +25,9 @@ namespace PetPotty.Pages
         public Dictionary<int, List<TaskItem>> PetAllTasks { get; set; } = new();
 
         public bool ShowAllTime { get; set; } = false;
+        public string? PetImageError { get; set; }
+        public string? ModalToOpen { get; set; }
+        public string? EditPetCurrentImagePath { get; set; }
 
         // Add Pet fields
         [BindProperty] public string NewPetName { get; set; } = string.Empty;
@@ -29,6 +36,7 @@ namespace PetPotty.Pages
         [BindProperty] public string NewPetAge { get; set; } = string.Empty;
         [BindProperty] public DateTime NewPetBirthdate { get; set; } = DateTime.Today;
         [BindProperty] public string NewPetGender { get; set; } = string.Empty;
+        [BindProperty] public IFormFile? NewPetImage { get; set; }
 
         // Edit Pet fields
         [BindProperty] public int EditPetID { get; set; }
@@ -38,6 +46,7 @@ namespace PetPotty.Pages
         [BindProperty] public string EditPetAge { get; set; } = string.Empty;
         [BindProperty] public DateTime EditPetBirthdate { get; set; } = DateTime.Today;
         [BindProperty] public string EditPetGender { get; set; } = string.Empty;
+        [BindProperty] public IFormFile? EditPetImage { get; set; }
 
         // Add Task fields
         [BindProperty] public int NewTaskPetID { get; set; }
@@ -70,14 +79,41 @@ namespace PetPotty.Pages
         // ============================================================
         // Add Pet
         // ============================================================
-        public IActionResult OnPostAddPet()
+        public async Task<IActionResult> OnPostAddPetAsync()
         {
             if (!int.TryParse(HttpContext.Session.GetString("userID"), out int userID))
                 return RedirectToPage("/Login");
 
             UserID = userID;
-            _petService.AddPet(UserID, NewPetName, NewPetType, NewPetBreed,
-                               NewPetAge, NewPetBirthdate, NewPetGender);
+            var validationError = _petImageStorage.Validate(NewPetImage);
+            if (validationError != null)
+                return ShowPetModalError("addPetModal", validationError);
+
+            var petID = 0;
+            string? savedImagePath = null;
+            try
+            {
+                petID = _petService.AddPet(UserID, NewPetName, NewPetType, NewPetBreed,
+                                           NewPetAge, NewPetBirthdate, NewPetGender);
+
+                if (NewPetImage != null && NewPetImage.Length > 0)
+                {
+                    savedImagePath = await _petImageStorage.SaveAsync(petID, NewPetImage, HttpContext.RequestAborted);
+                    _petService.UpdatePetProfileImagePath(petID, savedImagePath);
+                }
+            }
+            catch (Exception ex)
+            {
+                _petImageStorage.Delete(savedImagePath);
+                if (petID != 0)
+                {
+                    try { _petService.DeletePet(petID); }
+                    catch (Exception cleanupEx) { _logger.LogWarning(cleanupEx, "Could not roll back pet {PetID} after image upload failed", petID); }
+                }
+
+                _logger.LogError(ex, "Could not add pet and profile image for user {UserID}", UserID);
+                return ShowPetModalError("addPetModal", "The pet photo could not be saved. Please try again.");
+            }
 
             TempData["StatusMessage"] = $"{NewPetName} has been added!";
             return RedirectToPage();
@@ -86,14 +122,42 @@ namespace PetPotty.Pages
         // ============================================================
         // Edit Pet
         // ============================================================
-        public IActionResult OnPostEditPet()
+        public async Task<IActionResult> OnPostEditPetAsync()
         {
             if (!int.TryParse(HttpContext.Session.GetString("userID"), out int userID))
                 return RedirectToPage("/Login");
 
             UserID = userID;
-            _petService.EditPet(EditPetID, EditPetName, EditPetType, EditPetBreed,
-                                EditPetAge, EditPetBirthdate, EditPetGender);
+            var pet = _petService.GetPetByID(UserID, EditPetID);
+            if (pet == null)
+                return ShowPetModalError("editPetModal", "That pet could not be found.");
+
+            EditPetCurrentImagePath = pet.ProfileImagePath;
+            var validationError = _petImageStorage.Validate(EditPetImage);
+            if (validationError != null)
+                return ShowPetModalError("editPetModal", validationError);
+
+            string? newImagePath = null;
+            try
+            {
+                if (EditPetImage != null && EditPetImage.Length > 0)
+                    newImagePath = await _petImageStorage.SaveAsync(EditPetID, EditPetImage, HttpContext.RequestAborted);
+
+                _petService.EditPet(EditPetID, EditPetName, EditPetType, EditPetBreed,
+                                    EditPetAge, EditPetBirthdate, EditPetGender);
+
+                if (newImagePath != null)
+                {
+                    _petImageStorage.Delete(pet.ProfileImagePath);
+                    _petService.UpdatePetProfileImagePath(EditPetID, newImagePath);
+                }
+            }
+            catch (Exception ex)
+            {
+                _petImageStorage.Delete(newImagePath);
+                _logger.LogError(ex, "Could not update pet {PetID} and its profile image", EditPetID);
+                return ShowPetModalError("editPetModal", "The pet photo could not be saved. Please try again.");
+            }
 
             TempData["StatusMessage"] = $"{EditPetName} has been updated!";
             return RedirectToPage();
@@ -108,7 +172,12 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            var pet = _petService.GetPetByID(UserID, EditPetID);
+            if (pet == null)
+                return RedirectToPage();
+
             _petService.DeletePet(EditPetID);
+            _petImageStorage.Delete(pet.ProfileImagePath);
 
             TempData["StatusMessage"] = "Pet has been deleted.";
             return RedirectToPage();
@@ -254,6 +323,16 @@ namespace PetPotty.Pages
         private bool GetShowAllTime()
         {
             return bool.TryParse(HttpContext.Session.GetString("homeShowAllTime"), out var showAllTime) && showAllTime;
+        }
+
+        private PageResult ShowPetModalError(string modalID, string message)
+        {
+            PetImageError = message;
+            ModalToOpen = modalID;
+            UserName = HttpContext.Session.GetString("name") ?? string.Empty;
+            ShowAllTime = GetShowAllTime();
+            LoadData();
+            return Page();
         }
 
         private void LoadData()

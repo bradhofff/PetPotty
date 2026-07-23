@@ -36,7 +36,10 @@ namespace PetPotty.Services
                     Breed     = reader["breed"].ToString() ?? string.Empty,
                     Age       = reader["age"].ToString() ?? string.Empty,
                     Birthdate = reader.GetDateTime(reader.GetOrdinal("birthdate")),
-                    Gender    = reader["gender"].ToString() ?? string.Empty
+                    Gender    = reader["gender"].ToString() ?? string.Empty,
+                    ProfileImagePath = reader.IsDBNull(reader.GetOrdinal("ProfileImagePath"))
+                        ? null
+                        : reader.GetString(reader.GetOrdinal("ProfileImagePath"))
                 });
             }
             return pets;
@@ -71,7 +74,12 @@ namespace PetPotty.Services
             return tasks;
         }
 
-        public void AddPet(int userID, string name, string type, string breed, string age, DateTime birthdate, string gender)
+        public Pet? GetPetByID(int userID, int petID)
+        {
+            return GetPetsByUser(userID).FirstOrDefault(pet => pet.PetID == petID);
+        }
+
+        public int AddPet(int userID, string name, string type, string breed, string age, DateTime birthdate, string gender)
         {
             using var conn = new SqlConnection(_connStr);
             using var cmd = new SqlCommand("AddPet", conn)
@@ -87,7 +95,11 @@ namespace PetPotty.Services
             cmd.Parameters.AddWithValue("@gender", gender);
             cmd.Parameters.AddWithValue("@createdAt", DateTime.Now);
             conn.Open();
-            cmd.ExecuteNonQuery();
+            var result = cmd.ExecuteScalar();
+            if (result == null || result == DBNull.Value)
+                throw new InvalidOperationException("AddPet did not return the new pet ID. Apply the profile-image migration first.");
+
+            return Convert.ToInt32(result);
         }
 
         public void EditPet(int petID, string name, string type, string breed, string age, DateTime birthdate, string gender)
@@ -104,6 +116,20 @@ namespace PetPotty.Services
             cmd.Parameters.AddWithValue("@age", age);
             cmd.Parameters.AddWithValue("@birthdate", birthdate);
             cmd.Parameters.AddWithValue("@gender", gender);
+            conn.Open();
+            cmd.ExecuteNonQuery();
+        }
+
+        public void UpdatePetProfileImagePath(int petID, string? profileImagePath)
+        {
+            using var conn = new SqlConnection(_connStr);
+            using var cmd = new SqlCommand("UpdatePetProfileImagePath", conn)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
+            cmd.Parameters.AddWithValue("@petID", petID);
+            cmd.Parameters.Add("@ProfileImagePath", SqlDbType.NVarChar, 255).Value =
+                profileImagePath == null ? DBNull.Value : profileImagePath;
             conn.Open();
             cmd.ExecuteNonQuery();
         }
