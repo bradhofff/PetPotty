@@ -115,6 +115,13 @@ namespace PetPotty.Services
             {
                 if (File.Exists(physicalPath))
                     File.Delete(physicalPath);
+                var visitDirectory = Path.GetDirectoryName(physicalPath);
+                if (visitDirectory != null
+                    && Directory.Exists(visitDirectory)
+                    && !Directory.EnumerateFileSystemEntries(visitDirectory).Any())
+                {
+                    Directory.Delete(visitDirectory);
+                }
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {

@@ -53,9 +53,11 @@ namespace PetPotty.Models
         public TimeSpan? VisitTime { get; set; }
         public bool IsAllDay { get; set; }
 
+        [Required(ErrorMessage = "Clinic name is required.")]
         [StringLength(200)]
         public string ClinicName { get; set; } = string.Empty;
 
+        [Required(ErrorMessage = "Veterinarian is required.")]
         [StringLength(150)]
         public string VeterinarianName { get; set; } = string.Empty;
 
@@ -67,9 +69,11 @@ namespace PetPotty.Models
         [StringLength(50)]
         public string VisitType { get; set; } = "Wellness exam";
 
+        [Required(ErrorMessage = "Clinic address or location is required.")]
         [StringLength(400)]
         public string Location { get; set; } = string.Empty;
 
+        [Required(ErrorMessage = "Clinic phone number is required.")]
         [Phone]
         [StringLength(50)]
         public string PhoneNumber { get; set; } = string.Empty;
@@ -79,21 +83,30 @@ namespace PetPotty.Models
         public string Status { get; set; } = "Scheduled";
 
         [StringLength(4000)]
-        public string Notes { get; set; } = string.Empty;
+        public string? Notes { get; set; }
 
         [DataType(DataType.Date)]
         public DateTime? FollowUpDate { get; set; }
 
+        [Required(ErrorMessage = "Cost is required.")]
         [Range(typeof(decimal), "0", "99999999.99", ErrorMessage = "Cost cannot be negative.")]
         public decimal? Cost { get; set; }
         public bool IsEmergency { get; set; }
 
         [StringLength(2000)]
-        public string PreparationInstructions { get; set; } = string.Empty;
+        public string? PreparationInstructions { get; set; }
         public string ReminderChoice { get; set; } = "OneDay";
 
         [DataType(DataType.DateTime)]
         public DateTime? CustomReminderAt { get; set; }
+    }
+
+    public class VetClinicOption
+    {
+        public string ClinicName { get; set; } = string.Empty;
+        public string VeterinarianName { get; set; } = string.Empty;
+        public string Location { get; set; } = string.Empty;
+        public string PhoneNumber { get; set; } = string.Empty;
     }
 
     public class CompleteVetVisitInput
@@ -105,19 +118,19 @@ namespace PetPotty.Models
         public string VisitSummary { get; set; } = string.Empty;
 
         [StringLength(2000)]
-        public string Diagnosis { get; set; } = string.Empty;
+        public string? Diagnosis { get; set; }
 
         [StringLength(4000)]
-        public string TreatmentProvided { get; set; } = string.Empty;
+        public string? TreatmentProvided { get; set; }
 
         [StringLength(2000)]
-        public string VaccinationsReceived { get; set; } = string.Empty;
+        public string? VaccinationsReceived { get; set; }
 
         [StringLength(2000)]
-        public string Prescriptions { get; set; } = string.Empty;
+        public string? Prescriptions { get; set; }
 
         [StringLength(4000)]
-        public string FollowUpInstructions { get; set; } = string.Empty;
+        public string? FollowUpInstructions { get; set; }
 
         [DataType(DataType.Date)]
         public DateTime? FollowUpDate { get; set; }
@@ -126,7 +139,7 @@ namespace PetPotty.Models
         public decimal? FinalCost { get; set; }
 
         [StringLength(4000)]
-        public string AdditionalNotes { get; set; } = string.Empty;
+        public string? AdditionalNotes { get; set; }
     }
 
     public class VetVisitDocument

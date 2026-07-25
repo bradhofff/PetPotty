@@ -53,6 +53,7 @@ namespace PetPotty.Pages
         public List<VetVisit> UpcomingVisits { get; set; } = [];
         public List<VetVisit> PastVisits { get; set; } = [];
         public List<VetVisit> DueReminders { get; set; } = [];
+        public List<VetClinicOption> ClinicOptions { get; set; } = [];
         public Dictionary<int, List<VetVisitDocument>> DocumentsByVisit { get; set; } = [];
         public Dictionary<int, List<VetVisitHistory>> HistoryByVisit { get; set; } = [];
 
@@ -72,7 +73,6 @@ namespace PetPotty.Pages
             if (!TryGetUserID(out var userID))
                 return RedirectToPage("/Login");
 
-            RemoveModelStatePrefixes(nameof(EditVisit), nameof(Completion));
             UserID = userID;
             Sort = sort is "Newest" or "Oldest" ? sort : "Soonest";
             LoadPageData(petID);
@@ -88,7 +88,7 @@ namespace PetPotty.Pages
             if (!TryGetUserID(out var userID))
                 return RedirectToPage("/Login");
 
-            RemoveModelStatePrefixes(nameof(NewVisit), nameof(Completion));
+            RevalidateForm(NewVisit, nameof(NewVisit));
             UserID = userID;
             LoadPets();
             ValidateVisit(NewVisit, nameof(NewVisit));
@@ -129,6 +129,7 @@ namespace PetPotty.Pages
             if (!TryGetUserID(out var userID))
                 return RedirectToPage("/Login");
 
+            RevalidateForm(EditVisit, nameof(EditVisit));
             UserID = userID;
             LoadPets();
             if (_vetVisitService.GetVisit(userID, EditVisit.VetVisitID) == null)
@@ -144,7 +145,10 @@ namespace PetPotty.Pages
             try
             {
                 if (!_vetVisitService.UpdateVisit(userID, EditVisit, reminderAt))
-                    return Forbid();
+                {
+                    ModelState.AddModelError(string.Empty, "The visit could not be updated because it changed or no longer meets the visit requirements.");
+                    return ShowModal("editVisitModal", EditVisit.PetID);
+                }
 
                 TempData["StatusMessage"] = "Vet visit updated.";
                 return RedirectToPage(new { petID = EditVisit.PetID, visitID = EditVisit.VetVisitID });
@@ -184,7 +188,7 @@ namespace PetPotty.Pages
             var visit = _vetVisitService.GetVisit(userID, Completion.VetVisitID);
             if (visit == null)
                 return Forbid();
-            RemoveModelStatePrefixes(nameof(NewVisit), nameof(EditVisit));
+            RevalidateForm(Completion, nameof(Completion));
             if (Completion.FollowUpDate.HasValue && Completion.FollowUpDate.Value.Date < visit.VisitDate.Date)
                 ModelState.AddModelError("Completion.FollowUpDate", "Follow-up date cannot be earlier than the visit.");
             if (CompletionDocument is { Length: > 0 })
@@ -233,11 +237,27 @@ namespace PetPotty.Pages
             var visit = _vetVisitService.GetVisit(userID, vetVisitID);
             if (visit == null)
                 return Forbid();
+            var storedDocumentPaths = _vetVisitService
+                .GetDocuments(userID, vetVisitID)
+                .Select(document => document.StoredPath)
+                .ToList();
 
-            if (_vetVisitService.DeleteVisit(userID, vetVisitID))
-                TempData["StatusMessage"] = "Visit deleted.";
-            else
-                TempData["StatusMessage"] = "Completed visits or visits with documents cannot be deleted. Cancel the appointment or remove its documents first.";
+            try
+            {
+                if (_vetVisitService.DeleteVisit(userID, vetVisitID))
+                {
+                    foreach (var storedPath in storedDocumentPaths)
+                        _documentStorage.Delete(storedPath);
+                    TempData["StatusMessage"] = "Vet visit and all associated records were permanently deleted.";
+                }
+                else
+                    TempData["StatusMessage"] = "The vet visit could not be deleted because it no longer exists or is not available.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Could not delete vet visit {VetVisitID}", vetVisitID);
+                TempData["StatusMessage"] = "The vet visit could not be deleted. Make sure the updated Vet Visits database procedures have been applied.";
+            }
             return RedirectToPage(new { petID = visit.PetID });
         }
 
@@ -384,6 +404,22 @@ namespace PetPotty.Pages
                 ? requestedPetID
                 : null;
             Visits = _vetVisitService.GetVisits(UserID, SelectedPetID);
+            var clinicVisits = SelectedPetID.HasValue
+                ? _vetVisitService.GetVisits(UserID)
+                : Visits;
+            ClinicOptions = clinicVisits
+                .Where(visit => !string.IsNullOrWhiteSpace(visit.ClinicName))
+                .GroupBy(visit => visit.ClinicName.Trim(), StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.OrderByDescending(visit => visit.UpdatedAt).First())
+                .OrderBy(visit => visit.ClinicName)
+                .Select(visit => new VetClinicOption
+                {
+                    ClinicName = visit.ClinicName.Trim(),
+                    VeterinarianName = visit.VeterinarianName.Trim(),
+                    Location = visit.Location.Trim(),
+                    PhoneNumber = visit.PhoneNumber.Trim()
+                })
+                .ToList();
 
             var activeStatuses = new[] { "Scheduled", "Confirmed", "Rescheduled" };
             UpcomingVisits = Visits
@@ -524,15 +560,10 @@ namespace PetPotty.Pages
             return safeName.Length <= 240 ? safeName : safeName[..240];
         }
 
-        private void RemoveModelStatePrefixes(params string[] prefixes)
+        private void RevalidateForm(object input, string prefix)
         {
-            var keys = ModelState.Keys
-                .Where(key => prefixes.Any(prefix =>
-                    key.Equals(prefix, StringComparison.Ordinal)
-                    || key.StartsWith($"{prefix}.", StringComparison.Ordinal)))
-                .ToList();
-            foreach (var key in keys)
-                ModelState.Remove(key);
+            ModelState.Clear();
+            TryValidateModel(input, prefix);
         }
     }
 }

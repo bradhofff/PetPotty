@@ -6,9 +6,6 @@ namespace PetPotty.Services
 {
     public sealed class VetVisitService : IVetVisitService
     {
-        private static readonly HashSet<string> ActiveStatuses =
-            new(StringComparer.OrdinalIgnoreCase) { "Scheduled", "Confirmed", "Rescheduled" };
-
         private readonly string _connectionString;
 
         public VetVisitService(IConfiguration configuration)
@@ -81,148 +78,54 @@ namespace PetPotty.Services
         public int AddVisit(int userID, VetVisitInput input, DateTime? reminderAt)
         {
             using var connection = OpenConnection();
-            using var transaction = connection.BeginTransaction();
-
-            if (!OwnsPet(connection, transaction, userID, input.PetID))
-                return 0;
-
-            const string sql = """
-                INSERT dbo.VetVisits
-                    (PetID, VisitDate, VisitTime, IsAllDay, ClinicName, VeterinarianName,
-                     VisitReason, VisitType, Location, PhoneNumber, Status, Notes,
-                     FollowUpDate, Cost, IsEmergency, PreparationInstructions,
-                     CreatedAt, UpdatedAt, IsDeleted)
-                OUTPUT INSERTED.VetVisitID
-                VALUES
-                    (@PetID, @VisitDate, @VisitTime, @IsAllDay, @ClinicName, @VeterinarianName,
-                     @VisitReason, @VisitType, @Location, @PhoneNumber, @Status, @Notes,
-                     @FollowUpDate, @Cost, @IsEmergency, @PreparationInstructions,
-                     SYSDATETIME(), SYSDATETIME(), 0);
-                """;
-
-            using var command = new SqlCommand(sql, connection, transaction);
+            using var command = new SqlCommand("AddVetVisit", connection)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
             AddVisitParameters(command, input);
-            var visitID = Convert.ToInt32(command.ExecuteScalar());
-
-            if (reminderAt.HasValue && ActiveStatuses.Contains(input.Status))
-                UpsertReminder(connection, transaction, visitID, reminderAt.Value);
-
-            AddHistory(connection, transaction, visitID, "Created", null, input.Status,
-                "Visit record created.");
-            transaction.Commit();
-            return visitID;
+            command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+            command.Parameters.Add("@ReminderAt", SqlDbType.DateTime2).Value =
+                (object?)reminderAt ?? DBNull.Value;
+            var result = command.ExecuteScalar();
+            return result == null || result == DBNull.Value ? 0 : Convert.ToInt32(result);
         }
 
         public bool UpdateVisit(int userID, VetVisitInput input, DateTime? reminderAt)
         {
             using var connection = OpenConnection();
-            using var transaction = connection.BeginTransaction();
-
-            var oldStatus = GetOwnedVisitStatus(connection, transaction, userID, input.VetVisitID);
-            if (oldStatus == null || !OwnsPet(connection, transaction, userID, input.PetID))
-                return false;
-            if (string.Equals(oldStatus, "Completed", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(input.Status, "Completed", StringComparison.OrdinalIgnoreCase))
-                return false;
-            if (!string.Equals(oldStatus, "Completed", StringComparison.OrdinalIgnoreCase)
-                && string.Equals(input.Status, "Completed", StringComparison.OrdinalIgnoreCase))
-                return false;
-
-            const string sql = """
-                UPDATE v
-                SET PetID = @PetID, VisitDate = @VisitDate, VisitTime = @VisitTime,
-                    IsAllDay = @IsAllDay, ClinicName = @ClinicName,
-                    VeterinarianName = @VeterinarianName, VisitReason = @VisitReason,
-                    VisitType = @VisitType, Location = @Location, PhoneNumber = @PhoneNumber,
-                    Status = @Status, Notes = @Notes, FollowUpDate = @FollowUpDate,
-                    Cost = @Cost, IsEmergency = @IsEmergency,
-                    PreparationInstructions = @PreparationInstructions,
-                    UpdatedAt = SYSDATETIME()
-                FROM dbo.VetVisits v
-                INNER JOIN dbo.Pets p ON p.petID = v.PetID
-                WHERE v.VetVisitID = @VetVisitID AND p.userID = @UserID AND v.IsDeleted = 0;
-                """;
-
-            using var command = new SqlCommand(sql, connection, transaction);
+            using var command = new SqlCommand("UpdateVetVisit", connection)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
             AddVisitParameters(command, input);
             command.Parameters.Add("@VetVisitID", SqlDbType.Int).Value = input.VetVisitID;
             command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
-            if (command.ExecuteNonQuery() != 1)
-                return false;
-
-            if (!ActiveStatuses.Contains(input.Status))
-                CancelReminder(connection, transaction, input.VetVisitID);
-            else if (reminderAt.HasValue)
-                UpsertReminder(connection, transaction, input.VetVisitID, reminderAt.Value);
-            else
-                CancelReminder(connection, transaction, input.VetVisitID);
-
-            var statusChanged = !string.Equals(oldStatus, input.Status, StringComparison.OrdinalIgnoreCase);
-            AddHistory(connection, transaction, input.VetVisitID,
-                statusChanged ? "Status changed" : "Updated",
-                statusChanged ? oldStatus : null,
-                statusChanged ? input.Status : null,
-                statusChanged ? $"Status changed from {oldStatus} to {input.Status}." : "Visit details updated.");
-            transaction.Commit();
-            return true;
+            command.Parameters.Add("@ReminderAt", SqlDbType.DateTime2).Value =
+                (object?)reminderAt ?? DBNull.Value;
+            return Convert.ToBoolean(command.ExecuteScalar());
         }
 
         public bool ChangeStatus(int userID, int vetVisitID, string status, string details)
         {
             using var connection = OpenConnection();
-            using var transaction = connection.BeginTransaction();
-            var oldStatus = GetOwnedVisitStatus(connection, transaction, userID, vetVisitID);
-            if (oldStatus == null || string.Equals(oldStatus, "Completed", StringComparison.OrdinalIgnoreCase))
-                return false;
-
-            const string sql = """
-                UPDATE v SET Status = @Status, UpdatedAt = SYSDATETIME()
-                FROM dbo.VetVisits v
-                INNER JOIN dbo.Pets p ON p.petID = v.PetID
-                WHERE v.VetVisitID = @VetVisitID AND p.userID = @UserID AND v.IsDeleted = 0;
-                """;
-            using var command = new SqlCommand(sql, connection, transaction);
+            using var command = new SqlCommand("ChangeVetVisitStatus", connection)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
             command.Parameters.Add("@Status", SqlDbType.NVarChar, 25).Value = status;
             command.Parameters.Add("@VetVisitID", SqlDbType.Int).Value = vetVisitID;
             command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
-            if (command.ExecuteNonQuery() != 1)
-                return false;
-
-            if (!ActiveStatuses.Contains(status))
-                CancelReminder(connection, transaction, vetVisitID);
-
-            AddHistory(connection, transaction, vetVisitID, "Status changed", oldStatus, status,
-                string.IsNullOrWhiteSpace(details) ? $"Status changed to {status}." : details.Trim());
-            transaction.Commit();
-            return true;
+            command.Parameters.Add("@Details", SqlDbType.NVarChar, 1000).Value = Clean(details);
+            return Convert.ToBoolean(command.ExecuteScalar());
         }
 
         public bool CompleteVisit(int userID, CompleteVetVisitInput input)
         {
             using var connection = OpenConnection();
-            using var transaction = connection.BeginTransaction();
-            var oldStatus = GetOwnedVisitStatus(connection, transaction, userID, input.VetVisitID);
-            if (oldStatus == null || !ActiveStatuses.Contains(oldStatus))
-                return false;
-
-            const string sql = """
-                UPDATE v
-                SET Status = N'Completed', VisitSummary = @VisitSummary, Diagnosis = @Diagnosis,
-                    TreatmentProvided = @TreatmentProvided,
-                    VaccinationsReceived = @VaccinationsReceived,
-                    Prescriptions = @Prescriptions,
-                    FollowUpInstructions = @FollowUpInstructions,
-                    FollowUpDate = @FollowUpDate,
-                    Cost = COALESCE(@FinalCost, Cost),
-                    Notes = CASE WHEN @AdditionalNotes = N'' THEN Notes
-                                 WHEN Notes = N'' THEN @AdditionalNotes
-                                 ELSE CONCAT(Notes, CHAR(13), CHAR(10), @AdditionalNotes) END,
-                    UpdatedAt = SYSDATETIME()
-                FROM dbo.VetVisits v
-                INNER JOIN dbo.Pets p ON p.petID = v.PetID
-                WHERE v.VetVisitID = @VetVisitID AND p.userID = @UserID AND v.IsDeleted = 0;
-                """;
-            using var command = new SqlCommand(sql, connection, transaction);
+            using var command = new SqlCommand("CompleteVetVisit", connection)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
             command.Parameters.Add("@VisitSummary", SqlDbType.NVarChar, 4000).Value = Clean(input.VisitSummary);
             command.Parameters.Add("@Diagnosis", SqlDbType.NVarChar, 2000).Value = Clean(input.Diagnosis);
             command.Parameters.Add("@TreatmentProvided", SqlDbType.NVarChar, 4000).Value = Clean(input.TreatmentProvided);
@@ -237,44 +140,19 @@ namespace PetPotty.Services
             command.Parameters.Add("@AdditionalNotes", SqlDbType.NVarChar, 4000).Value = Clean(input.AdditionalNotes);
             command.Parameters.Add("@VetVisitID", SqlDbType.Int).Value = input.VetVisitID;
             command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
-            if (command.ExecuteNonQuery() != 1)
-                return false;
-
-            CancelReminder(connection, transaction, input.VetVisitID);
-            AddHistory(connection, transaction, input.VetVisitID, "Completed", oldStatus, "Completed",
-                "Visit marked completed and medical outcome recorded.");
-            transaction.Commit();
-            return true;
+            return Convert.ToBoolean(command.ExecuteScalar());
         }
 
         public bool DeleteVisit(int userID, int vetVisitID)
         {
             using var connection = OpenConnection();
-            using var transaction = connection.BeginTransaction();
-            var oldStatus = GetOwnedVisitStatus(connection, transaction, userID, vetVisitID);
-            if (oldStatus == null || string.Equals(oldStatus, "Completed", StringComparison.OrdinalIgnoreCase))
-                return false;
-
-            const string sql = """
-                UPDATE v
-                SET IsDeleted = 1, DeletedAt = SYSDATETIME(), UpdatedAt = SYSDATETIME()
-                FROM dbo.VetVisits v
-                INNER JOIN dbo.Pets p ON p.petID = v.PetID
-                WHERE v.VetVisitID = @VetVisitID AND p.userID = @UserID AND v.IsDeleted = 0
-                  AND NOT EXISTS
-                      (SELECT 1 FROM dbo.VetVisitDocuments d WHERE d.VetVisitID = v.VetVisitID);
-                """;
-            using var command = new SqlCommand(sql, connection, transaction);
+            using var command = new SqlCommand("DeleteVetVisit", connection)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
             command.Parameters.Add("@VetVisitID", SqlDbType.Int).Value = vetVisitID;
             command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
-            if (command.ExecuteNonQuery() != 1)
-                return false;
-
-            CancelReminder(connection, transaction, vetVisitID);
-            AddHistory(connection, transaction, vetVisitID, "Deleted", oldStatus, "Deleted",
-                "Visit soft-deleted.");
-            transaction.Commit();
-            return true;
+            return Convert.ToBoolean(command.ExecuteScalar());
         }
 
         public bool DismissReminder(int userID, int reminderID)
@@ -521,31 +399,6 @@ namespace PetPotty.Services
             return connection;
         }
 
-        private static bool OwnsPet(SqlConnection connection, SqlTransaction transaction, int userID, int petID)
-        {
-            using var command = new SqlCommand(
-                "SELECT COUNT(1) FROM dbo.Pets WHERE petID = @PetID AND userID = @UserID;",
-                connection, transaction);
-            command.Parameters.Add("@PetID", SqlDbType.Int).Value = petID;
-            command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
-            return Convert.ToInt32(command.ExecuteScalar()) == 1;
-        }
-
-        private static string? GetOwnedVisitStatus(
-            SqlConnection connection, SqlTransaction transaction, int userID, int visitID)
-        {
-            const string sql = """
-                SELECT v.Status
-                FROM dbo.VetVisits v
-                INNER JOIN dbo.Pets p ON p.petID = v.PetID
-                WHERE v.VetVisitID = @VetVisitID AND p.userID = @UserID AND v.IsDeleted = 0;
-                """;
-            using var command = new SqlCommand(sql, connection, transaction);
-            command.Parameters.Add("@VetVisitID", SqlDbType.Int).Value = visitID;
-            command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
-            return command.ExecuteScalar() as string;
-        }
-
         private static void AddVisitParameters(SqlCommand command, VetVisitInput input)
         {
             command.Parameters.Add("@PetID", SqlDbType.Int).Value = input.PetID;
@@ -582,35 +435,6 @@ namespace PetPotty.Services
             command.Parameters.Add("@ContentType", SqlDbType.NVarChar, 150).Value = Clean(document.ContentType);
             command.Parameters.Add("@FileSizeBytes", SqlDbType.BigInt).Value = document.FileSizeBytes;
             command.Parameters.Add("@Description", SqlDbType.NVarChar, 1000).Value = Clean(document.Description);
-        }
-
-        private static void UpsertReminder(
-            SqlConnection connection, SqlTransaction transaction, int visitID, DateTime reminderAt)
-        {
-            const string sql = """
-                MERGE dbo.VetVisitReminders AS target
-                USING (SELECT @VetVisitID AS VetVisitID) AS source
-                   ON target.VetVisitID = source.VetVisitID
-                WHEN MATCHED THEN
-                    UPDATE SET ReminderAt = @ReminderAt, Status = N'Pending',
-                               DisplayedAt = NULL, DismissedAt = NULL, UpdatedAt = SYSDATETIME()
-                WHEN NOT MATCHED THEN
-                    INSERT (VetVisitID, ReminderAt, Status, CreatedAt, UpdatedAt)
-                    VALUES (@VetVisitID, @ReminderAt, N'Pending', SYSDATETIME(), SYSDATETIME());
-                """;
-            using var command = new SqlCommand(sql, connection, transaction);
-            command.Parameters.Add("@VetVisitID", SqlDbType.Int).Value = visitID;
-            command.Parameters.Add("@ReminderAt", SqlDbType.DateTime2).Value = reminderAt;
-            command.ExecuteNonQuery();
-        }
-
-        private static void CancelReminder(SqlConnection connection, SqlTransaction transaction, int visitID)
-        {
-            using var command = new SqlCommand(
-                "UPDATE dbo.VetVisitReminders SET Status = N'Cancelled', UpdatedAt = SYSDATETIME() WHERE VetVisitID = @VetVisitID;",
-                connection, transaction);
-            command.Parameters.Add("@VetVisitID", SqlDbType.Int).Value = visitID;
-            command.ExecuteNonQuery();
         }
 
         private static void RefreshReminderStatuses(SqlConnection connection, int userID)
