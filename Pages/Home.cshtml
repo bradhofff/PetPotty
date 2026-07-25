@@ -49,7 +49,9 @@
         padding: 0;
         line-height: 1;
     }
-    .pet-card:hover .pet-card-edit-btn { opacity: 1; }
+    .home-dashboard .pet-card-edit-btn { opacity: 0; }
+    .pet-card:hover .pet-card-edit-btn,
+    .pet-card-edit-btn:focus-visible { opacity: 1; }
     .pet-card-edit-btn:hover {
         background: #fd7e14;
         color: white;
@@ -57,18 +59,33 @@
 
     /* Avatar circle */
     .pet-avatar {
-        width: 52px; height: 52px;
+        width: 64px; height: 64px;
         border-radius: 50%;
+        border: 0;
         background: rgba(244,164,96,0.22);
         display: flex; align-items: center; justify-content: center;
-        font-size: 1.7rem;
+        font-size: 2rem;
         flex-shrink: 0;
         overflow: hidden;
+        padding: 0;
     }
     .pet-avatar img {
-        width: 52px; height: 52px;
+        width: 64px; height: 64px;
         object-fit: cover;
         display: block;
+    }
+    button.pet-avatar {
+        cursor: zoom-in;
+        outline-offset: 3px;
+        transition: box-shadow 0.18s ease, transform 0.18s ease;
+    }
+    button.pet-avatar:hover {
+        box-shadow: 0 0 0 3px rgba(217,100,32,.16);
+        transform: scale(1.03);
+    }
+    button.pet-avatar:focus-visible {
+        box-shadow: 0 0 0 3px rgba(217,100,32,.3);
+        outline: 2px solid var(--app-accent, var(--pet-primary));
     }
     .pet-image-preview {
         width: 88px; height: 88px;
@@ -175,7 +192,12 @@
         border-top: 1px solid #e4e7eb;
     }
 
-    /* Quick-log pill buttons */
+    /* Equal quick-log columns keep long activity labels aligned. */
+    .quick-log-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
     .quick-log-pill {
         border: 2px solid var(--pet-secondary);
         border-radius: 999px;
@@ -187,12 +209,14 @@
         cursor: pointer;
         transition: background 0.15s ease, transform 0.1s ease;
         line-height: 1.2;
+        min-height: 44px;
     }
     .quick-log-form {
         align-items: center;
-        display: flex;
-        flex-direction: column;
+        display: grid;
+        grid-template-rows: 2.6em 44px;
         min-width: 0;
+        width: 100%;
     }
     .quick-log-icon {
         display: inline-flex;
@@ -210,15 +234,23 @@
         transform: scale(1.04);
     }
     .quick-log-pill:active { transform: scale(0.96); }
-    .quick-log-label {
+    .home-dashboard .quick-log-label {
         color: #111;
         font-size: 0.8rem;
         font-weight: 400;
         line-height: 1.2;
+        align-items: center;
+        display: flex;
+        justify-content: center;
         margin-bottom: 5px;
-        max-width: 220px;
+        max-width: none;
+        min-height: 2.6em;
+        overflow-wrap: anywhere;
+        overflow: visible;
         text-align: center;
-        width: max-content;
+        text-overflow: clip;
+        white-space: normal;
+        width: 100%;
     }
 
     /* Add Task button inside card */
@@ -319,35 +351,99 @@
         margin-top: 1px;
     }
 
-    /* Edit task button (hidden until Edit Tasks toggle) */
+    /* Row edit pencils reveal on hover/focus and reserve their space. */
     .edit-task-btn {
+        align-items: center;
+        background: #fff;
+        border: 1px solid #dce1e8;
+        border-radius: 50%;
+        color: #768193;
+        display: inline-flex;
         font-size: 0.75rem;
-        padding: 2px 8px;
-        border-radius: 12px;
-        line-height: 1.4;
-    }
-
-    /* Edit Tasks toggle button */
-    .btn-edit-tasks {
-        border: 2px solid #fd7e14;
-        color: #fd7e14;
-        background: transparent;
-        border-radius: 999px;
-        padding: 4px 14px;
-        font-size: 0.82rem;
-        font-weight: 600;
-        transition: background 0.18s ease, color 0.18s ease;
+        height: 30px;
+        justify-content: center;
+        line-height: 1;
+        opacity: 0;
+        padding: 0;
+        transition: opacity 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+        width: 30px;
         cursor: pointer;
     }
-    .btn-edit-tasks:hover { background: rgba(253,126,20,0.08); }
-    .btn-edit-tasks.active {
-        background: #dc3545;
-        border-color: #dc3545;
-        color: white;
+    .task-row:hover .edit-task-btn,
+    .edit-task-btn:focus-visible {
+        opacity: 1;
     }
-    .btn-edit-tasks.active:hover {
-        background: #bb2d3b;
-        border-color: #bb2d3b;
+    .edit-task-btn:hover {
+        background: var(--app-accent-soft, rgba(244,164,96,.18));
+        border-color: #eca273;
+        color: var(--app-accent, var(--pet-primary));
+    }
+
+    /* Clicked avatar lightbox */
+    .pet-photo-lightbox {
+        align-items: center;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        background: rgba(20, 25, 31, .62);
+        display: none;
+        inset: 0;
+        justify-content: center;
+        padding: 24px;
+        position: fixed;
+        z-index: 2100;
+    }
+    .pet-photo-lightbox.is-open { display: flex; }
+    .pet-photo-lightbox-frame {
+        background: rgba(255,255,255,.96);
+        border: 1px solid rgba(255,255,255,.9);
+        border-radius: 50%;
+        box-shadow: 0 22px 65px rgba(0,0,0,.28);
+        padding: 5px;
+        position: relative;
+    }
+    .pet-photo-lightbox-image {
+        border-radius: 50%;
+        display: block;
+        height: min(72vw, 320px);
+        object-fit: cover;
+        width: min(72vw, 320px);
+    }
+    .pet-photo-lightbox-close {
+        align-items: center;
+        background: #fff;
+        border: 1px solid #dce1e8;
+        border-radius: 50%;
+        box-shadow: 0 4px 12px rgba(0,0,0,.16);
+        color: #4b5563;
+        display: flex;
+        font-size: 1.25rem;
+        height: 36px;
+        justify-content: center;
+        line-height: 1;
+        position: absolute;
+        right: -5px;
+        top: -5px;
+        width: 36px;
+    }
+
+    @@media (hover: none), (pointer: coarse) {
+        .home-dashboard .pet-card-edit-btn,
+        .home-dashboard .edit-task-btn {
+            opacity: 1;
+        }
+    }
+
+    @@media (max-width: 575.98px) {
+        .quick-log-grid { gap: 6px; }
+        .home-dashboard .quick-log-form { padding: .48rem; }
+        .home-dashboard .quick-log-label {
+            font-size: .67rem;
+            line-height: 1.18;
+        }
+        .home-dashboard .quick-log-pill {
+            font-size: .78rem;
+            padding: .42rem .35rem;
+        }
     }
 
     /* Empty state inside task log card */
@@ -439,18 +535,23 @@ else
 
                     @* Avatar + info *@
                     <div class="d-flex align-items-center gap-3 mb-3">
-                        <div class="pet-avatar">
-                            @if (!string.IsNullOrWhiteSpace(pet.ProfileImagePath))
-                            {
+                        @if (!string.IsNullOrWhiteSpace(pet.ProfileImagePath))
+                        {
+                            <button type="button" class="pet-avatar pet-photo-lightbox-trigger"
+                                    data-image-src="@pet.ProfileImagePath"
+                                    data-image-alt="@pet.Name profile photo"
+                                    aria-label="View a larger photo of @pet.Name">
                                 <img src="@pet.ProfileImagePath" alt="@pet.Name profile photo"
                                      onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';" />
                                 <span style="display:none">@petEmoji</span>
-                            }
-                            else
-                            {
+                            </button>
+                        }
+                        else
+                        {
+                            <div class="pet-avatar" aria-label="@pet.Name has no profile photo">
                                 <span>@petEmoji</span>
-                            }
-                        </div>
+                            </div>
+                        }
                         <div>
                             <div class="d-flex align-items-center gap-2 flex-wrap">
                                 <span class="fw-bold" style="font-size: 1.1rem; color: var(--pet-dark);">@pet.Name</span>
@@ -476,7 +577,7 @@ else
                     </div>
 
                     @* Quick-log buttons *@
-                    <div class="d-flex gap-2 mb-3">
+                    <div class="quick-log-grid mb-3">
                         <form method="post" asp-page-handler="QuickLog"
                               class="quick-log-form flex-fill">
                             <input type="hidden" name="petID" value="@pet.PetID" />
@@ -526,9 +627,6 @@ else
             </form>
         </div>
     </div>
-    <button type="button" class="btn-edit-tasks" id="toggleTaskActionsBtn" aria-pressed="false">
-        ✏️ Edit Tasks
-    </button>
 </div>
 
 @if (Model.Pets.Count == 0)
@@ -595,6 +693,7 @@ else
                                         _           => "📋"
                                     };
                                     var createdAtInputValue = task.CreatedAt.ToString("yyyy-MM-ddTHH:mm");
+                                    var taskTimeLabel = task.CreatedAt.ToString("h:mm tt");
 
                                     <div class="task-row">
                                         <div class="task-icon">@taskEmoji</div>
@@ -607,13 +706,15 @@ else
                                                     <span class="text-muted" style="font-size: 0.82rem; white-space: nowrap;">
                                                         @task.CreatedAt.ToString("h:mm tt")
                                                     </span>
-                                                    <button class="btn btn-sm btn-edit edit-task-btn task-actions-col d-none"
+                                                    <button class="edit-task-btn"
                                                             data-bs-toggle="modal"
                                                             data-bs-target="#editTaskModal"
                                                             data-task-id="@task.TaskID"
                                                             data-task-type="@task.TaskType"
                                                             data-task-notes="@task.Notes"
-                                                            data-task-created="@createdAtInputValue">
+                                                            data-task-created="@createdAtInputValue"
+                                                            aria-label="Edit @task.TaskType task from @taskTimeLabel"
+                                                            title="Edit task">
                                                         ✏️
                                                     </button>
                                                 </div>
@@ -922,6 +1023,16 @@ else
         </div>
     </div>
 
+    @* PET PHOTO LIGHTBOX *@
+    <div class="pet-photo-lightbox" id="petPhotoLightbox" role="dialog" aria-modal="true"
+         aria-label="Pet profile photo" aria-hidden="true">
+        <div class="pet-photo-lightbox-frame">
+            <img class="pet-photo-lightbox-image" id="petPhotoLightboxImage" alt="" />
+            <button type="button" class="pet-photo-lightbox-close" id="petPhotoLightboxClose"
+                    aria-label="Close enlarged pet photo">×</button>
+        </div>
+    </div>
+
     @* PROFILE IMAGE CROP OVERLAY *@
     <div class="pet-crop-overlay" id="petCropOverlay" role="dialog" aria-modal="true"
          aria-labelledby="petCropTitle">
@@ -960,6 +1071,38 @@ else
                 bootstrap.Alert.getOrCreateInstance(statusBanner).close();
             }, 10000);
         }
+
+        const petPhotoLightbox = document.getElementById('petPhotoLightbox');
+        const petPhotoLightboxImage = document.getElementById('petPhotoLightboxImage');
+        const petPhotoLightboxClose = document.getElementById('petPhotoLightboxClose');
+        let lightboxTrigger = null;
+
+        function closePetPhotoLightbox() {
+            if (!petPhotoLightbox.classList.contains('is-open')) return;
+            petPhotoLightbox.classList.remove('is-open');
+            petPhotoLightbox.setAttribute('aria-hidden', 'true');
+            petPhotoLightboxImage.removeAttribute('src');
+            document.body.style.overflow = '';
+            lightboxTrigger?.focus();
+            lightboxTrigger = null;
+        }
+
+        document.querySelectorAll('.pet-photo-lightbox-trigger').forEach(button => {
+            button.addEventListener('click', function () {
+                lightboxTrigger = this;
+                petPhotoLightboxImage.src = this.dataset.imageSrc;
+                petPhotoLightboxImage.alt = this.dataset.imageAlt;
+                petPhotoLightbox.classList.add('is-open');
+                petPhotoLightbox.setAttribute('aria-hidden', 'false');
+                document.body.style.overflow = 'hidden';
+                petPhotoLightboxClose.focus();
+            });
+        });
+
+        petPhotoLightboxClose.addEventListener('click', closePetPhotoLightbox);
+        petPhotoLightbox.addEventListener('click', event => {
+            if (event.target === petPhotoLightbox) closePetPhotoLightbox();
+        });
 
         const modalToOpen = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ModalToOpen));
         if (modalToOpen) {
@@ -1159,7 +1302,9 @@ else
         document.getElementById('cancelPetCrop').addEventListener('click', () => closeCropEditor(true));
         document.getElementById('cancelPetCropTop').addEventListener('click', () => closeCropEditor(true));
         document.addEventListener('keydown', event => {
-            if (event.key === 'Escape' && cropState) closeCropEditor(true);
+            if (event.key !== 'Escape') return;
+            if (cropState) closeCropEditor(true);
+            else closePetPhotoLightbox();
         });
 
         document.getElementById('applyPetCrop').addEventListener('click', function () {
@@ -1254,18 +1399,6 @@ else
                 day: 'numeric'
             });
         });
-
-        // ── Edit Tasks toggle — show/hide ✏️ pencil buttons in task rows ──
-        const toggleTaskActionsBtn = document.getElementById('toggleTaskActionsBtn');
-        if (toggleTaskActionsBtn) {
-            toggleTaskActionsBtn.addEventListener('click', function () {
-                const isActive = this.classList.toggle('active');
-                this.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-                document.querySelectorAll('.task-actions-col').forEach(el => {
-                    el.classList.toggle('d-none', !isActive);
-                });
-            });
-        }
 
         // ── Quick log — inject client local time before submit ──
         document.querySelectorAll('.quick-log-form').forEach(form => {

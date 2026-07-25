@@ -42,6 +42,20 @@
         background: #fd7e14;
         color: white;
     }
+
+    /* Keep card edit actions quiet on pointer devices and directly tappable on touch. */
+    .medications-page .med-card-edit-btn {
+        opacity: 0;
+    }
+    .medications-page .med-card:hover .med-card-edit-btn,
+    .medications-page .med-card-edit-btn:focus-visible {
+        opacity: 1;
+    }
+    @@media (hover: none), (pointer: coarse) {
+        .medications-page .med-card-edit-btn {
+            opacity: 1;
+        }
+    }
 </style>
 
 <div class="medications-page">
