@@ -1,6 +1,7 @@
 # Secrets — never push these
 appsettings.Development.json
 publish/
+vet-documents/
 
 # Build output
 bin/

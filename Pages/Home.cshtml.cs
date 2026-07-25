@@ -8,13 +8,25 @@ namespace PetPotty.Pages
     public class HomeModel : PageModel
     {
         private readonly IPetService _petService;
+        private readonly IMedicationService _medicationService;
+        private readonly IVetVisitService _vetVisitService;
         private readonly IPetImageStorage _petImageStorage;
+        private readonly IVetVisitDocumentStorage _vetVisitDocumentStorage;
         private readonly ILogger<HomeModel> _logger;
 
-        public HomeModel(IPetService petService, IPetImageStorage petImageStorage, ILogger<HomeModel> logger)
+        public HomeModel(
+            IPetService petService,
+            IMedicationService medicationService,
+            IVetVisitService vetVisitService,
+            IPetImageStorage petImageStorage,
+            IVetVisitDocumentStorage vetVisitDocumentStorage,
+            ILogger<HomeModel> logger)
         {
             _petService = petService;
+            _medicationService = medicationService;
+            _vetVisitService = vetVisitService;
             _petImageStorage = petImageStorage;
+            _vetVisitDocumentStorage = vetVisitDocumentStorage;
             _logger = logger;
         }
 
@@ -23,6 +35,7 @@ namespace PetPotty.Pages
         public List<Pet> Pets { get; set; } = new();
         public Dictionary<int, List<TaskItem>> PetTasks { get; set; } = new();
         public Dictionary<int, List<TaskItem>> PetAllTasks { get; set; } = new();
+        public Dictionary<int, List<DashboardCareItem>> PetCareItems { get; set; } = new();
 
         public bool ShowAllTime { get; set; } = false;
         public string? PetImageError { get; set; }
@@ -176,8 +189,11 @@ namespace PetPotty.Pages
             if (pet == null)
                 return RedirectToPage();
 
+            var documentPaths = _vetVisitService.GetDocumentPathsByPet(UserID, EditPetID);
             _petService.DeletePet(EditPetID);
             _petImageStorage.Delete(pet.ProfileImagePath);
+            foreach (var path in documentPaths)
+                _vetVisitDocumentStorage.Delete(path);
 
             TempData["StatusMessage"] = "Pet has been deleted.";
             return RedirectToPage();
@@ -328,6 +344,30 @@ namespace PetPotty.Pages
             return $"Last {taskType.ToLower()}: {timeText}";
         }
 
+        public static string CareItemLabel(DashboardCareItem item)
+        {
+            var days = (item.DueAt.Date - DateTime.Today).Days;
+            var dayLabel = days switch
+            {
+                0 when item.IsOverdue => "was due today",
+                0 => "due today",
+                1 => "due tomorrow",
+                _ => $"due in {days} days"
+            };
+            var timeLabel = item.DueAt.ToString("h:mm tt");
+
+            if (item.Kind == "Medication")
+                return $"{item.Text} {dayLabel} at {timeLabel}";
+
+            var allDay = item.Text.Contains("(all day)", StringComparison.OrdinalIgnoreCase);
+            var reason = item.Text.Replace("Vet visit (all day) — ", string.Empty)
+                .Replace("Vet visit — ", string.Empty);
+            var visitTiming = allDay
+                ? dayLabel.Replace("due ", string.Empty)
+                : $"{dayLabel.Replace("due ", string.Empty)} at {timeLabel}";
+            return $"Vet visit {visitTiming} · {reason}";
+        }
+
         // ============================================================
         // Private helpers
         // ============================================================
@@ -360,10 +400,33 @@ namespace PetPotty.Pages
         private void LoadData()
         {
             Pets = _petService.GetPetsByUser(UserID);
+            var today = DateTime.Today;
+            var windowEnd = today.AddDays(4);
+            var vetItems = _vetVisitService.GetDashboardVisits(UserID, today, windowEnd);
             foreach (var pet in Pets)
             {
                 PetTasks[pet.PetID] = _petService.GetTasksByPetID(pet.PetID, ShowAllTime);
                 PetAllTasks[pet.PetID] = ShowAllTime ? PetTasks[pet.PetID] : _petService.GetTasksByPetID(pet.PetID, true);
+
+                var medicationItems = _medicationService.GetScheduleByPetID(pet.PetID, false)
+                    .Where(schedule => !schedule.IsConfirmed
+                        && schedule.ScheduleDate >= today
+                        && schedule.ScheduleDate < windowEnd)
+                    .Select(schedule => new DashboardCareItem
+                    {
+                        PetID = pet.PetID,
+                        DueAt = schedule.ScheduleDate,
+                        Kind = "Medication",
+                        Text = schedule.MedicationName,
+                        Url = $"/Medications?petID={pet.PetID}",
+                        IsOverdue = schedule.ScheduleDate < DateTime.Now
+                    });
+
+                PetCareItems[pet.PetID] = medicationItems
+                    .Concat(vetItems.Where(item => item.PetID == pet.PetID))
+                    .OrderBy(item => item.DueAt)
+                    .ThenBy(item => item.Kind)
+                    .ToList();
             }
         }
     }

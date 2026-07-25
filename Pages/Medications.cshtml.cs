@@ -47,13 +47,17 @@ namespace PetPotty.Pages
         [BindProperty] public string EditMedNotes { get; set; } = string.Empty;
 
         // ── GET ──────────────────────────────────────────────────────
-        public IActionResult OnGet()
+        public IActionResult OnGet(int? petID)
         {
             if (!int.TryParse(HttpContext.Session.GetString("userID"), out int userID))
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            if (petID.HasValue)
+                SelectedPetID = petID.Value;
             LoadData();
+            if (petID.HasValue && SelectedPetID == petID.Value)
+                SetSelectedPetID(petID.Value);
             return Page();
         }
 

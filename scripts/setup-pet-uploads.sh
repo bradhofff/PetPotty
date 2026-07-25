@@ -9,8 +9,11 @@ fi
 app_user="$1"
 app_group="${2:-$1}"
 upload_root="/var/www/petpotty/uploads"
+vet_document_root="/var/www/petpotty/vet-documents"
 
 install -d -o "$app_user" -g "$app_group" -m 755 "$upload_root"
 install -d -o "$app_user" -g "$app_group" -m 755 "$upload_root/pets"
+install -d -o "$app_user" -g "$app_group" -m 750 "$vet_document_root"
 
 echo "Pet upload directory ready at $upload_root/pets (owner $app_user:$app_group, mode 755)."
+echo "Private vet document directory ready at $vet_document_root (owner $app_user:$app_group, mode 750)."

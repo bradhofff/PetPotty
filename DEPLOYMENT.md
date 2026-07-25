@@ -1,7 +1,10 @@
-# Pet profile image deployment
+# Uploaded file and Vet Visits deployment
 
 The application serves `/uploads` through ASP.NET Core from
 `/var/www/petpotty/uploads`. Nginx does not need an uploads location.
+Vet visit documents are deliberately stored outside the publish and static-file
+directories at `/var/www/petpotty/vet-documents`; they are only returned by an
+owner-authorized Razor Page handler.
 
 ## Development database
 
@@ -13,6 +16,11 @@ The application serves `/uploads` through ASP.NET Core from
    make a reviewed copy and change only the `USE` database name before the
    manual `sqlcmd` step.
 
+For Vet Visits, review and run
+`Migrationsss/2026-07-25_AddVetVisitsFeature.sql` against the intended database.
+The script does not contain a `USE` statement and upgrades the earlier draft
+`VetVisits` table when present.
+
 ## VPS filesystem
 
 Run the setup script with the user (and optional group) from the `petpotty`
@@ -22,9 +30,9 @@ systemd unit:
 sudo ./scripts/setup-pet-uploads.sh <petpotty-service-user> [petpotty-service-group]
 ```
 
-The script creates `/var/www/petpotty/uploads/pets`, makes the app user its
-owner, and applies mode `755`, keeping uploaded content writable by the app and
-readable by the static-file middleware.
+The script creates `/var/www/petpotty/uploads/pets` with mode `755` and the
+private `/var/www/petpotty/vet-documents` directory with mode `750`. Both are
+owned by the application service account.
 
 ## Manual acceptance checks
 
@@ -44,3 +52,12 @@ readable by the static-file middleware.
   present in this repository, so also verify that the external reset process
   handles files referenced by the rows it deletes; otherwise those files need
   cleanup in that process.
+- Add, edit, reschedule, cancel, and complete an owned vet visit. Confirm each
+  status change appears in record history and a second user cannot access it by
+  changing posted IDs.
+- Upload each supported document type (PDF, JPEG, PNG, DOCX), reject an
+  unsupported or over-10-MB file, download as the owner, and confirm another
+  user receives no document.
+- Confirm dashboard pet cards only show unconfirmed medication doses and active
+  vet visits from today through three calendar days ahead, with at most three
+  visible rows.

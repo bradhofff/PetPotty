@@ -52,7 +52,9 @@ builder.Services.AddAuthorization();
 // This is the .NET Core way — no more static helper classes or newing up data access objects.
 builder.Services.AddScoped<IPetService, PetService>();
 builder.Services.AddScoped<IMedicationService, MedicationService>();
+builder.Services.AddScoped<IVetVisitService, VetVisitService>();
 builder.Services.AddSingleton<IPetImageStorage, PetImageStorage>();
+builder.Services.AddSingleton<IVetVisitDocumentStorage, VetVisitDocumentStorage>();
 
 // --------------------
 // Build the app
