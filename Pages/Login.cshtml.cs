@@ -39,7 +39,7 @@ public class LoginModel : PageModel
         string connectionString = 
             _configuration.GetConnectionString("DefaultConnection");
 
-        string query = @"SELECT userID, name 
+        string query = @"SELECT userID, name, DarkMode
                          FROM Users 
                          WHERE userName = @userName 
                          AND pass = @pass";
@@ -63,6 +63,9 @@ public class LoginModel : PageModel
                     // Session
                     HttpContext.Session.SetString("userID", userID);
                     HttpContext.Session.SetString("name", name);
+                    HttpContext.Session.SetString(
+                        "darkMode",
+                        Convert.ToBoolean(reader["DarkMode"]) ? "true" : "false");
 
                     // Cookie — persistent for 30 days so mobile browsers don't log out on reopen
                     Response.Cookies.Append("userID", userID,

@@ -21,6 +21,11 @@ For Vet Visits, review and run
 The script does not contain a `USE` statement and upgrades the earlier draft
 `VetVisits` table when present.
 
+For the saved light/dark account preference, review and run
+`Migrationsss/2026-07-29_AddUserDarkModePreference.sql` against the intended
+database before deploying the matching application build. The script is
+idempotent and does not contain a `USE` statement.
+
 ## VPS filesystem
 
 Run the setup script with the user (and optional group) from the `petpotty`

@@ -26,6 +26,68 @@
     --pet-warning:   #DAA520; /* Goldenrod */
 }
 
+html[data-bs-theme="dark"] {
+    color-scheme: dark;
+    --pet-dark: #eef2f7;
+    --pet-neutral: #3b4657;
+    --bs-body-bg: #10151d;
+    --bs-body-color: #e5eaf0;
+    --bs-secondary-color: #aeb8c6;
+    --bs-border-color: #394454;
+    --bs-tertiary-bg: #222b38;
+}
+
+html[data-bs-theme="dark"] body {
+    background: #10151d;
+    color: #e5eaf0;
+}
+
+html[data-bs-theme="dark"] .main-content {
+    background: rgba(25, 33, 44, .98);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, .4);
+}
+
+html[data-bs-theme="dark"] :is(
+    .card, .pet-card, .task-card, .visit-card, .visit-details, .document-row,
+    .modal-content, .dropdown-menu, .accordion-item, .accordion-body, .table,
+    .vet-filter, .vet-empty, .profile-card, .med-card
+) {
+    background-color: #1c2531 !important;
+    border-color: #3b4657 !important;
+    color: #e5eaf0 !important;
+}
+
+html[data-bs-theme="dark"] :is(
+    h1, h2, h3, h4, h5, h6, .section-header, .visit-summary h3,
+    .detail-block p, .dropdown-item, .form-label
+) {
+    color: #eef2f7 !important;
+}
+
+html[data-bs-theme="dark"] :is(.text-muted, .visit-meta, .history-item) {
+    color: #aeb8c6 !important;
+}
+
+html[data-bs-theme="dark"] :is(.form-control, .form-select) {
+    background-color: #111923;
+    border-color: #4a5667;
+    color: #eef2f7;
+}
+
+html[data-bs-theme="dark"] :is(.form-control, .form-select):focus {
+    background-color: #111923;
+    border-color: var(--pet-secondary);
+    color: #fff;
+}
+
+html[data-bs-theme="dark"] .dropdown-item:hover {
+    background-color: #303b49;
+}
+
+html[data-bs-theme="dark"] .footer {
+    color: #9aa6b5 !important;
+}
+
 /* ============================================================
    BODY & BACKGROUND
    Clean neutral canvas shared by every page.
@@ -806,3 +868,121 @@ body:has(.home-dashboard) > .main-content,body:has(.medications-page) > .main-co
 
 @media(max-width:991.98px){.marketing-landing .pt-section{padding:4.8rem 0}.marketing-landing .pt-hero{padding:4.6rem 0}.auth-brand-panel{min-height:420px}.auth-shell{min-height:auto}}
 @media(max-width:575.98px){.marketing-page-nav .marketing-brand>span:last-child{display:none}.marketing-page-nav .pt-btn-primary,.marketing-page-nav .pt-btn-secondary{font-size:.8rem;min-height:40px;padding:.5rem .75rem}.marketing-landing .pt-section{padding:4rem 0}.orange-shot-sidebar{display:none}.orange-shot-main{padding:1.2rem}.orange-shot-stats{grid-template-columns:1fr}.dashboard-heading{align-items:flex-start;flex-direction:column;gap:.8rem}.task-log-heading{align-items:flex-start!important;flex-direction:column;gap:.8rem}.auth-form-panel,.auth-brand-panel{padding:1.5rem}}
+
+/* ============================================================
+   HIGH-CONTRAST DARK MODE
+   Keep every application surface dark, text white, and grouped
+   content clearly separated with white outlines.
+   ============================================================ */
+html[data-bs-theme="dark"] body,
+html[data-bs-theme="dark"] .app-shell,
+html[data-bs-theme="dark"] .main-content,
+html[data-bs-theme="dark"] .app-content,
+html[data-bs-theme="dark"] main,
+html[data-bs-theme="dark"] footer {
+    background: #090d12 !important;
+    background-image: none !important;
+    color: #fff !important;
+}
+
+html[data-bs-theme="dark"] .site-navbar,
+html[data-bs-theme="dark"] .app-navbar {
+    background: #090d12 !important;
+    border-bottom: 1px solid #fff !important;
+}
+
+html[data-bs-theme="dark"] .main-content div,
+html[data-bs-theme="dark"] .main-content section,
+html[data-bs-theme="dark"] .main-content article,
+html[data-bs-theme="dark"] .main-content aside,
+html[data-bs-theme="dark"] .modal div,
+html[data-bs-theme="dark"] .dropdown-menu {
+    background-color: #111820 !important;
+    background-image: none !important;
+}
+
+html[data-bs-theme="dark"] body :is(
+    h1, h2, h3, h4, h5, h6, p, span, small, strong, b, em, label, legend,
+    a, button, li, td, th, time, .text-muted, .form-text, .dropdown-item,
+    .nav-link, .visit-meta, .history-item
+) {
+    color: #fff !important;
+}
+
+html[data-bs-theme="dark"] :is(
+    .card, .pet-card, .task-card, .task-log-card, .visit-card, .vet-visit-card,
+    .vet-stat-card, .vet-filter, .vet-filter-panel, .vet-empty, .vet-empty-state,
+    .visit-details, .vet-visit-details, .document-row, .document-list,
+    .modal-content, .dropdown-menu, .accordion-item, .accordion-body,
+    .table, .app-panel, .app-table-wrap, .med-card, .profile-card,
+    .profile-content .card, .care-notifications, .quick-log-form,
+    .vet-integration-panel, .vet-integration-option, .coming-soon-page,
+    fieldset, .form-control, .form-select
+) {
+    background: #111820 !important;
+    background-image: none !important;
+    border: 1px solid #fff !important;
+    color: #fff !important;
+    box-shadow: none !important;
+}
+
+html[data-bs-theme="dark"] :is(
+    .modal-header, .modal-footer, .card-header, .accordion-button,
+    .table thead th, .table td, .table tbody tr:nth-child(even) td,
+    .table tbody tr:hover td, .vet-followup-row, .vet-attachment,
+    .quick-log-pill, .seg-toggle, .seg-option
+) {
+    background: #111820 !important;
+    border-color: #fff !important;
+    color: #fff !important;
+}
+
+html[data-bs-theme="dark"] :is(input, select, textarea)::placeholder {
+    color: #fff !important;
+    opacity: .75;
+}
+
+html[data-bs-theme="dark"] hr,
+html[data-bs-theme="dark"] .border-top,
+html[data-bs-theme="dark"] .border-bottom,
+html[data-bs-theme="dark"] .border-start,
+html[data-bs-theme="dark"] .border-end {
+    border-color: #fff !important;
+    opacity: 1;
+}
+
+html[data-bs-theme="dark"] .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+/* Dashboard dark-mode details. */
+html[data-bs-theme="dark"] .home-dashboard .quick-log-label {
+    color: #fff !important;
+}
+
+html[data-bs-theme="dark"] .home-dashboard .task-date-pill {
+    background: #090d12 !important;
+    border: 1px solid #fff !important;
+    color: #fff !important;
+}
+
+html[data-bs-theme="dark"] .home-dashboard .seg-toggle {
+    background: #090d12 !important;
+    border: 1px solid #fff !important;
+}
+
+html[data-bs-theme="dark"] .home-dashboard .seg-option {
+    background: #090d12 !important;
+    color: #fff !important;
+}
+
+html[data-bs-theme="dark"] .home-dashboard .seg-option.seg-active {
+    background: #fff !important;
+    color: #090d12 !important;
+    box-shadow: 0 0 0 1px #fff !important;
+}
+
+html[data-bs-theme="dark"] .home-dashboard .seg-option:hover:not(.seg-active) {
+    background: #202832 !important;
+    color: #fff !important;
+}
