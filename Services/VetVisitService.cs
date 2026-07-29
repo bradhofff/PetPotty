@@ -365,7 +365,7 @@ namespace PetPotty.Services
                     DueAt = dueAt,
                     Kind = "VetVisit",
                     Text = allDay ? $"Vet visit (all day) — {reason}" : $"Vet visit — {reason}",
-                    Url = $"/VetVisits?petID={reader.GetInt32(reader.GetOrdinal("PetID"))}&visitID={reader.GetInt32(reader.GetOrdinal("VetVisitID"))}",
+                    Url = "/VetVisits",
                     IsOverdue = !allDay && dueAt < DateTime.Now
                 });
             }

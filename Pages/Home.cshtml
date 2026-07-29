@@ -274,23 +274,8 @@
     .pet-quick-actions {
         display: grid;
         gap: 8px;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: minmax(0, 1fr);
     }
-    .quick-visit-card-btn {
-        align-items: center;
-        background: #fff;
-        border: 1px solid #d96420;
-        border-radius: 999px;
-        color: #b04b12;
-        display: inline-flex;
-        font-size: .82rem;
-        font-weight: 700;
-        justify-content: center;
-        min-height: 40px;
-        padding: .45rem .65rem;
-        text-decoration: none;
-    }
-    .quick-visit-card-btn:hover { background: #fff3eb; color: #8e3908; }
     .care-notifications {
         background: #fffaf5;
         border: 1px solid #f0d5c3;
@@ -308,17 +293,21 @@
     }
     .care-notification-link {
         align-items: flex-start;
+        background: none;
+        border: 0;
         color: #414b58;
         display: flex;
         font-size: .75rem;
         gap: 6px;
         line-height: 1.3;
         padding: 3px 0;
+        text-align: left;
         text-decoration: none;
+        width: 100%;
     }
     .care-notification-link:hover { color: #a8430a; }
     .care-notification-link.is-overdue { color: #a13e36; }
-    .care-view-all { color: #a8430a; display: inline-block; font-size: .72rem; font-weight: 700; margin-top: 4px; }
+    .care-view-all { background: none; border: 0; color: #a8430a; display: inline-block; font-size: .72rem; font-weight: 700; margin-top: 4px; padding: 0; }
 
     /* ── Task log cards ── */
     .task-log-card {
@@ -654,8 +643,6 @@ else
                                 data-pet-name="@pet.Name">
                             + Add Task
                         </button>
-                        <a asp-page="/VetVisits" asp-route-petID="@pet.PetID" asp-route-add="true"
-                           class="quick-visit-card-btn">+ Vet Visit</a>
                     </div>
 
                     @{
@@ -668,17 +655,37 @@ else
                             <div class="care-notifications-label">Upcoming care</div>
                             @foreach (var item in careItems.Take(3))
                             {
+                                @if (item.Kind == "VetVisit")
+                                {
+                                <form method="post" asp-page="/VetVisits">
+                                    <input type="hidden" name="selectedPetID" value="@pet.PetID" />
+                                    <button type="submit" class="care-notification-link @(item.IsOverdue ? "is-overdue" : "")">
+                                        <span aria-hidden="true">🏥</span>
+                                        <span>@PetPotty.Pages.HomeModel.CareItemLabel(item)</span>
+                                    </button>
+                                </form>
+                                }
+                                else
+                                {
                                 <a href="@item.Url" class="care-notification-link @(item.IsOverdue ? "is-overdue" : "")">
                                     <span aria-hidden="true">@(item.Kind == "Medication" ? "💊" : "🏥")</span>
                                     <span>@PetPotty.Pages.HomeModel.CareItemLabel(item)</span>
                                 </a>
+                                }
                             }
                             @if (careItems.Count > 3)
                             {
-                                var viewAllUrl = careItems.Any(item => item.Kind == "VetVisit")
-                                    ? $"/VetVisits?petID={pet.PetID}"
-                                    : $"/Medications?petID={pet.PetID}";
-                                <a href="@viewAllUrl" class="care-view-all">View all @careItems.Count items →</a>
+                                @if (careItems.Any(item => item.Kind == "VetVisit"))
+                                {
+                                <form method="post" asp-page="/VetVisits">
+                                    <input type="hidden" name="selectedPetID" value="@pet.PetID" />
+                                    <button type="submit" class="care-view-all">View all @careItems.Count items →</button>
+                                </form>
+                                }
+                                else
+                                {
+                                <a href="@($"/Medications?petID={pet.PetID}")" class="care-view-all">View all @careItems.Count items →</a>
+                                }
                             }
                         </div>
                     }

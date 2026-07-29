@@ -46,7 +46,7 @@
     .detail-full { grid-column: 1 / -1; }
     .document-list { display: grid; gap: .6rem; }
     .document-row { align-items: start; background: #fff; border: 1px solid #e2e6eb; border-radius: 10px; display: grid; gap: .6rem; grid-template-columns: minmax(0, 1fr) auto; padding: .7rem; }
-    .document-row a { color: #a8430a; font-weight: 700; overflow-wrap: anywhere; }
+    .document-download { background: none; border: 0; color: #a8430a; font-weight: 700; overflow-wrap: anywhere; padding: 0; text-align: left; }
     .history-list { border-left: 2px solid #e0e5eb; display: grid; gap: .6rem; margin-left: .35rem; padding-left: .9rem; }
     .history-item { color: #5e6876; font-size: .78rem; position: relative; }
     .history-item::before { background: #d96420; border-radius: 50%; content: ""; height: 7px; left: -1.18rem; position: absolute; top: .38rem; width: 7px; }
@@ -108,11 +108,11 @@
     }
     else
     {
-        <form method="get" class="vet-filter mb-4">
+        <form method="post" class="vet-filter mb-4">
             <div>
-                <label for="petID" class="form-label fw-semibold">Filter by pet</label>
-                <select id="petID" name="petID" class="form-select" onchange="this.form.submit()">
-                    <option value="">All pets</option>
+                <label for="selectedPetID" class="form-label fw-semibold">Filter by pet</label>
+                <select id="selectedPetID" name="selectedPetID" class="form-select" onchange="this.form.submit()">
+                    <option value="">Select a pet</option>
                     @foreach (var pet in Model.Pets)
                     {
                         <option value="@pet.PetID" selected="@(Model.SelectedPetID == pet.PetID)">@pet.Name</option>
@@ -128,14 +128,16 @@
             </div>
         </form>
 
-        @if (Model.DueReminders.Count > 0)
+        @if (Model.SelectedPetID.HasValue)
         {
+            @if (Model.DueReminders.Count > 0)
+            {
             <section class="vet-reminders mb-4" aria-labelledby="remindersHeading">
                 <div class="fw-bold mb-1" id="remindersHeading">🔔 Appointment reminders</div>
                 @foreach (var visit in Model.DueReminders)
                 {
                     <div class="vet-reminder-row">
-                        <a asp-page="/VetVisits" asp-route-petID="@visit.PetID" asp-route-visitID="@visit.VetVisitID"
+                        <a asp-page="/VetVisits"
                            class="text-decoration-none text-dark">@PetPotty.Pages.VetVisitsModel.ReminderLabel(visit)</a>
                         <form method="post" asp-page-handler="DismissReminder">
                             <input type="hidden" name="reminderID" value="@visit.ReminderID" />
@@ -145,11 +147,11 @@
                     </div>
                 }
             </section>
-        }
+            }
 
-        @foreach (var visitSection in sections)
-        {
-            <section aria-labelledby="@($"{visitSection.ID}Heading")">
+            @foreach (var visitSection in sections)
+            {
+                <section aria-labelledby="@($"{visitSection.ID}Heading")">
                 <div class="vet-section-head">
                     <div>
                         <p class="app-eyebrow mb-1">@visitSection.Eyebrow</p>
@@ -324,7 +326,10 @@
                                             {
                                                 <div class="document-row">
                                                     <div>
-                                                        <a asp-page-handler="DownloadDocument" asp-route-documentID="@document.VetVisitDocumentID">@document.DisplayName</a>
+                                                        <form method="post" asp-page-handler="DownloadDocument">
+                                                            <input type="hidden" name="documentID" value="@document.VetVisitDocumentID" />
+                                                            <button type="submit" class="document-download">@document.DisplayName</button>
+                                                        </form>
                                                         <div class="small text-muted">@document.DocumentType · @((document.FileSizeBytes / 1024d).ToString("0.#")) KB</div>
                                                         @if (!string.IsNullOrWhiteSpace(document.Description))
                                                         {
@@ -368,7 +373,8 @@
                         }
                     </div>
                 }
-            </section>
+                </section>
+            }
         }
     }
 </div>

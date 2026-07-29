@@ -7,6 +7,11 @@ namespace PetPotty.Pages
 {
     public class VetVisitsModel : PageModel
     {
+        private const string SelectedPetSessionKey = "vet-visits-selected-pet";
+        private const string FocusVisitSessionKey = "vet-visits-focus-visit";
+        private const string OpenAddSessionKey = "vet-visits-open-add";
+        private const string SortSessionKey = "vet-visits-sort";
+
         public static readonly string[] VisitTypes =
         [
             "Wellness exam", "Vaccination", "Dental", "Surgery", "Emergency",
@@ -68,19 +73,53 @@ namespace PetPotty.Pages
         [BindProperty] public string DocumentDisplayName { get; set; } = string.Empty;
         [BindProperty] public string DocumentDescription { get; set; } = string.Empty;
 
-        public IActionResult OnGet(int? petID, int? visitID, bool add = false, string sort = "Soonest")
+        public IActionResult OnGet()
+        {
+            if (!TryGetUserID(out var userID))
+                return RedirectToPage("/Login");
+            if (Request.QueryString.HasValue)
+                return RedirectToPage();
+
+            UserID = userID;
+            var requestedPetID = HttpContext.Session.GetInt32(SelectedPetSessionKey);
+            var requestedSort = HttpContext.Session.GetString(SortSessionKey);
+            Sort = requestedSort is "Newest" or "Oldest" ? requestedSort : "Soonest";
+            LoadPageData(requestedPetID);
+
+            var requestedVisitID = HttpContext.Session.GetInt32(FocusVisitSessionKey);
+            FocusVisitID = Visits.Any(visit => visit.VetVisitID == requestedVisitID) ? requestedVisitID : null;
+            HttpContext.Session.Remove(FocusVisitSessionKey);
+
+            OpenAddModal = HttpContext.Session.GetString(OpenAddSessionKey) == "true"
+                && SelectedPetID.HasValue;
+            HttpContext.Session.Remove(OpenAddSessionKey);
+            if (OpenAddModal)
+                NewVisit.PetID = SelectedPetID!.Value;
+            return Page();
+        }
+
+        public IActionResult OnPost(int? selectedPetID, string sort = "Soonest", bool add = false)
         {
             if (!TryGetUserID(out var userID))
                 return RedirectToPage("/Login");
 
             UserID = userID;
-            Sort = sort is "Newest" or "Oldest" ? sort : "Soonest";
-            LoadPageData(petID);
-            FocusVisitID = Visits.Any(visit => visit.VetVisitID == visitID) ? visitID : null;
-            OpenAddModal = add && petID.HasValue && Pets.Any(pet => pet.PetID == petID.Value);
-            if (OpenAddModal)
-                NewVisit.PetID = petID!.Value;
-            return Page();
+            LoadPets();
+            if (selectedPetID.HasValue && Pets.All(pet => pet.PetID != selectedPetID.Value))
+                return Forbid();
+
+            if (selectedPetID.HasValue)
+                HttpContext.Session.SetInt32(SelectedPetSessionKey, selectedPetID.Value);
+            else
+                HttpContext.Session.Remove(SelectedPetSessionKey);
+
+            HttpContext.Session.SetString(
+                SortSessionKey,
+                sort is "Newest" or "Oldest" ? sort : "Soonest");
+            if (add && selectedPetID.HasValue)
+                HttpContext.Session.SetString(OpenAddSessionKey, "true");
+
+            return RedirectToPage();
         }
 
         public IActionResult OnPostAddVisit(string submissionToken)
@@ -97,7 +136,7 @@ namespace PetPotty.Pages
             else if (HttpContext.Session.GetString($"vet-visit-submission:{submissionToken}") != null)
             {
                 TempData["StatusMessage"] = "That visit was already saved.";
-                return RedirectToPage(new { petID = NewVisit.PetID });
+                return RedirectToVetVisits(NewVisit.PetID);
             }
 
             DateTime? reminderAt = null;
@@ -114,7 +153,7 @@ namespace PetPotty.Pages
 
                 HttpContext.Session.SetString($"vet-visit-submission:{submissionToken}", visitID.ToString());
                 TempData["StatusMessage"] = "Vet visit added.";
-                return RedirectToPage(new { petID = NewVisit.PetID, visitID });
+                return RedirectToVetVisits(NewVisit.PetID, visitID);
             }
             catch (Exception ex)
             {
@@ -151,7 +190,7 @@ namespace PetPotty.Pages
                 }
 
                 TempData["StatusMessage"] = "Vet visit updated.";
-                return RedirectToPage(new { petID = EditVisit.PetID, visitID = EditVisit.VetVisitID });
+                return RedirectToVetVisits(EditVisit.PetID, EditVisit.VetVisitID);
             }
             catch (Exception ex)
             {
@@ -177,7 +216,7 @@ namespace PetPotty.Pages
             TempData["StatusMessage"] = status == "Cancelled"
                 ? "Appointment cancelled; its history was preserved."
                 : $"Appointment marked {status.ToLowerInvariant()}.";
-            return RedirectToPage(new { petID = visit.PetID, visitID = vetVisitID });
+            return RedirectToVetVisits(visit.PetID, vetVisitID);
         }
 
         public async Task<IActionResult> OnPostCompleteVisitAsync()
@@ -221,12 +260,12 @@ namespace PetPotty.Pages
                 {
                     _logger.LogError(ex, "Visit {VetVisitID} completed, but its document could not be saved", visit.VetVisitID);
                     TempData["StatusMessage"] = "Visit completed, but the document could not be saved. You can attach it from visit details.";
-                    return RedirectToPage(new { petID = visit.PetID, visitID = visit.VetVisitID });
+                    return RedirectToVetVisits(visit.PetID, visit.VetVisitID);
                 }
             }
 
             TempData["StatusMessage"] = "Visit completed and medical details saved.";
-            return RedirectToPage(new { petID = visit.PetID, visitID = visit.VetVisitID });
+            return RedirectToVetVisits(visit.PetID, visit.VetVisitID);
         }
 
         public IActionResult OnPostDeleteVisit(int vetVisitID)
@@ -258,7 +297,7 @@ namespace PetPotty.Pages
                 _logger.LogError(ex, "Could not delete vet visit {VetVisitID}", vetVisitID);
                 TempData["StatusMessage"] = "The vet visit could not be deleted. Make sure the updated Vet Visits database procedures have been applied.";
             }
-            return RedirectToPage(new { petID = visit.PetID });
+            return RedirectToVetVisits(visit.PetID);
         }
 
         public IActionResult OnPostDismissReminder(int reminderID, int petID)
@@ -269,7 +308,7 @@ namespace PetPotty.Pages
                 return Forbid();
 
             TempData["StatusMessage"] = "Reminder dismissed.";
-            return RedirectToPage(new { petID });
+            return RedirectToVetVisits(petID);
         }
 
         public async Task<IActionResult> OnPostUploadDocumentAsync()
@@ -289,7 +328,7 @@ namespace PetPotty.Pages
             if (error != null)
             {
                 TempData["StatusMessage"] = $"Document not uploaded: {error}";
-                return RedirectToPage(new { petID = visit.PetID, visitID = visit.VetVisitID });
+                return RedirectToVetVisits(visit.PetID, visit.VetVisitID);
             }
 
             try
@@ -302,14 +341,14 @@ namespace PetPotty.Pages
             {
                 _logger.LogError(ex, "Could not upload a document for vet visit {VetVisitID}", visit.VetVisitID);
                 TempData["StatusMessage"] = "The document could not be saved.";
-                return RedirectToPage(new { petID = visit.PetID, visitID = visit.VetVisitID });
+                return RedirectToVetVisits(visit.PetID, visit.VetVisitID);
             }
 
             TempData["StatusMessage"] = "Document uploaded.";
-            return RedirectToPage(new { petID = visit.PetID, visitID = visit.VetVisitID });
+            return RedirectToVetVisits(visit.PetID, visit.VetVisitID);
         }
 
-        public IActionResult OnGetDownloadDocument(int documentID)
+        public IActionResult OnPostDownloadDocument(int documentID)
         {
             if (!TryGetUserID(out var userID))
                 return RedirectToPage("/Login");
@@ -344,7 +383,7 @@ namespace PetPotty.Pages
                 || (description?.Length ?? 0) > 1000)
             {
                 TempData["StatusMessage"] = "Document details were not valid.";
-                return RedirectToPage(new { visitID = document.VetVisitID });
+                return RedirectToVisit(userID, document.VetVisitID);
             }
 
             if (!_vetVisitService.UpdateDocument(userID, documentID, documentType, displayName, description ?? string.Empty))
@@ -510,7 +549,16 @@ namespace PetPotty.Pages
         private RedirectToPageResult RedirectToVisit(int userID, int visitID)
         {
             var visit = _vetVisitService.GetVisit(userID, visitID);
-            return RedirectToPage(new { petID = visit?.PetID, visitID });
+            return RedirectToVetVisits(visit?.PetID, visitID);
+        }
+
+        private RedirectToPageResult RedirectToVetVisits(int? petID, int? visitID = null)
+        {
+            if (petID.HasValue)
+                HttpContext.Session.SetInt32(SelectedPetSessionKey, petID.Value);
+            if (visitID.HasValue)
+                HttpContext.Session.SetInt32(FocusVisitSessionKey, visitID.Value);
+            return RedirectToPage();
         }
 
         private async Task SaveDocumentAsync(
