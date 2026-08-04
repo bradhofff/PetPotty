@@ -56,6 +56,55 @@
             opacity: 1;
         }
     }
+
+    .medication-schedule-table {
+        min-width: 780px;
+        table-layout: fixed;
+        width: 100%;
+    }
+    .medication-schedule-table col.schedule-medication { width: 22%; }
+    .medication-schedule-table col.schedule-scheduled { width: 20%; }
+    .medication-schedule-table col.schedule-status { width: 16%; }
+    .medication-schedule-table col.schedule-confirmed-at { width: 20%; }
+    .medication-schedule-table col.schedule-action { width: 22%; }
+    .medication-schedule-table :is(th, td) { vertical-align: middle; }
+    .medication-schedule-table :is(th, td).schedule-medication,
+    .medication-schedule-table :is(th, td).schedule-scheduled,
+    .medication-schedule-table :is(th, td).schedule-confirmed-at {
+        text-align: left !important;
+    }
+    .medication-schedule-table :is(th, td).schedule-status,
+    .medication-schedule-table :is(th, td).schedule-action {
+        text-align: center !important;
+    }
+    .medication-schedule-table tbody tr.med-schedule-overdue > td {
+        background: #fff0f1 !important;
+        border-bottom-color: #e5757d !important;
+        border-top-color: #e5757d !important;
+    }
+    .medication-schedule-table tbody tr.med-schedule-overdue > td:first-child {
+        box-shadow: inset 5px 0 0 #dc3545;
+    }
+    .med-overdue-badge {
+        background: #dc3545;
+        border-radius: 999px;
+        color: #fff !important;
+        display: inline-block;
+        font-size: .66rem;
+        font-weight: 800;
+        letter-spacing: .06em;
+        margin-top: 5px;
+        padding: 3px 8px;
+        text-transform: uppercase;
+    }
+    html[data-bs-theme="dark"] .medication-schedule-table tbody tr.med-schedule-overdue > td {
+        background: #3a1519 !important;
+        border-bottom-color: #ff6b73 !important;
+        border-top-color: #ff6b73 !important;
+    }
+    html[data-bs-theme="dark"] .medication-schedule-table tbody tr.med-schedule-overdue > td:first-child {
+        box-shadow: inset 5px 0 0 #ff5964;
+    }
 </style>
 
 <div class="medications-page">
@@ -228,24 +277,38 @@
         else
         {
             <div class="table-responsive app-table-wrap">
-                <table class="table" style="border-radius: 12px; overflow: hidden;">
+                <table class="table medication-schedule-table" style="border-radius: 12px; overflow: hidden;">
+                    <colgroup>
+                        <col class="schedule-medication" />
+                        <col class="schedule-scheduled" />
+                        <col class="schedule-status" />
+                        <col class="schedule-confirmed-at" />
+                        <col class="schedule-action" />
+                    </colgroup>
                     <thead>
                         <tr>
-                            <th>Medication</th>
-                            <th>Scheduled</th>
-                            <th class="text-center">Dosage Given?</th>
-                            <th>Dosage At</th>
-                            <th class="text-center">Action</th>
+                            <th scope="col" class="schedule-medication">Medication</th>
+                            <th scope="col" class="schedule-scheduled">Scheduled</th>
+                            <th scope="col" class="schedule-status">Dosage Given?</th>
+                            <th scope="col" class="schedule-confirmed-at">Dosage At</th>
+                            <th scope="col" class="schedule-action">Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var s in Model.Schedule)
                         {
                             var logDateStr = s.ScheduleDate.ToString("yyyy-MM-ddTHH:mm:ss");
-                            <tr>
-                                <td class="fw-semibold">@s.MedicationName</td>
-                                <td>@s.ScheduleDate.ToString("MMM d, h:mm tt")</td>
-                                <td class="text-center">
+                            var isPastDue = !s.IsConfirmed && s.ScheduleDate < DateTime.Now;
+                            <tr class="@(isPastDue ? "med-schedule-overdue" : null)">
+                                <td class="schedule-medication fw-semibold">@s.MedicationName</td>
+                                <td class="schedule-scheduled">
+                                    <span class="d-block">@s.ScheduleDate.ToString("MMM d, h:mm tt")</span>
+                                    @if (isPastDue)
+                                    {
+                                        <span class="med-overdue-badge">Past due</span>
+                                    }
+                                </td>
+                                <td class="schedule-status">
                                     @if (s.IsConfirmed)
                                     {
                                         <span class="fw-semibold" style="color: var(--pet-success);">✓ Yes</span>
@@ -255,10 +318,10 @@
                                         <span class="fw-semibold" style="color: #dc3545;">✕ No</span>
                                     }
                                 </td>
-                                <td style="color: #666; font-size: 0.9rem;">
+                                <td class="schedule-confirmed-at" style="color: #666; font-size: 0.9rem;">
                                     @(s.ConfirmedAt.HasValue ? s.ConfirmedAt.Value.ToString("MMM d, h:mm tt") : "—")
                                 </td>
-                                <td class="text-center">
+                                <td class="schedule-action">
                                     @if (!s.IsConfirmed)
                                     {
                                         <button type="button"

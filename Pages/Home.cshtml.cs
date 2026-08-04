@@ -357,6 +357,13 @@ namespace PetPotty.Pages
             };
             var timeLabel = item.DueAt.ToString("h:mm tt");
 
+            if (item.Kind == "Medication" && item.IsOverdue)
+            {
+                var daysOverdue = Math.Max(1, -days);
+                var dayUnit = daysOverdue == 1 ? "day" : "days";
+                return $"Past due: {item.Text} was due {daysOverdue} {dayUnit} ago";
+            }
+
             if (item.Kind == "Medication")
                 return $"{item.Text} {dayLabel} at {timeLabel}";
 

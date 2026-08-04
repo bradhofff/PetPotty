@@ -2,8 +2,9 @@
   PackTracker medication schedule ranges.
 
   The default view includes today and the following 29 calendar days, plus
-  overdue schedule rows that have not been confirmed. The all-time view has no
-  future cutoff. Legacy procedure names remain as compatibility wrappers.
+  every schedule row that has not been confirmed, regardless of date. The
+  all-time view has no cutoff. Legacy procedure names remain as compatibility
+  wrappers.
 */
 
 CREATE OR ALTER PROCEDURE dbo.GetScheduledMedsByPetID_Next30Days
@@ -23,8 +24,12 @@ BEGIN
     FROM dbo.MedicationSchedule AS ms
     INNER JOIN dbo.Medications AS m ON m.medID = ms.medID
     WHERE m.petID = @petID
-      AND ms.scheduleDate < DATEADD(DAY, 30, @Today)
-      AND (ms.scheduleDate >= @Today OR ms.isConfirmed = 0)
+      AND
+      (
+          (ms.scheduleDate >= @Today
+           AND ms.scheduleDate < DATEADD(DAY, 30, @Today))
+          OR ms.isConfirmed = 0
+      )
     ORDER BY ms.scheduleDate ASC;
 END;
 GO
