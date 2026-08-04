@@ -349,7 +349,8 @@ namespace PetPotty.Pages
             var days = (item.DueAt.Date - DateTime.Today).Days;
             var dayLabel = days switch
             {
-                0 when item.IsOverdue => "was due today",
+                < -1 => $"was due {-days} days ago",
+                -1 => "was due yesterday",
                 0 => "due today",
                 1 => "due tomorrow",
                 _ => $"due in {days} days"
@@ -401,8 +402,8 @@ namespace PetPotty.Pages
         {
             Pets = _petService.GetPetsByUser(UserID);
             var today = DateTime.Today;
-            var windowEnd = today.AddDays(4);
-            var vetItems = _vetVisitService.GetDashboardVisits(UserID, today, windowEnd);
+            var reminderWindowEnd = today.AddDays(4);
+            var vetItems = _vetVisitService.GetDashboardVisits(UserID, today, reminderWindowEnd);
             foreach (var pet in Pets)
             {
                 PetTasks[pet.PetID] = _petService.GetTasksByPetID(pet.PetID, ShowAllTime);
@@ -410,8 +411,7 @@ namespace PetPotty.Pages
 
                 var medicationItems = _medicationService.GetScheduleByPetID(pet.PetID, false)
                     .Where(schedule => !schedule.IsConfirmed
-                        && schedule.ScheduleDate >= today
-                        && schedule.ScheduleDate < windowEnd)
+                        && schedule.ScheduleDate < reminderWindowEnd)
                     .Select(schedule => new DashboardCareItem
                     {
                         PetID = pet.PetID,
@@ -419,7 +419,7 @@ namespace PetPotty.Pages
                         Kind = "Medication",
                         Text = schedule.MedicationName,
                         Url = $"/Medications?petID={pet.PetID}",
-                        IsOverdue = schedule.ScheduleDate < DateTime.Now
+                        IsOverdue = schedule.ScheduleDate.Date < today
                     });
 
                 PetCareItems[pet.PetID] = medicationItems

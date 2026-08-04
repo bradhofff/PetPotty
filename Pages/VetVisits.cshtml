@@ -91,10 +91,6 @@
             <h1 class="mb-1 fw-bold" style="color: var(--pet-dark);">Vet visits</h1>
             <p class="text-muted mb-0">Appointments, reminders, outcomes, and clinic records in one place.</p>
         </div>
-        <button type="button" class="btn btn-primary px-4" data-bs-toggle="modal" data-bs-target="#addVisitModal"
-                disabled="@(Model.Pets.Count == 0)">
-            + Add vet visit
-        </button>
     </header>
 
     @if (Model.Pets.Count == 0)

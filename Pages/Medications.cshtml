@@ -210,11 +210,11 @@
             <div class="seg-toggle">
                 <form method="post" asp-page-handler="SetScheduleView">
                     <input type="hidden" name="showAllTime" value="false" />
-                    <button type="submit" class="seg-option @(!Model.ShowAllTime ? "seg-active" : "")">30 Days</button>
+                    <button type="submit" class="seg-option @(!Model.ShowAllTime ? "seg-active" : "")">Next 30 Days</button>
                 </form>
                 <form method="post" asp-page-handler="SetScheduleView">
                     <input type="hidden" name="showAllTime" value="true" />
-                    <button type="submit" class="seg-option @(Model.ShowAllTime ? "seg-active" : "")">All Time</button>
+                    <button type="submit" class="seg-option @(Model.ShowAllTime ? "seg-active" : "")">Show All Time</button>
                 </form>
             </div>
         </div>

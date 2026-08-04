@@ -47,10 +47,12 @@ namespace PetPotty.Services
             return list;
         }
 
-        public List<MedSchedule> GetScheduleByPetID(int petID, bool allTime)
+        public List<MedSchedule> GetScheduleByPetID(int petID, bool showAllTime)
         {
             var list = new List<MedSchedule>();
-            string sp = allTime ? "GetScheduledMedsByPetID" : "GetScheduledMedsByPetID_Month";
+            string sp = showAllTime
+                ? "GetScheduledMedsByPetID_AllTime"
+                : "GetScheduledMedsByPetID_Next30Days";
             using var conn = new SqlConnection(_connStr);
             using var cmd = new SqlCommand(sp, conn)
             {

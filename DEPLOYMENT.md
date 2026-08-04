@@ -26,6 +26,10 @@ For the saved light/dark account preference, review and run
 database before deploying the matching application build. The script is
 idempotent and does not contain a `USE` statement.
 
+For the medication schedule range update, review and run
+`Migrationsss/2026-08-04_UpdateMedicationScheduleRanges.sql` against the
+intended database before deploying the corresponding application build.
+
 ## VPS filesystem
 
 Run the setup script with the user (and optional group) from the `petpotty`
@@ -63,6 +67,7 @@ owned by the application service account.
 - Upload each supported document type (PDF, JPEG, PNG, DOCX), reject an
   unsupported or over-10-MB file, download as the owner, and confirm another
   user receives no document.
-- Confirm dashboard pet cards only show unconfirmed medication doses and active
-  vet visits from today through three calendar days ahead, with at most three
-  visible rows.
+- Confirm dashboard pet cards show unconfirmed medication doses and active vet
+  visits through three calendar days ahead, while overdue unconfirmed doses
+  remain visible with a red outline until confirmed. Confirm at most three care
+  rows are visible.

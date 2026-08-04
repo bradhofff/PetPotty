@@ -5,7 +5,7 @@ namespace PetPotty.Services
     public interface IMedicationService
     {
         List<Medication> GetMedicationsByPetID(int petID);
-        List<MedSchedule> GetScheduleByPetID(int petID, bool allTime);
+        List<MedSchedule> GetScheduleByPetID(int petID, bool showAllTime);
         void AddMedication(int petID, string medicationName, string dosage,
                            string frequencyType, int? frequencyInterval,
                            DateTime startDate, DateTime? endDate, string notes);
