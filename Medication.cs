@@ -13,11 +13,28 @@ namespace PetPotty.Models
         public DateTime? EndDate { get; set; }
         public string Notes { get; set; } = string.Empty;
 
-        // Display helper — "Every 1 daily", "Every 8 hourly" etc
-        public string FrequencyDisplay =>
-            FrequencyInterval.HasValue
-                ? $"Every {FrequencyInterval} {FrequencyType.ToLower()}"
-                : FrequencyType;
+        // Display helper — "Every day", "Every 2 weeks", "Every 8 hours", etc.
+        public string FrequencyDisplay
+        {
+            get
+            {
+                if (!FrequencyInterval.HasValue)
+                    return FrequencyType;
+
+                var unit = FrequencyType.Trim().ToLowerInvariant() switch
+                {
+                    "hourly" => "hour",
+                    "daily" => "day",
+                    "weekly" => "week",
+                    "monthly" => "month",
+                    _ => FrequencyType.Trim().ToLowerInvariant()
+                };
+
+                return FrequencyInterval.Value == 1
+                    ? $"Every {unit}"
+                    : $"Every {FrequencyInterval.Value} {unit}s";
+            }
+        }
     }
 
     public class MedSchedule

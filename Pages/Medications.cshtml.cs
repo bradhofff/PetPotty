@@ -28,6 +28,7 @@ namespace PetPotty.Pages
         public string? ModalToOpen { get; set; }
 
         // ── Add Medication fields ────────────────────────────────────
+        [BindProperty] public int NewMedPetID { get; set; }
         [BindProperty] public string NewMedName { get; set; } = string.Empty;
         [BindProperty] public string NewMedDosage { get; set; } = string.Empty;
         [BindProperty] public string NewMedFrequencyType { get; set; } = string.Empty;
@@ -64,6 +65,8 @@ namespace PetPotty.Pages
             LoadData();
             if (petID.HasValue && SelectedPetID == petID.Value)
                 SetSelectedPetID(petID.Value);
+            if (NewMedPetID == 0 && SelectedPetID > 0)
+                NewMedPetID = SelectedPetID;
             return Page();
         }
 
@@ -95,7 +98,12 @@ namespace PetPotty.Pages
 
             UserID = userID;
             RestoreStateFromSession();
-            SetSelectedPetID(SelectedPetID);
+            Pets = _petService.GetPetsByUser(UserID);
+
+            if (NewMedPetID <= 0)
+                return ShowMedicationModalError("addMedModal", "Choose a pet for this medication.");
+            if (Pets.All(pet => pet.PetID != NewMedPetID))
+                return Forbid();
 
             if (!TryNormalizeMedicationTiming(
                     NewMedFrequencyType,
@@ -138,11 +146,12 @@ namespace PetPotty.Pages
             }
 
             _medService.AddMedication(
-                SelectedPetID, NewMedName, NewMedDosage,
+                NewMedPetID, NewMedName, NewMedDosage,
                 NewMedFrequencyType, NewMedFrequencyInterval, NewMedTimingDoesNotMatter,
                 NewMedStartDate, NewMedForever ? null : NewMedEndDate,
                 NewMedNotes);
 
+            SetSelectedPetID(NewMedPetID);
             TempData["StatusMessage"] = $"{NewMedName} added successfully!";
             return RedirectToPage();
         }

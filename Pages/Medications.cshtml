@@ -122,10 +122,18 @@
 }
 
 @* ── PAGE HEADER ─────────────────────────────────────────── *@
-<div class="app-page-heading mb-4">
-    <p class="app-eyebrow">CARE PLANNER</p>
-    <h1 class="mb-1 fw-bold" style="color: var(--pet-dark);">Medications</h1>
-    <p class="text-muted mb-0" style="font-size: 1.05rem;">Keep every dose on track.</p>
+<div class="app-page-heading mb-4 d-flex align-items-center justify-content-between gap-3 flex-wrap">
+    <div>
+        <p class="app-eyebrow">CARE PLANNER</p>
+        <h1 class="mb-1 fw-bold" style="color: var(--pet-dark);">Medications</h1>
+        <p class="text-muted mb-0" style="font-size: 1.05rem;">Keep every dose on track.</p>
+    </div>
+    <button type="button"
+            class="btn btn-primary"
+            style="border-radius: 30px; padding: 8px 22px; font-weight: 600;"
+            data-bs-toggle="modal" data-bs-target="#addMedModal">
+        + Add Medication
+    </button>
 </div>
 
 @* ── PET SELECTOR ────────────────────────────────────────── *@
@@ -171,16 +179,10 @@
     var selectedPet = Model.Pets.FirstOrDefault(p => p.PetID == Model.SelectedPetID);
 
     @* ── MEDICATIONS SECTION ─────────────────────────────────── *@
-    <div class="d-flex align-items-center justify-content-between app-section-heading mb-3">
+    <div class="app-section-heading mb-3">
         <h2 class="mb-0 fw-semibold" style="color: var(--pet-dark); font-size: 1.35rem;">
             @selectedPet?.Name's Medications
         </h2>
-        <button type="button"
-                class="btn btn-primary"
-                style="border-radius: 30px; padding: 8px 22px; font-weight: 600;"
-                data-bs-toggle="modal" data-bs-target="#addMedModal">
-            + Add Medication
-        </button>
     </div>
 
     @if (Model.Medications.Count == 0)
@@ -393,9 +395,24 @@ else
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <form method="post" asp-page-handler="AddMedication">
-                    <input type="hidden" name="SelectedPetID" value="@Model.SelectedPetID" />
                     <div class="modal-body">
+                        @if (Model.ModalToOpen == "addMedModal" && !string.IsNullOrWhiteSpace(Model.MedicationError))
+                        {
+                            <div class="alert alert-danger" role="alert">@Model.MedicationError</div>
+                        }
                         <div class="row g-3">
+                            <div class="col-md-6">
+                                <label asp-for="NewMedPetID" class="form-label fw-semibold">
+                                    Pet <span class="text-danger">*</span>
+                                </label>
+                                <select asp-for="NewMedPetID" class="form-select" id="newMedPetID" required>
+                                    <option value="">-- Select a Pet --</option>
+                                    @foreach (var pet in Model.Pets)
+                                    {
+                                        <option value="@pet.PetID">@pet.Name</option>
+                                    }
+                                </select>
+                            </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Medication Name <span class="text-danger">*</span></label>
                                 <input asp-for="NewMedName" class="form-control" placeholder="e.g. Apoquel" required />
