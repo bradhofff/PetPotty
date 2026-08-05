@@ -17,3 +17,6 @@ obj/
 # Rider/Visual Studio
 .vs/
 *.suo
+
+# Local deployment documentation
+deployment.md
