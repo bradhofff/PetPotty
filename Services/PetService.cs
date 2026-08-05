@@ -47,7 +47,6 @@ namespace PetPotty.Services
 
         public List<TaskItem> GetTasksByPetID(int petID, bool allTime)
         {
-            var tasks = new List<TaskItem>();
             string sp = allTime ? "GetTasksByPetID" : "GetTasksByPetID_Recent";
 
             using var conn = new SqlConnection(_connStr);
@@ -59,19 +58,80 @@ namespace PetPotty.Services
             conn.Open();
 
             using var reader = cmd.ExecuteReader();
-            while (reader.Read())
-            {
-                tasks.Add(new TaskItem
-                {
-                    TaskID    = reader.GetInt32(reader.GetOrdinal("taskID")),
-                    PetID     = reader.GetInt32(reader.GetOrdinal("petID")),
-                    PetName   = reader["petName"].ToString() ?? string.Empty,
-                    TaskType  = reader["taskType"].ToString() ?? string.Empty,
-                    Notes     = reader["notes"].ToString() ?? string.Empty,
-                    CreatedAt = reader.GetDateTime(reader.GetOrdinal("createdAt"))
-                });
-            }
+            return ReadTasks(reader);
+        }
+
+        public List<TaskItem> GetTasksByPetIDSince(int petID, DateTime startDate, out bool hasOlderTasks)
+        {
+            using var conn = new SqlConnection(_connStr);
+            using var cmd = new SqlCommand("""
+                SELECT
+                    t.taskID,
+                    t.petID,
+                    p.[name] AS petName,
+                    t.taskType,
+                    t.notes,
+                    t.createdAt
+                FROM dbo.Tasks AS t
+                INNER JOIN dbo.Pets AS p ON p.petID = t.petID
+                WHERE t.petID = @petID
+                  AND t.createdAt >= @startDate
+                ORDER BY t.createdAt DESC;
+
+                SELECT CAST(CASE WHEN EXISTS
+                (
+                    SELECT 1
+                    FROM dbo.Tasks AS older
+                    WHERE older.petID = @petID
+                      AND older.createdAt < @startDate
+                ) THEN 1 ELSE 0 END AS bit) AS hasOlder;
+                """, conn);
+            cmd.Parameters.AddWithValue("@petID", petID);
+            cmd.Parameters.Add("@startDate", SqlDbType.DateTime2).Value = startDate;
+            conn.Open();
+
+            using var reader = cmd.ExecuteReader();
+            var tasks = ReadTasks(reader);
+            hasOlderTasks = reader.NextResult()
+                && reader.Read()
+                && reader.GetBoolean(reader.GetOrdinal("hasOlder"));
             return tasks;
+        }
+
+        public List<TaskItem> GetLatestActivityTasksByPetID(int petID)
+        {
+            using var conn = new SqlConnection(_connStr);
+            using var cmd = new SqlCommand("""
+                SELECT DISTINCT
+                    latest.taskID,
+                    latest.petID,
+                    latest.petName,
+                    latest.taskType,
+                    latest.notes,
+                    latest.createdAt
+                FROM (VALUES ('Pee'), ('Poop')) AS activity(activityType)
+                CROSS APPLY
+                (
+                    SELECT TOP (1)
+                        t.taskID,
+                        t.petID,
+                        p.[name] AS petName,
+                        t.taskType,
+                        t.notes,
+                        t.createdAt
+                    FROM dbo.Tasks AS t
+                    INNER JOIN dbo.Pets AS p ON p.petID = t.petID
+                    WHERE t.petID = @petID
+                      AND (t.taskType = activity.activityType OR t.taskType = 'Pee & Poop')
+                    ORDER BY t.createdAt DESC
+                ) AS latest
+                ORDER BY latest.createdAt DESC;
+                """, conn);
+            cmd.Parameters.AddWithValue("@petID", petID);
+            conn.Open();
+
+            using var reader = cmd.ExecuteReader();
+            return ReadTasks(reader);
         }
 
         public Pet? GetPetByID(int userID, int petID)
@@ -186,6 +246,25 @@ namespace PetPotty.Services
             cmd.Parameters.AddWithValue("@taskID", taskID);
             conn.Open();
             cmd.ExecuteNonQuery();
+        }
+
+        private static List<TaskItem> ReadTasks(SqlDataReader reader)
+        {
+            var tasks = new List<TaskItem>();
+            while (reader.Read())
+            {
+                tasks.Add(new TaskItem
+                {
+                    TaskID    = reader.GetInt32(reader.GetOrdinal("taskID")),
+                    PetID     = reader.GetInt32(reader.GetOrdinal("petID")),
+                    PetName   = reader["petName"].ToString() ?? string.Empty,
+                    TaskType  = reader["taskType"].ToString() ?? string.Empty,
+                    Notes     = reader["notes"].ToString() ?? string.Empty,
+                    CreatedAt = reader.GetDateTime(reader.GetOrdinal("createdAt"))
+                });
+            }
+
+            return tasks;
         }
     }
 }

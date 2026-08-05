@@ -38,6 +38,31 @@ namespace PetPotty.Pages
         public Dictionary<int, List<DashboardCareItem>> PetCareItems { get; set; } = new();
 
         public bool ShowAllTime { get; set; } = false;
+        public int TaskHistoryStage { get; set; }
+        public bool HasOlderTasks { get; set; }
+        public string TaskHistoryRangeLabel => TaskHistoryStage switch
+        {
+            0 => "Showing the last 7 days",
+            1 => "Showing the last 14 days",
+            2 => "Showing the last month",
+            3 => "Showing the last 6 months",
+            4 => "Showing the last year",
+            5 => "Showing the last 2 years",
+            6 => "Showing the last 5 years",
+            7 => "Showing the last 10 years",
+            _ => "Showing all available history"
+        };
+        public string ShowMoreTaskHistoryLabel => TaskHistoryStage switch
+        {
+            0 => "Show previous week",
+            1 => "Show previous month",
+            2 => "Show previous 6 months",
+            3 => "Show previous year",
+            4 => "Show previous 2 years",
+            5 => "Show previous 5 years",
+            6 => "Show previous 10 years",
+            _ => "Show all remaining records"
+        };
         public string? PetImageError { get; set; }
         public string? ModalToOpen { get; set; }
         public string? EditPetCurrentImagePath { get; set; }
@@ -251,7 +276,20 @@ namespace PetPotty.Pages
 
             UserID = userID;
             HttpContext.Session.SetString("homeShowAllTime", showAllTime.ToString());
-            return RedirectToPage();
+            HttpContext.Session.SetInt32("homeTaskHistoryStage", 0);
+            return LocalRedirect("/Home#task-log");
+        }
+
+        public IActionResult OnPostShowMoreTasks()
+        {
+            if (!int.TryParse(HttpContext.Session.GetString("userID"), out int userID))
+                return RedirectToPage("/Login");
+
+            UserID = userID;
+            var nextStage = Math.Min(GetTaskHistoryStage() + 1, 8);
+            HttpContext.Session.SetString("homeShowAllTime", bool.TrueString);
+            HttpContext.Session.SetInt32("homeTaskHistoryStage", nextStage);
+            return LocalRedirect("/Home#task-log");
         }
 
         // ============================================================
@@ -395,6 +433,28 @@ namespace PetPotty.Pages
             return bool.TryParse(HttpContext.Session.GetString("homeShowAllTime"), out var showAllTime) && showAllTime;
         }
 
+        private int GetTaskHistoryStage()
+        {
+            return Math.Clamp(HttpContext.Session.GetInt32("homeTaskHistoryStage") ?? 0, 0, 8);
+        }
+
+        private static DateTime GetTaskHistoryStartDate(int stage)
+        {
+            var now = DateTime.Now;
+            return stage switch
+            {
+                0 => now.AddDays(-7),
+                1 => now.AddDays(-14),
+                2 => now.AddMonths(-1),
+                3 => now.AddMonths(-6),
+                4 => now.AddYears(-1),
+                5 => now.AddYears(-2),
+                6 => now.AddYears(-5),
+                7 => now.AddYears(-10),
+                _ => new DateTime(1753, 1, 1)
+            };
+        }
+
         private PageResult ShowPetModalError(string modalID, string message)
         {
             PetImageError = message;
@@ -408,13 +468,28 @@ namespace PetPotty.Pages
         private void LoadData()
         {
             Pets = _petService.GetPetsByUser(UserID);
+            TaskHistoryStage = GetTaskHistoryStage();
+            HasOlderTasks = false;
+            var taskHistoryStartDate = GetTaskHistoryStartDate(TaskHistoryStage);
             var today = DateTime.Today;
             var reminderWindowEnd = today.AddDays(4);
             var vetItems = _vetVisitService.GetDashboardVisits(UserID, today, reminderWindowEnd);
             foreach (var pet in Pets)
             {
-                PetTasks[pet.PetID] = _petService.GetTasksByPetID(pet.PetID, ShowAllTime);
-                PetAllTasks[pet.PetID] = ShowAllTime ? PetTasks[pet.PetID] : _petService.GetTasksByPetID(pet.PetID, true);
+                if (ShowAllTime)
+                {
+                    PetTasks[pet.PetID] = _petService.GetTasksByPetIDSince(
+                        pet.PetID,
+                        taskHistoryStartDate,
+                        out var petHasOlderTasks);
+                    HasOlderTasks |= petHasOlderTasks;
+                }
+                else
+                {
+                    PetTasks[pet.PetID] = _petService.GetTasksByPetID(pet.PetID, false);
+                }
+
+                PetAllTasks[pet.PetID] = _petService.GetLatestActivityTasksByPetID(pet.PetID);
 
                 var medicationItems = _medicationService.GetScheduleByPetID(pet.PetID, false)
                     .Where(schedule => !schedule.IsConfirmed

@@ -357,6 +357,54 @@
     .task-log-card-body {
         padding: 0 18px 14px;
     }
+    #task-log {
+        scroll-margin-top: 24px;
+    }
+    .task-history-range {
+        color: #6f655e;
+        font-size: 0.78rem;
+        font-weight: 650;
+        white-space: nowrap;
+    }
+    .task-history-more {
+        align-items: center;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 18px;
+        text-align: center;
+    }
+    .task-history-more-button {
+        background: #fff;
+        border: 1px solid #d7d1ca;
+        border-radius: 999px;
+        color: #655c55;
+        font-size: 0.84rem;
+        font-weight: 700;
+        min-width: 220px;
+        padding: 9px 20px;
+        transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+    }
+    .task-history-more-button:hover {
+        background: var(--app-accent-soft, #fff3e9);
+        border-color: #eca273;
+        color: var(--app-accent, #b85820);
+        transform: translateY(-1px);
+    }
+    .task-history-complete {
+        color: #7b746e;
+        font-size: 0.8rem;
+    }
+    html[data-bs-theme="dark"] .task-history-more-button {
+        background: #111820;
+        border-color: #fff;
+        color: #fff;
+    }
+    html[data-bs-theme="dark"] .task-history-more-button:hover {
+        background: #202832;
+        border-color: #fff;
+        color: #fff;
+    }
 
     /* Date pill separator */
     .task-date-pill {
@@ -703,8 +751,8 @@ else
 }
 
 @* ── TASK LOG ─────────────────────────────────────────────── *@
-<div class="d-flex align-items-center justify-content-between dashboard-section-heading task-log-heading mb-3">
-    <div class="d-flex align-items-center gap-3">
+<div class="d-flex align-items-center justify-content-between dashboard-section-heading task-log-heading mb-3" id="task-log">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
         <div><p class="dashboard-kicker mb-1">WHAT JUST HAPPENED</p><h2 class="mb-0 fw-semibold">Recent activity</h2></div>
         <div class="seg-toggle" role="group" aria-label="Task log range">
             <form method="post" asp-page-handler="SetTaskView">
@@ -716,6 +764,10 @@ else
                 <button type="submit" class="seg-option @(Model.ShowAllTime ? "seg-active" : "")">All Time</button>
             </form>
         </div>
+        @if (Model.ShowAllTime)
+        {
+            <span class="task-history-range">@Model.TaskHistoryRangeLabel</span>
+        }
     </div>
 </div>
 
@@ -825,6 +877,25 @@ else
             </div>
         }
     </div>
+
+    @if (Model.ShowAllTime)
+    {
+        <div class="task-history-more">
+            @if (Model.HasOlderTasks)
+            {
+                <form method="post" asp-page-handler="ShowMoreTasks">
+                    <button type="submit" class="task-history-more-button">
+                        @Model.ShowMoreTaskHistoryLabel
+                    </button>
+                </form>
+                <span class="task-history-complete">@Model.TaskHistoryRangeLabel</span>
+            }
+            else
+            {
+                <span class="task-history-complete">All available task history is shown.</span>
+            }
+        </div>
+    }
 }
 
 </div>
