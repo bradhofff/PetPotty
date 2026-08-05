@@ -8,6 +8,7 @@ namespace PetPotty.Models
         public string Dosage { get; set; } = string.Empty;
         public string FrequencyType { get; set; } = string.Empty;
         public int? FrequencyInterval { get; set; }
+        public bool TimingDoesNotMatter { get; set; }
         public DateTime StartDate { get; set; }
         public DateTime? EndDate { get; set; }
         public string Notes { get; set; } = string.Empty;
@@ -23,6 +24,8 @@ namespace PetPotty.Models
     {
         public int MedID { get; set; }
         public string MedicationName { get; set; } = string.Empty;
+        public string FrequencyType { get; set; } = string.Empty;
+        public bool TimingDoesNotMatter { get; set; }
         public DateTime ScheduleDate { get; set; }
         public bool IsConfirmed { get; set; }
         public DateTime? ConfirmedAt { get; set; }

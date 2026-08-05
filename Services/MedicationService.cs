@@ -37,6 +37,7 @@ namespace PetPotty.Services
                     FrequencyInterval = reader.IsDBNull(reader.GetOrdinal("frequencyInterval"))
                                         ? null
                                         : reader.GetInt32(reader.GetOrdinal("frequencyInterval")),
+                    TimingDoesNotMatter = reader.GetBoolean(reader.GetOrdinal("TimingDoesNotMatter")),
                     StartDate       = reader.GetDateTime(reader.GetOrdinal("startDate")),
                     EndDate         = reader.IsDBNull(reader.GetOrdinal("endDate"))
                                         ? null
@@ -67,6 +68,8 @@ namespace PetPotty.Services
                 {
                     MedID          = reader.GetInt32(reader.GetOrdinal("medID")),
                     MedicationName = reader["medicationName"].ToString() ?? string.Empty,
+                    FrequencyType  = reader["frequencyType"].ToString() ?? string.Empty,
+                    TimingDoesNotMatter = reader.GetBoolean(reader.GetOrdinal("TimingDoesNotMatter")),
                     ScheduleDate   = reader.GetDateTime(reader.GetOrdinal("scheduleDate")),
                     IsConfirmed    = reader.GetBoolean(reader.GetOrdinal("isConfirmed")),
                     ConfirmedAt    = reader.IsDBNull(reader.GetOrdinal("confirmedAt"))
@@ -78,7 +81,7 @@ namespace PetPotty.Services
         }
 
         public void AddMedication(int petID, string medicationName, string dosage,
-                                  string frequencyType, int? frequencyInterval,
+                                  string frequencyType, int? frequencyInterval, bool timingDoesNotMatter,
                                   DateTime startDate, DateTime? endDate, string notes)
         {
             using var conn = new SqlConnection(_connStr);
@@ -91,6 +94,7 @@ namespace PetPotty.Services
             cmd.Parameters.AddWithValue("@dosage",            dosage);
             cmd.Parameters.AddWithValue("@frequencyType",     frequencyType);
             cmd.Parameters.AddWithValue("@frequencyInterval", (object?)frequencyInterval ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@TimingDoesNotMatter", timingDoesNotMatter);
             cmd.Parameters.AddWithValue("@startDate",         startDate);
             cmd.Parameters.AddWithValue("@endDate",           (object?)endDate ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@notes",             string.IsNullOrEmpty(notes) ? string.Empty : notes);
@@ -99,7 +103,7 @@ namespace PetPotty.Services
         }
 
         public void UpdateMedication(int medID, string medicationName, string dosage,
-                                     string frequencyType, int? frequencyInterval,
+                                     string frequencyType, int? frequencyInterval, bool timingDoesNotMatter,
                                      DateTime startDate, DateTime? endDate, string notes)
         {
             using var conn = new SqlConnection(_connStr);
@@ -112,6 +116,7 @@ namespace PetPotty.Services
             cmd.Parameters.AddWithValue("@dosage",            dosage);
             cmd.Parameters.AddWithValue("@frequencyType",     frequencyType);
             cmd.Parameters.AddWithValue("@frequencyInterval", (object?)frequencyInterval ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@TimingDoesNotMatter", timingDoesNotMatter);
             cmd.Parameters.AddWithValue("@startDate",         startDate);
             cmd.Parameters.AddWithValue("@endDate",           (object?)endDate ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@notes",             string.IsNullOrEmpty(notes) ? string.Empty : notes);

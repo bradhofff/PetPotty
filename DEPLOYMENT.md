@@ -30,6 +30,10 @@ For the medication schedule range update, review and run
 `Migrationsss/2026-08-04_UpdateMedicationScheduleRanges.sql` against the
 intended database before deploying the corresponding application build.
 
+For calendar-day versus exact-time medication scheduling, review and run
+`Migrationsss/2026-08-05_AddMedicationTimingPreference.sql` after the schedule
+range migration and before deploying the corresponding application build.
+
 ## VPS filesystem
 
 Run the setup script with the user (and optional group) from the `petpotty`

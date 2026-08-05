@@ -7,10 +7,10 @@ namespace PetPotty.Services
         List<Medication> GetMedicationsByPetID(int petID);
         List<MedSchedule> GetScheduleByPetID(int petID, bool showAllTime);
         void AddMedication(int petID, string medicationName, string dosage,
-                           string frequencyType, int? frequencyInterval,
+                           string frequencyType, int? frequencyInterval, bool timingDoesNotMatter,
                            DateTime startDate, DateTime? endDate, string notes);
         void UpdateMedication(int medID, string medicationName, string dosage,
-                              string frequencyType, int? frequencyInterval,
+                              string frequencyType, int? frequencyInterval, bool timingDoesNotMatter,
                               DateTime startDate, DateTime? endDate, string notes);
         void DeleteMedication(int medID);
         void ConfirmSchedule(int medID, DateTime logDate, DateTime confirmedAt);

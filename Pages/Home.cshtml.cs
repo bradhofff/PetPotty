@@ -403,7 +403,9 @@ namespace PetPotty.Pages
             }
 
             if (item.Kind == "Medication")
-                return $"{item.Text} {dayLabel} at {timeLabel}";
+                return item.TimingDoesNotMatter
+                    ? $"{item.Text} {dayLabel}"
+                    : $"{item.Text} {dayLabel} at {timeLabel}";
 
             var allDay = item.Text.Contains("(all day)", StringComparison.OrdinalIgnoreCase);
             var reason = item.Text.Replace("Vet visit (all day) — ", string.Empty)
@@ -501,7 +503,10 @@ namespace PetPotty.Pages
                         Kind = "Medication",
                         Text = schedule.MedicationName,
                         Url = $"/Medications?petID={pet.PetID}",
-                        IsOverdue = schedule.ScheduleDate.Date < today
+                        IsOverdue = schedule.TimingDoesNotMatter
+                            ? schedule.ScheduleDate.Date < today
+                            : schedule.ScheduleDate < DateTime.Now,
+                        TimingDoesNotMatter = schedule.TimingDoesNotMatter
                     });
 
                 PetCareItems[pet.PetID] = medicationItems
