@@ -19,4 +19,4 @@ obj/
 *.suo
 
 # Local deployment documentation
-deployment.md
+DEPLOYMENT.md
