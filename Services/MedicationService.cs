@@ -50,7 +50,9 @@ namespace PetPotty.Services
         public List<MedSchedule> GetScheduleByPetID(int petID, bool allTime)
         {
             var list = new List<MedSchedule>();
-            string sp = allTime ? "GetScheduledMedsByPetID" : "GetScheduledMedsByPetID_Month";
+            string sp = allTime
+                ? "GetScheduledMedsByPetID_AllTime"
+                : "GetScheduledMedsByPetID_Next2Months";
             using var conn = new SqlConnection(_connStr);
             using var cmd = new SqlCommand(sp, conn)
             {

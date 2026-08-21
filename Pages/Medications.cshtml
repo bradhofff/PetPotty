@@ -204,18 +204,20 @@
 
         @* ── SCHEDULE SECTION ────────────────────────────────────── *@
         <div class="d-flex align-items-center justify-content-between app-section-heading mb-3">
-            <h2 class="mb-0 fw-semibold" style="color: var(--pet-dark); font-size: 1.2rem;">
-                📅 Medication Schedule
-            </h2>
-            <div class="seg-toggle">
-                <form method="post" asp-page-handler="SetScheduleView">
-                    <input type="hidden" name="showAllTime" value="false" />
-                    <button type="submit" class="seg-option @(!Model.ShowAllTime ? "seg-active" : "")">30 Days</button>
-                </form>
-                <form method="post" asp-page-handler="SetScheduleView">
-                    <input type="hidden" name="showAllTime" value="true" />
-                    <button type="submit" class="seg-option @(Model.ShowAllTime ? "seg-active" : "")">All Time</button>
-                </form>
+            <div class="d-flex align-items-center gap-3">
+                <h2 class="mb-0 fw-semibold" style="color: var(--pet-dark); font-size: 1.2rem;">
+                    📅 Medication Schedule
+                </h2>
+                <div class="seg-toggle" role="group" aria-label="Medication schedule range">
+                    <form method="post" asp-page-handler="SetScheduleView">
+                        <input type="hidden" name="showAllTime" value="false" />
+                        <button type="submit" class="seg-option @(!Model.ShowAllTime ? "seg-active" : "")">Next 2 Months</button>
+                    </form>
+                    <form method="post" asp-page-handler="SetScheduleView">
+                        <input type="hidden" name="showAllTime" value="true" />
+                        <button type="submit" class="seg-option @(Model.ShowAllTime ? "seg-active" : "")">All Time</button>
+                    </form>
+                </div>
             </div>
         </div>
 
@@ -322,15 +324,15 @@ else
                     <div class="modal-body">
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Medication Name <span class="text-danger">*</span></label>
+                                <label class="form-label fw-semibold">Medication Name <span class="required-marker" aria-hidden="true">*</span></label>
                                 <input asp-for="NewMedName" class="form-control" placeholder="e.g. Apoquel" required />
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Dosage <span class="text-danger">*</span></label>
+                                <label class="form-label fw-semibold">Dosage <span class="required-marker" aria-hidden="true">*</span></label>
                                 <input asp-for="NewMedDosage" class="form-control" placeholder="e.g. 10mg" required />
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Frequency Type <span class="text-danger">*</span></label>
+                                <label class="form-label fw-semibold">Frequency Type <span class="required-marker" aria-hidden="true">*</span></label>
                                 <select asp-for="NewMedFrequencyType" class="form-select" required>
                                     <option value="">-- Select --</option>
                                     <option>Hourly</option>
@@ -348,7 +350,7 @@ else
                                        class="form-control" placeholder="e.g. 8" />
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Start Date & Time <span class="text-danger">*</span></label>
+                                <label class="form-label fw-semibold">Start Date & Time <span class="required-marker" aria-hidden="true">*</span></label>
                                 <input asp-for="NewMedStartDate" type="datetime-local"
                                        id="newMedStartDate" class="form-control" required />
                             </div>
@@ -362,7 +364,7 @@ else
                                 </div>
                                 <div id="newMedEndDateWrapper" class="d-none">
                                     <label class="form-label fw-semibold">
-                                        End Date & Time <span class="text-danger">*</span>
+                                        End Date & Time <span class="required-marker" aria-hidden="true">*</span>
                                     </label>
                                     <input asp-for="NewMedEndDate" type="datetime-local"
                                            id="newMedEndDate" class="form-control" />
@@ -398,15 +400,15 @@ else
                     <div class="modal-body">
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Medication Name <span class="text-danger">*</span></label>
+                                <label class="form-label fw-semibold">Medication Name <span class="required-marker" aria-hidden="true">*</span></label>
                                 <input asp-for="EditMedName" class="form-control" id="editMedName" required />
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Dosage <span class="text-danger">*</span></label>
+                                <label class="form-label fw-semibold">Dosage <span class="required-marker" aria-hidden="true">*</span></label>
                                 <input asp-for="EditMedDosage" class="form-control" id="editMedDosage" required />
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Frequency Type <span class="text-danger">*</span></label>
+                                <label class="form-label fw-semibold">Frequency Type <span class="required-marker" aria-hidden="true">*</span></label>
                                 <select asp-for="EditMedFrequencyType" class="form-select" id="editMedFrequencyType" required>
                                     <option value="">-- Select --</option>
                                     <option>Hourly</option>
@@ -421,7 +423,7 @@ else
                                        class="form-control" id="editMedFrequencyInterval" placeholder="e.g. 8" />
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Start Date & Time <span class="text-danger">*</span></label>
+                                <label class="form-label fw-semibold">Start Date & Time <span class="required-marker" aria-hidden="true">*</span></label>
                                 <input asp-for="EditMedStartDate" type="datetime-local" class="form-control"
                                        id="editMedStartDate" required />
                             </div>
@@ -435,7 +437,7 @@ else
                                 </div>
                                 <div id="editMedEndDateWrapper">
                                     <label class="form-label fw-semibold">
-                                        End Date & Time <span class="text-danger">*</span>
+                                        End Date & Time <span class="required-marker" aria-hidden="true">*</span>
                                     </label>
                                     <input asp-for="EditMedEndDate" type="datetime-local" class="form-control"
                                            id="editMedEndDate" />
@@ -492,7 +494,7 @@ else
                         </div>
                         <div>
                             <label class="form-label fw-semibold">
-                                Confirmed Date & Time <span class="text-danger">*</span>
+                                Confirmed Date & Time <span class="required-marker" aria-hidden="true">*</span>
                             </label>
                             <input type="datetime-local" name="confirmedAt" id="confirmDoseConfirmedAt"
                                    class="form-control" required />

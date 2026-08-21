@@ -410,18 +410,14 @@ namespace PetPotty.Services
             command.Parameters.Add("@VeterinarianName", SqlDbType.NVarChar, 150).Value = Clean(input.VeterinarianName);
             command.Parameters.Add("@VisitReason", SqlDbType.NVarChar, 500).Value = Clean(input.VisitReason);
             command.Parameters.Add("@VisitType", SqlDbType.NVarChar, 50).Value = Clean(input.VisitType);
-            command.Parameters.Add("@Location", SqlDbType.NVarChar, 400).Value = Clean(input.Location);
-            command.Parameters.Add("@PhoneNumber", SqlDbType.NVarChar, 50).Value = Clean(input.PhoneNumber);
             command.Parameters.Add("@Status", SqlDbType.NVarChar, 25).Value = Clean(input.Status);
-            command.Parameters.Add("@Notes", SqlDbType.NVarChar, 4000).Value = Clean(input.Notes);
+            command.Parameters.Add("@Notes", SqlDbType.NVarChar, -1).Value = Clean(input.Notes);
             command.Parameters.Add("@FollowUpDate", SqlDbType.Date).Value = (object?)input.FollowUpDate?.Date ?? DBNull.Value;
             var cost = command.Parameters.Add("@Cost", SqlDbType.Decimal);
             cost.Precision = 10;
             cost.Scale = 2;
             cost.Value = (object?)input.Cost ?? DBNull.Value;
             command.Parameters.Add("@IsEmergency", SqlDbType.Bit).Value = input.IsEmergency;
-            command.Parameters.Add("@PreparationInstructions", SqlDbType.NVarChar, 2000).Value =
-                Clean(input.PreparationInstructions);
         }
 
         private static void AddDocumentParameters(SqlCommand command, int userID, VetVisitDocument document)
@@ -505,11 +501,13 @@ namespace PetPotty.Services
                 Location = GetString(reader, "Location"),
                 PhoneNumber = GetString(reader, "PhoneNumber"),
                 Status = GetString(reader, "Status"),
-                Notes = GetString(reader, "Notes"),
+                Notes = CombinePreparationAndNotes(
+                    GetString(reader, "PreparationInstructions"),
+                    GetString(reader, "Notes")),
                 FollowUpDate = GetNullableDateTime(reader, "FollowUpDate"),
                 Cost = GetNullableDecimal(reader, "Cost"),
                 IsEmergency = reader.GetBoolean(reader.GetOrdinal("IsEmergency")),
-                PreparationInstructions = GetString(reader, "PreparationInstructions"),
+                PreparationInstructions = string.Empty,
                 VisitSummary = GetString(reader, "VisitSummary"),
                 Diagnosis = GetString(reader, "Diagnosis"),
                 TreatmentProvided = GetString(reader, "TreatmentProvided"),
@@ -541,6 +539,15 @@ namespace PetPotty.Services
                 Description = GetString(reader, "Description"),
                 CreatedAt = reader.GetDateTime(reader.GetOrdinal("CreatedAt"))
             };
+        }
+
+        private static string CombinePreparationAndNotes(string preparation, string notes)
+        {
+            if (string.IsNullOrWhiteSpace(preparation))
+                return notes;
+            if (string.IsNullOrWhiteSpace(notes))
+                return preparation;
+            return $"{preparation.Trim()}\r\n\r\n{notes.Trim()}";
         }
 
         private static string Clean(string? value) => value?.Trim() ?? string.Empty;

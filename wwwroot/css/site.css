@@ -326,6 +326,10 @@ body {
     margin: 0;
 }
 
+.required-marker {
+    color: #dc3545 !important;
+}
+
 .seg-option {
     background: transparent;
     border: 0;
@@ -750,8 +754,6 @@ hr {
 .app-shell .medications-page .med-card [style*="color: #555"],
 .app-shell .medications-page .med-card [style*="color: #888"] { color: var(--app-muted) !important; }
 .app-shell .medications-page .med-card p[style*="border-top"] { border-top-color: var(--app-line) !important; }
-.app-shell .medications-page .seg-toggle { background: #f0f1f4; }
-.app-shell .medications-page .seg-option { color: #697386; font-size: .76rem; }
 .app-shell .medications-page .app-table-wrap { background: #fff; border: 1px solid var(--app-line); border-radius: 12px; box-shadow: 0 5px 18px rgba(30, 41, 57, .04); }
 .app-shell .medications-page .table { border: 0 !important; box-shadow: none !important; margin-bottom: 0; }
 .app-shell .medications-page .table thead th { background: #fbfaf9 !important; border-bottom: 1px solid var(--app-line) !important; color: #586273 !important; font-size: .72rem; font-weight: 750 !important; letter-spacing: .045em; padding: .9rem 1rem !important; text-align: left !important; text-transform: uppercase; }
@@ -909,6 +911,10 @@ html[data-bs-theme="dark"] body :is(
     color: #fff !important;
 }
 
+html[data-bs-theme="dark"] body .required-marker {
+    color: #ff6b6b !important;
+}
+
 html[data-bs-theme="dark"] :is(
     .card, .pet-card, .task-card, .task-log-card, .visit-card, .vet-visit-card,
     .vet-stat-card, .vet-filter, .vet-filter-panel, .vet-empty, .vet-empty-state,
@@ -966,23 +972,23 @@ html[data-bs-theme="dark"] .home-dashboard .task-date-pill {
     color: #fff !important;
 }
 
-html[data-bs-theme="dark"] .home-dashboard .seg-toggle {
+html[data-bs-theme="dark"] :is(.home-dashboard, .medications-page) .seg-toggle {
     background: #090d12 !important;
     border: 1px solid #fff !important;
 }
 
-html[data-bs-theme="dark"] .home-dashboard .seg-option {
+html[data-bs-theme="dark"] :is(.home-dashboard, .medications-page) .seg-option {
     background: #090d12 !important;
     color: #fff !important;
 }
 
-html[data-bs-theme="dark"] .home-dashboard .seg-option.seg-active {
+html[data-bs-theme="dark"] :is(.home-dashboard, .medications-page) .seg-option.seg-active {
     background: #fff !important;
     color: #090d12 !important;
     box-shadow: 0 0 0 1px #fff !important;
 }
 
-html[data-bs-theme="dark"] .home-dashboard .seg-option:hover:not(.seg-active) {
+html[data-bs-theme="dark"] :is(.home-dashboard, .medications-page) .seg-option:hover:not(.seg-active) {
     background: #202832 !important;
     color: #fff !important;
 }

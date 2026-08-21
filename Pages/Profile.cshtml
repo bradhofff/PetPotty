@@ -100,21 +100,21 @@
                     <div class="row g-3">
 
                         <div class="col-12">
-                            <label class="form-label fw-semibold">Name</label>
+                            <label class="form-label fw-semibold">Name <span class="required-marker" aria-hidden="true">*</span></label>
                             <input asp-for="ProfileName" class="form-control profile-input"
-                                   id="fieldName" disabled />
+                                   id="fieldName" required disabled />
                         </div>
 
                         <div class="col-12">
-                            <label class="form-label fw-semibold">Username</label>
+                            <label class="form-label fw-semibold">Username <span class="required-marker" aria-hidden="true">*</span></label>
                             <input asp-for="ProfileUserName" class="form-control profile-input"
-                                   id="fieldUserName" disabled />
+                                   id="fieldUserName" required disabled />
                         </div>
 
                         <div class="col-12">
-                            <label class="form-label fw-semibold">Email</label>
+                            <label class="form-label fw-semibold">Email <span class="required-marker" aria-hidden="true">*</span></label>
                             <input asp-for="ProfileEmail" type="email" class="form-control profile-input"
-                                   id="fieldEmail" disabled />
+                                   id="fieldEmail" required disabled />
                         </div>
 
                         <div class="col-12">

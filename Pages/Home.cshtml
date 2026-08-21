@@ -858,11 +858,11 @@ else
                             <div class="invalid-feedback pet-image-client-error"></div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Name</label>
+                            <label class="form-label">Name <span class="required-marker" aria-hidden="true">*</span></label>
                             <input asp-for="NewPetName" class="form-control" required />
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Type</label>
+                            <label class="form-label">Type <span class="required-marker" aria-hidden="true">*</span></label>
                             <select asp-for="NewPetType" class="form-select" required>
                                 <option value="">-- Select --</option>
                                 <option>Dog</option>
@@ -945,12 +945,12 @@ else
                             <div class="invalid-feedback pet-image-client-error"></div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Name</label>
+                            <label class="form-label">Name <span class="required-marker" aria-hidden="true">*</span></label>
                             <input asp-for="EditPetName" class="form-control" id="editPetName" required />
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Type</label>
-                            <select asp-for="EditPetType" class="form-select" id="editPetType">
+                            <label class="form-label">Type <span class="required-marker" aria-hidden="true">*</span></label>
+                            <select asp-for="EditPetType" class="form-select" id="editPetType" required>
                                 <option value="">-- Select --</option>
                                 <option>Dog</option>
                                 <option>Cat</option>
@@ -1020,7 +1020,7 @@ else
                     <input type="hidden" name="NewTaskPetID" id="newTaskPetID" />
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label class="form-label">Task Type</label>
+                            <label class="form-label">Task Type <span class="required-marker" aria-hidden="true">*</span></label>
                             <select name="NewTaskType" class="form-select" required>
                                 <option value="">-- Select --</option>
                                 <option>Pee</option>
@@ -1034,7 +1034,7 @@ else
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Date & Time</label>
+                            <label class="form-label">Date & Time <span class="required-marker" aria-hidden="true">*</span></label>
                             <input type="datetime-local" name="NewTaskCreatedAt" id="newTaskCreatedAt"
                                    class="form-control" required />
                         </div>
@@ -1065,7 +1065,7 @@ else
                     <input type="hidden" name="UpdateTaskID" id="editTaskID" />
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label class="form-label">Task Type</label>
+                            <label class="form-label">Task Type <span class="required-marker" aria-hidden="true">*</span></label>
                             <select name="UpdateTaskType" id="editTaskType" class="form-select" required>
                                 <option value="">-- Select --</option>
                                 <option>Pee</option>
@@ -1079,7 +1079,7 @@ else
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Date & Time</label>
+                            <label class="form-label">Date & Time <span class="required-marker" aria-hidden="true">*</span></label>
                             <input type="datetime-local" name="UpdateTaskCreatedAt" id="editTaskCreatedAt"
                                    class="form-control" required />
                         </div>

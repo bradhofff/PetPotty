@@ -25,7 +25,7 @@ BEGIN
         Location                nvarchar(400) NOT NULL CONSTRAINT DF_VetVisits_Location DEFAULT (N''),
         PhoneNumber             nvarchar(50) NOT NULL CONSTRAINT DF_VetVisits_PhoneNumber DEFAULT (N''),
         Status                  nvarchar(25) NOT NULL CONSTRAINT DF_VetVisits_Status DEFAULT (N'Scheduled'),
-        Notes                   nvarchar(4000) NOT NULL CONSTRAINT DF_VetVisits_Notes DEFAULT (N''),
+        Notes                   nvarchar(max) NOT NULL CONSTRAINT DF_VetVisits_Notes DEFAULT (N''),
         FollowUpDate            date NULL,
         Cost                    decimal(10,2) NULL,
         IsEmergency             bit NOT NULL CONSTRAINT DF_VetVisits_IsEmergency DEFAULT (0),
@@ -80,6 +80,20 @@ IF COL_LENGTH(N'dbo.VetVisits', N'IsDeleted') IS NULL
     ALTER TABLE dbo.VetVisits ADD IsDeleted bit NOT NULL CONSTRAINT DF_VetVisits_IsDeleted_Upgrade DEFAULT (0);
 IF COL_LENGTH(N'dbo.VetVisits', N'DeletedAt') IS NULL
     ALTER TABLE dbo.VetVisits ADD DeletedAt datetime2(0) NULL;
+
+UPDATE dbo.VetVisits SET Notes = N'' WHERE Notes IS NULL;
+ALTER TABLE dbo.VetVisits ALTER COLUMN Notes nvarchar(max) NOT NULL;
+
+/* Keep both legacy text fields when consolidating the form into Preparation / Notes. */
+UPDATE dbo.VetVisits
+SET Notes = CASE
+        WHEN LTRIM(RTRIM(PreparationInstructions)) = N'' THEN Notes
+        WHEN LTRIM(RTRIM(Notes)) = N'' THEN LTRIM(RTRIM(PreparationInstructions))
+        ELSE CONCAT(CAST(LTRIM(RTRIM(PreparationInstructions)) AS nvarchar(max)),
+                    CHAR(13), CHAR(10), CHAR(13), CHAR(10), LTRIM(RTRIM(Notes)))
+    END,
+    PreparationInstructions = N''
+WHERE LTRIM(RTRIM(PreparationInstructions)) <> N'';
 
 /* Copy compatible values from the earlier draft without making it a dependency. */
 IF COL_LENGTH(N'dbo.VetVisits', N'Veterinarian') IS NOT NULL
@@ -202,7 +216,7 @@ CREATE OR ALTER PROCEDURE dbo.AddVetVisit
     @Location               nvarchar(400) = N'',
     @PhoneNumber            nvarchar(50) = N'',
     @Status                 nvarchar(25) = N'Scheduled',
-    @Notes                  nvarchar(4000) = N'',
+    @Notes                  nvarchar(max) = N'',
     @FollowUpDate           date = NULL,
     @Cost                   decimal(10,2) = NULL,
     @IsEmergency            bit = 0,
@@ -218,13 +232,10 @@ BEGIN
        OR @Status NOT IN (N'Scheduled', N'Confirmed', N'Cancelled', N'Missed', N'Rescheduled')
        OR LTRIM(RTRIM(COALESCE(@ClinicName, N''))) = N''
        OR LTRIM(RTRIM(COALESCE(@VeterinarianName, N''))) = N''
-       OR LTRIM(RTRIM(COALESCE(@Location, N''))) = N''
-       OR LTRIM(RTRIM(COALESCE(@PhoneNumber, N''))) = N''
        OR LTRIM(RTRIM(COALESCE(@VisitReason, N''))) = N''
        OR LTRIM(RTRIM(COALESCE(@VisitType, N''))) = N''
        OR (@FollowUpDate IS NOT NULL AND @FollowUpDate < @VisitDate)
-       OR @Cost IS NULL
-       OR @Cost < 0
+       OR (@Cost IS NOT NULL AND @Cost < 0)
     BEGIN
         SELECT CAST(0 AS int) AS VetVisitID;
         RETURN;
@@ -288,7 +299,7 @@ CREATE OR ALTER PROCEDURE dbo.UpdateVetVisit
     @Location               nvarchar(400) = N'',
     @PhoneNumber            nvarchar(50) = N'',
     @Status                 nvarchar(25),
-    @Notes                  nvarchar(4000) = N'',
+    @Notes                  nvarchar(max) = N'',
     @FollowUpDate           date = NULL,
     @Cost                   decimal(10,2) = NULL,
     @IsEmergency            bit = 0,
@@ -317,13 +328,10 @@ BEGIN
        OR (@OldStatus <> N'Completed' AND @Status = N'Completed')
        OR LTRIM(RTRIM(COALESCE(@ClinicName, N''))) = N''
        OR LTRIM(RTRIM(COALESCE(@VeterinarianName, N''))) = N''
-       OR LTRIM(RTRIM(COALESCE(@Location, N''))) = N''
-       OR LTRIM(RTRIM(COALESCE(@PhoneNumber, N''))) = N''
        OR LTRIM(RTRIM(COALESCE(@VisitReason, N''))) = N''
        OR LTRIM(RTRIM(COALESCE(@VisitType, N''))) = N''
        OR (@FollowUpDate IS NOT NULL AND @FollowUpDate < @VisitDate)
-       OR @Cost IS NULL
-       OR @Cost < 0
+       OR (@Cost IS NOT NULL AND @Cost < 0)
     BEGIN
         ROLLBACK TRANSACTION;
         SELECT CAST(0 AS bit) AS Succeeded;

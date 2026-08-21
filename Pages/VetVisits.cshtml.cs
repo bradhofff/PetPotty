@@ -24,7 +24,7 @@ namespace PetPotty.Pages
         public static readonly string[] DocumentTypes =
         [
             "Invoice", "Receipt", "Lab result", "Vaccination record", "Prescription",
-            "Discharge instructions", "Medical record", "Image", "Other"
+            "Care instructions", "Discharge instructions", "Medical record", "Image", "Other"
         ];
 
         private readonly IPetService _petService;
@@ -63,7 +63,13 @@ namespace PetPotty.Pages
         public Dictionary<int, List<VetVisitHistory>> HistoryByVisit { get; set; } = [];
 
         [BindProperty] public VetVisitInput NewVisit { get; set; } = new();
+        [BindProperty] public string NewClinicChoice { get; set; } = string.Empty;
+        [BindProperty] public IFormFile? NewVisitDocument { get; set; }
+        [BindProperty] public string NewVisitDocumentType { get; set; } = "Other";
         [BindProperty] public VetVisitInput EditVisit { get; set; } = new();
+        [BindProperty] public string EditClinicChoice { get; set; } = string.Empty;
+        [BindProperty] public IFormFile? EditVisitDocument { get; set; }
+        [BindProperty] public string EditVisitDocumentType { get; set; } = "Other";
         [BindProperty] public CompleteVetVisitInput Completion { get; set; } = new();
         [BindProperty] public IFormFile? CompletionDocument { get; set; }
         [BindProperty] public string CompletionDocumentType { get; set; } = "Medical record";
@@ -122,7 +128,7 @@ namespace PetPotty.Pages
             return RedirectToPage();
         }
 
-        public IActionResult OnPostAddVisit(string submissionToken)
+        public async Task<IActionResult> OnPostAddVisitAsync(string submissionToken)
         {
             if (!TryGetUserID(out var userID))
                 return RedirectToPage("/Login");
@@ -131,6 +137,7 @@ namespace PetPotty.Pages
             UserID = userID;
             LoadPets();
             ValidateVisit(NewVisit, nameof(NewVisit));
+            ValidateOptionalDocument(NewVisitDocument, NewVisitDocumentType, nameof(NewVisitDocument));
             if (string.IsNullOrWhiteSpace(submissionToken))
                 ModelState.AddModelError(string.Empty, "This form has expired. Please reopen it and try again.");
             else if (HttpContext.Session.GetString($"vet-visit-submission:{submissionToken}") != null)
@@ -152,7 +159,27 @@ namespace PetPotty.Pages
                     return Forbid();
 
                 HttpContext.Session.SetString($"vet-visit-submission:{submissionToken}", visitID.ToString());
-                TempData["StatusMessage"] = "Vet visit added.";
+                if (NewVisitDocument is { Length: > 0 })
+                {
+                    try
+                    {
+                        await SaveDocumentAsync(
+                            userID, new VetVisit { VetVisitID = visitID }, NewVisitDocument,
+                            NewVisitDocumentType,
+                            Path.GetFileNameWithoutExtension(SafeOriginalFileName(NewVisitDocument.FileName)),
+                            "Added while creating the visit.");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Visit {VetVisitID} was added, but its attachment could not be saved", visitID);
+                        TempData["StatusMessage"] = "Vet visit added, but the attachment could not be saved. You can attach it from visit details.";
+                        return RedirectToVetVisits(NewVisit.PetID, visitID);
+                    }
+                }
+
+                TempData["StatusMessage"] = NewVisitDocument is { Length: > 0 }
+                    ? "Vet visit and attachment added."
+                    : "Vet visit added.";
                 return RedirectToVetVisits(NewVisit.PetID, visitID);
             }
             catch (Exception ex)
@@ -163,7 +190,7 @@ namespace PetPotty.Pages
             }
         }
 
-        public IActionResult OnPostEditVisit()
+        public async Task<IActionResult> OnPostEditVisitAsync()
         {
             if (!TryGetUserID(out var userID))
                 return RedirectToPage("/Login");
@@ -171,10 +198,12 @@ namespace PetPotty.Pages
             RevalidateForm(EditVisit, nameof(EditVisit));
             UserID = userID;
             LoadPets();
-            if (_vetVisitService.GetVisit(userID, EditVisit.VetVisitID) == null)
+            var existingVisit = _vetVisitService.GetVisit(userID, EditVisit.VetVisitID);
+            if (existingVisit == null)
                 return Forbid();
 
             ValidateVisit(EditVisit, nameof(EditVisit));
+            ValidateOptionalDocument(EditVisitDocument, EditVisitDocumentType, nameof(EditVisitDocument));
             DateTime? reminderAt = null;
             if (ModelState.IsValid)
                 reminderAt = CalculateReminder(EditVisit, nameof(EditVisit));
@@ -189,7 +218,26 @@ namespace PetPotty.Pages
                     return ShowModal("editVisitModal", EditVisit.PetID);
                 }
 
-                TempData["StatusMessage"] = "Vet visit updated.";
+                if (EditVisitDocument is { Length: > 0 })
+                {
+                    try
+                    {
+                        await SaveDocumentAsync(
+                            userID, existingVisit, EditVisitDocument, EditVisitDocumentType,
+                            Path.GetFileNameWithoutExtension(SafeOriginalFileName(EditVisitDocument.FileName)),
+                            "Added while updating the visit.");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Visit {VetVisitID} was updated, but its attachment could not be saved", EditVisit.VetVisitID);
+                        TempData["StatusMessage"] = "Vet visit updated, but the attachment could not be saved. You can attach it from visit details.";
+                        return RedirectToVetVisits(EditVisit.PetID, EditVisit.VetVisitID);
+                    }
+                }
+
+                TempData["StatusMessage"] = EditVisitDocument is { Length: > 0 }
+                    ? "Vet visit and attachment updated."
+                    : "Vet visit updated.";
                 return RedirectToVetVisits(EditVisit.PetID, EditVisit.VetVisitID);
             }
             catch (Exception ex)
@@ -368,6 +416,36 @@ namespace PetPotty.Pages
             };
         }
 
+        public IActionResult OnGetPreviewDocument(int documentID)
+        {
+            if (!TryGetUserID(out var userID))
+                return Unauthorized();
+
+            var document = _vetVisitService.GetDocument(userID, documentID);
+            if (document == null)
+                return Forbid();
+            var physicalPath = _documentStorage.ResolvePhysicalPath(document.StoredPath);
+            if (physicalPath == null || !System.IO.File.Exists(physicalPath))
+                return NotFound();
+
+            var contentType = Path.GetExtension(document.OriginalFileName).ToLowerInvariant() switch
+            {
+                ".pdf" => "application/pdf",
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".png" => "image/png",
+                _ => null
+            };
+            if (contentType == null)
+                return BadRequest("This attachment type cannot be previewed in the browser.");
+
+            Response.Headers.CacheControl = "private, no-store";
+            Response.Headers["X-Content-Type-Options"] = "nosniff";
+            return new PhysicalFileResult(physicalPath, contentType)
+            {
+                EnableRangeProcessing = true
+            };
+        }
+
         public IActionResult OnPostUpdateDocument(
             int documentID, string documentType, string displayName, string? description)
         {
@@ -382,13 +460,13 @@ namespace PetPotty.Pages
                 || displayName.Length > 260
                 || (description?.Length ?? 0) > 1000)
             {
-                TempData["StatusMessage"] = "Document details were not valid.";
+                TempData["StatusMessage"] = "Attachment details were not valid.";
                 return RedirectToVisit(userID, document.VetVisitID);
             }
 
             if (!_vetVisitService.UpdateDocument(userID, documentID, documentType, displayName, description ?? string.Empty))
                 return Forbid();
-            TempData["StatusMessage"] = "Document details updated.";
+            TempData["StatusMessage"] = "Attachment details updated.";
             return RedirectToVisit(userID, document.VetVisitID);
         }
 
@@ -401,7 +479,7 @@ namespace PetPotty.Pages
             if (document == null)
                 return Forbid();
             _documentStorage.Delete(document.StoredPath);
-            TempData["StatusMessage"] = "Document removed from the visit and storage.";
+            TempData["StatusMessage"] = "Attachment removed from the visit and storage.";
             return RedirectToVisit(userID, document.VetVisitID);
         }
 
@@ -447,16 +525,15 @@ namespace PetPotty.Pages
                 ? _vetVisitService.GetVisits(UserID)
                 : Visits;
             ClinicOptions = clinicVisits
-                .Where(visit => !string.IsNullOrWhiteSpace(visit.ClinicName))
+                .Where(visit => !string.IsNullOrWhiteSpace(visit.ClinicName)
+                    && !string.IsNullOrWhiteSpace(visit.VeterinarianName))
                 .GroupBy(visit => visit.ClinicName.Trim(), StringComparer.OrdinalIgnoreCase)
                 .Select(group => group.OrderByDescending(visit => visit.UpdatedAt).First())
                 .OrderBy(visit => visit.ClinicName)
                 .Select(visit => new VetClinicOption
                 {
                     ClinicName = visit.ClinicName.Trim(),
-                    VeterinarianName = visit.VeterinarianName.Trim(),
-                    Location = visit.Location.Trim(),
-                    PhoneNumber = visit.PhoneNumber.Trim()
+                    VeterinarianName = visit.VeterinarianName.Trim()
                 })
                 .ToList();
 
@@ -592,6 +669,18 @@ namespace PetPotty.Pages
                 _documentStorage.Delete(storedPath);
                 throw;
             }
+        }
+
+        private void ValidateOptionalDocument(IFormFile? document, string documentType, string fieldName)
+        {
+            if (document == null)
+                return;
+
+            var error = _documentStorage.Validate(document);
+            if (error != null)
+                ModelState.AddModelError(fieldName, error);
+            if (!DocumentTypes.Contains(documentType, StringComparer.OrdinalIgnoreCase))
+                ModelState.AddModelError(fieldName, "Choose a supported document type.");
         }
 
         private bool TryGetUserID(out int userID) =>

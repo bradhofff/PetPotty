@@ -14,8 +14,15 @@
                     <h1 id="hero-title">Everything Your Pets Need. <span>All in One Place.</span></h1>
                     <p class="hero-copy">Track medications, potty breaks, feedings, vaccinations, health records, and daily activities with one simple dashboard.</p>
                     <div class="d-flex flex-column flex-sm-row gap-3 hero-actions">
-                        <a asp-page="/Signup" class="btn pt-btn-primary">Get started <span aria-hidden="true">→</span></a>
-                        <a asp-page="/Login" class="btn pt-btn-secondary">Log in</a>
+                        @if (Model.IsLoggedIn)
+                        {
+                            <a asp-page="/Home" class="btn pt-btn-primary">Get started <span aria-hidden="true">→</span></a>
+                        }
+                        else
+                        {
+                            <a asp-page="/Signup" class="btn pt-btn-primary">Get started <span aria-hidden="true">→</span></a>
+                            <a asp-page="/Login" class="btn pt-btn-secondary">Log in</a>
+                        }
                     </div>
                     <p class="hero-reassurance"><span aria-hidden="true">✓</span> Your pets' routine, always within reach.</p>
                 </div>
@@ -68,6 +75,23 @@
         </div>
     </section>
 
-    <section class="marketing-cta"><div class="container text-center"><p class="eyebrow">READY WHEN YOU ARE</p><h2>Give every pet's care a proper home.</h2><p>Start building a clearer routine for your pack today.</p><div class="d-flex flex-column flex-sm-row justify-content-center gap-3"><a asp-page="/Signup" class="btn pt-btn-primary">Create an account</a><a asp-page="/Login" class="btn pt-btn-secondary">Log in</a></div></div></section>
+    <section class="marketing-cta">
+        <div class="container text-center">
+            <p class="eyebrow">READY WHEN YOU ARE</p>
+            <h2>Give every pet's care a proper home.</h2>
+            <p>Start building a clearer routine for your pack today.</p>
+            <div class="d-flex flex-column flex-sm-row justify-content-center gap-3">
+                @if (Model.IsLoggedIn)
+                {
+                    <a asp-page="/Home" class="btn pt-btn-primary">Get started</a>
+                }
+                else
+                {
+                    <a asp-page="/Signup" class="btn pt-btn-primary">Create an account</a>
+                    <a asp-page="/Login" class="btn pt-btn-secondary">Log in</a>
+                }
+            </div>
+        </div>
+    </section>
     <footer class="marketing-footer"><div class="container d-flex flex-column flex-sm-row justify-content-between gap-2"><span>© @DateTime.Now.Year PackTracker</span><span>Thoughtful care for every member of your pack.</span></div></footer>
 </div>

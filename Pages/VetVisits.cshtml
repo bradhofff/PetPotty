@@ -13,6 +13,7 @@
 <style>
     .vet-page-header { align-items: flex-end; display: flex; gap: 1rem; justify-content: space-between; }
     .vet-filter { align-items: end; background: #fffaf6; border: 1px solid #f0d6c5; border-radius: 14px; display: grid; gap: 1rem; grid-template-columns: minmax(220px, 1fr) minmax(160px, .4fr); padding: 1rem; }
+    .vet-filter.vet-filter-single { grid-template-columns: minmax(220px, 1fr); }
     .vet-reminders { background: #fff8e8; border: 1px solid #f0d49a; border-radius: 14px; padding: .9rem 1rem; }
     .vet-reminder-row { align-items: center; display: flex; gap: .75rem; justify-content: space-between; padding: .45rem 0; }
     .vet-reminder-row + .vet-reminder-row { border-top: 1px solid rgba(176,127,23,.18); }
@@ -22,7 +23,8 @@
     .visit-card { background: #fff; border: 1px solid #e4e7eb; border-left: 5px solid #d96420; border-radius: 14px; box-shadow: 0 4px 16px rgba(30,41,57,.05); overflow: hidden; transition: border-color .2s, box-shadow .2s; }
     .visit-card.visit-focus { border-color: #d96420; box-shadow: 0 0 0 3px rgba(217,100,32,.13), 0 8px 24px rgba(30,41,57,.08); }
     .visit-card.is-emergency { border-left-color: #dc3545; }
-    .visit-card-main { align-items: center; display: grid; gap: 1rem; grid-template-columns: 78px minmax(0, 1fr) auto; padding: 1rem; }
+    .visit-card-main { align-items: center; cursor: pointer; display: grid; gap: 1rem; grid-template-columns: 78px minmax(0, 1fr) auto; padding: 1rem; transition: background-color .18s ease; }
+    .visit-card-main:hover { background: #fffaf6; }
     .visit-date { background: #fff3eb; border-radius: 12px; color: #a8430a; padding: .55rem .35rem; text-align: center; }
     .visit-date b, .visit-date span { display: block; }
     .visit-date b { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; }
@@ -45,8 +47,24 @@
     .detail-block p { color: #344054; font-size: .88rem; margin: 0; white-space: pre-line; }
     .detail-full { grid-column: 1 / -1; }
     .document-list { display: grid; gap: .6rem; }
-    .document-row { align-items: start; background: #fff; border: 1px solid #e2e6eb; border-radius: 10px; display: grid; gap: .6rem; grid-template-columns: minmax(0, 1fr) auto; padding: .7rem; }
-    .document-download { background: none; border: 0; color: #a8430a; font-weight: 700; overflow-wrap: anywhere; padding: 0; text-align: left; }
+    .document-row { background: #fff; border: 1px solid #e2e6eb; border-radius: 10px; cursor: pointer; padding: .8rem; position: relative; transition: background-color .18s ease, border-color .18s ease; }
+    .document-row:hover { background: #fffaf6; border-color: #edc3a8; }
+    .document-row-summary { padding-right: 2.4rem; }
+    .document-title { color: #a8430a; font-weight: 700; overflow-wrap: anywhere; text-decoration: none; }
+    .document-title:hover { color: #7f3107; text-decoration: underline; }
+    .document-edit-btn { align-items: center; background: #fff; border: 1px solid #dce1e8; border-radius: 50%; color: #768193; display: inline-flex; height: 30px; justify-content: center; opacity: 0; padding: 0; position: absolute; right: .7rem; top: .65rem; transition: opacity .18s ease, background .18s ease, border-color .18s ease, color .18s ease; width: 30px; }
+    .document-row:hover .document-edit-btn, .document-edit-btn:focus-visible { opacity: 1; }
+    .document-edit-btn:hover { background: #fff0e6; border-color: #eca273; color: #d96420; }
+    .document-preview { border-top: 1px solid #edf0f3; cursor: default; margin-top: .75rem; padding-top: .75rem; }
+    .document-preview-frame { background: #f7f8fa; border: 1px solid #e2e6eb; border-radius: 9px; min-height: 220px; overflow: hidden; }
+    .document-preview-frame iframe { border: 0; display: block; height: 430px; width: 100%; }
+    .document-preview-image { display: block; margin: 0 auto; max-height: 430px; max-width: 100%; object-fit: contain; }
+    .document-preview-unavailable { color: #697386; padding: 2.5rem 1rem; text-align: center; }
+    .document-preview-actions { align-items: center; display: flex; justify-content: flex-end; margin-top: .75rem; }
+    .vet-attachment-panel { background: #fffaf6; border: 1px solid #f0d6c5; border-radius: 11px; padding: 1rem; }
+    .vet-attachment-heading { margin-bottom: .8rem; }
+    .vet-attachment-heading strong { color: #344054; display: block; font-size: .9rem; }
+    .vet-attachment-heading small { color: #697386; display: block; margin-top: .15rem; }
     .history-list { border-left: 2px solid #e0e5eb; display: grid; gap: .6rem; margin-left: .35rem; padding-left: .9rem; }
     .history-item { color: #5e6876; font-size: .78rem; position: relative; }
     .history-item::before { background: #d96420; border-radius: 50%; content: ""; height: 7px; left: -1.18rem; position: absolute; top: .38rem; width: 7px; }
@@ -57,6 +75,7 @@
     .modal .form-label { color: #344054; font-size: .85rem; font-weight: 650; }
     .modal .validation-summary-valid { display: none; }
     .modal .validation-summary-errors { display: block; }
+    @@media (hover: none), (pointer: coarse) { .document-edit-btn { opacity: 1; } }
     @@media (max-width: 767.98px) {
         .vet-page-header { align-items: stretch; flex-direction: column; }
         .vet-page-header .btn { width: 100%; }
@@ -65,7 +84,7 @@
         .visit-actions { grid-column: 1 / -1; justify-content: flex-start; }
         .detail-grid { grid-template-columns: 1fr; }
         .detail-full { grid-column: auto; }
-        .vet-reminder-row, .document-row { align-items: stretch; grid-template-columns: 1fr; }
+        .vet-reminder-row { align-items: stretch; }
         .vet-reminder-row { flex-direction: column; }
     }
 </style>
@@ -108,7 +127,7 @@
     }
     else
     {
-        <form method="post" class="vet-filter mb-4">
+        <form method="post" class="vet-filter @(Model.SelectedPetID.HasValue ? "" : "vet-filter-single") mb-4">
             <div>
                 <label for="selectedPetID" class="form-label fw-semibold">Filter by pet</label>
                 <select id="selectedPetID" name="selectedPetID" class="form-select" onchange="this.form.submit()">
@@ -119,13 +138,16 @@
                     }
                 </select>
             </div>
-            <div>
-                <label for="sort" class="form-label fw-semibold">History order</label>
-                <select id="sort" name="sort" class="form-select" onchange="this.form.submit()">
-                    <option value="Newest" selected="@(Model.Sort != "Oldest")">Newest first</option>
-                    <option value="Oldest" selected="@(Model.Sort == "Oldest")">Oldest first</option>
-                </select>
-            </div>
+            @if (Model.SelectedPetID.HasValue)
+            {
+                <div>
+                    <label for="sort" class="form-label fw-semibold">History order</label>
+                    <select id="sort" name="sort" class="form-select" onchange="this.form.submit()">
+                        <option value="Newest" selected="@(Model.Sort != "Oldest")">Newest first</option>
+                        <option value="Oldest" selected="@(Model.Sort == "Oldest")">Oldest first</option>
+                    </select>
+                </div>
+            }
         </form>
 
         @if (Model.SelectedPetID.HasValue)
@@ -179,7 +201,7 @@
                             var statusClass = $"status-{visit.Status.ToLowerInvariant()}";
                             <article class="visit-card @(visit.IsEmergency ? "is-emergency" : "") @(isFocused ? "visit-focus" : "")"
                                      id="@($"visit-{visit.VetVisitID}")">
-                                <div class="visit-card-main">
+                                <div class="visit-card-main" data-details-button-id="@($"visitDetailsButton{visit.VetVisitID}")">
                                     <time class="visit-date" datetime="@visit.VisitDate.ToString("yyyy-MM-dd")">
                                         <b>@visit.VisitDate.ToString("MMM")</b>
                                         <strong>@visit.VisitDate.Day</strong>
@@ -206,7 +228,7 @@
                                         </p>
                                     </div>
                                     <div class="visit-actions">
-                                        <button type="button" class="btn btn-sm btn-light" data-bs-toggle="collapse"
+                                        <button type="button" class="btn btn-sm btn-light" id="@($"visitDetailsButton{visit.VetVisitID}")" data-bs-toggle="collapse"
                                                 data-bs-target="#@detailsID" aria-expanded="@isFocused.ToString().ToLowerInvariant()"
                                                 aria-controls="@detailsID">Details</button>
                                         <button type="button" class="btn btn-sm btn-outline-secondary edit-visit-btn"
@@ -220,14 +242,11 @@
                                                 data-veterinarian="@visit.VeterinarianName"
                                                 data-reason="@visit.VisitReason"
                                                 data-type="@visit.VisitType"
-                                                data-location="@visit.Location"
-                                                data-phone="@visit.PhoneNumber"
                                                 data-status="@visit.Status"
                                                 data-notes="@visit.Notes"
                                                 data-follow-up="@(visit.FollowUpDate?.ToString("yyyy-MM-dd") ?? "")"
                                                 data-cost="@(visit.Cost?.ToString(CultureInfo.InvariantCulture) ?? "")"
                                                 data-emergency="@visit.IsEmergency.ToString().ToLowerInvariant()"
-                                                data-preparation="@visit.PreparationInstructions"
                                                 data-reminder-at="@(visit.ReminderAt?.ToString("yyyy-MM-ddTHH:mm") ?? "")">
                                             Update
                                         </button>
@@ -263,10 +282,6 @@
                                     <div class="detail-grid">
                                         <div class="detail-block"><small>Clinic</small><p>@(string.IsNullOrWhiteSpace(visit.ClinicName) ? "Not recorded" : visit.ClinicName)</p></div>
                                         <div class="detail-block"><small>Veterinarian</small><p>@(string.IsNullOrWhiteSpace(visit.VeterinarianName) ? "Not recorded" : visit.VeterinarianName)</p></div>
-                                        @if (!string.IsNullOrWhiteSpace(visit.Location) || !string.IsNullOrWhiteSpace(visit.PhoneNumber))
-                                        {
-                                            <div class="detail-block"><small>Location & phone</small><p>@visit.Location @(!string.IsNullOrWhiteSpace(visit.Location) && !string.IsNullOrWhiteSpace(visit.PhoneNumber) ? " · " : "") @visit.PhoneNumber</p></div>
-                                        }
                                         <div class="detail-block"><small>Cost</small><p>@(visit.Cost?.ToString("C") ?? "Not recorded")</p></div>
                                         @if (!string.IsNullOrWhiteSpace(visit.VisitSummary))
                                         {
@@ -288,17 +303,13 @@
                                         {
                                             <div class="detail-block"><small>Prescriptions</small><p>@visit.Prescriptions</p></div>
                                         }
-                                        @if (!string.IsNullOrWhiteSpace(visit.PreparationInstructions))
-                                        {
-                                            <div class="detail-block"><small>Preparation</small><p>@visit.PreparationInstructions</p></div>
-                                        }
                                         @if (!string.IsNullOrWhiteSpace(visit.FollowUpInstructions) || visit.FollowUpDate.HasValue)
                                         {
                                             <div class="detail-block"><small>Follow-up</small><p>@(visit.FollowUpDate?.ToString("MMM d, yyyy") ?? "No date")@(!string.IsNullOrWhiteSpace(visit.FollowUpInstructions) ? $"\n{visit.FollowUpInstructions}" : "")</p></div>
                                         }
                                         @if (!string.IsNullOrWhiteSpace(visit.Notes))
                                         {
-                                            <div class="detail-block detail-full"><small>Notes</small><p>@visit.Notes</p></div>
+                                            <div class="detail-block detail-full"><small>Preparation / Notes</small><p>@visit.Notes</p></div>
                                         }
                                         <div class="detail-block detail-full">
                                             <small>Record dates</small>
@@ -308,46 +319,73 @@
 
                                     <hr class="my-3" style="border-width: 1px !important;" />
                                     <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
-                                        <div class="fw-bold">Documents (@documents.Count)</div>
+                                        <div class="fw-bold">Attachments (@documents.Count)</div>
                                         <button type="button" class="btn btn-sm btn-outline-secondary upload-document-btn"
                                                 data-bs-toggle="modal" data-bs-target="#documentModal"
                                                 data-visit-id="@visit.VetVisitID" data-pet-name="@visit.PetName">
-                                            + Attach document
+                                            + Attach receipt or document
                                         </button>
                                     </div>
                                     @if (documents.Count == 0)
                                     {
-                                        <p class="text-muted small mb-3">No documents attached.</p>
+                                        <p class="text-muted small mb-3">No attachments yet.</p>
                                     }
                                     else
                                     {
                                         <div class="document-list mb-3">
                                             @foreach (var document in documents)
                                             {
-                                                <div class="document-row">
-                                                    <div>
-                                                        <form method="post" asp-page-handler="DownloadDocument">
-                                                            <input type="hidden" name="documentID" value="@document.VetVisitDocumentID" />
-                                                            <button type="submit" class="document-download">@document.DisplayName</button>
-                                                        </form>
+                                                var previewID = $"documentPreview{document.VetVisitDocumentID}";
+                                                var extension = System.IO.Path.GetExtension(document.OriginalFileName).ToLowerInvariant();
+                                                var isImage = extension is ".jpg" or ".jpeg" or ".png";
+                                                var isPdf = extension == ".pdf";
+                                                var previewUrl = Url.Page("/VetVisits", "PreviewDocument", new { documentID = document.VetVisitDocumentID });
+                                                <div class="document-row" data-preview-id="@previewID">
+                                                    <button type="button" class="document-edit-btn edit-document-btn"
+                                                            data-bs-toggle="modal" data-bs-target="#editDocumentModal"
+                                                            data-id="@document.VetVisitDocumentID"
+                                                            data-type="@document.DocumentType"
+                                                            data-name="@document.DisplayName"
+                                                            data-description="@document.Description"
+                                                            title="Edit @document.DisplayName"
+                                                            aria-label="Edit @document.DisplayName">&#9998;&#65039;</button>
+                                                    <div class="document-row-summary">
+                                                        <a class="document-title" href="#@previewID" role="button"
+                                                           data-bs-toggle="collapse" aria-expanded="false"
+                                                           aria-controls="@previewID">@document.DisplayName</a>
                                                         <div class="small text-muted">@document.DocumentType · @((document.FileSizeBytes / 1024d).ToString("0.#")) KB</div>
                                                         @if (!string.IsNullOrWhiteSpace(document.Description))
                                                         {
                                                             <div class="small mt-1">@document.Description</div>
                                                         }
                                                     </div>
-                                                    <div class="d-flex gap-1">
-                                                        <button type="button" class="btn btn-sm btn-light edit-document-btn"
-                                                                data-bs-toggle="modal" data-bs-target="#editDocumentModal"
-                                                                data-id="@document.VetVisitDocumentID"
-                                                                data-type="@document.DocumentType"
-                                                                data-name="@document.DisplayName"
-                                                                data-description="@document.Description">Edit</button>
-                                                        <form method="post" asp-page-handler="DeleteDocument">
-                                                            <input type="hidden" name="documentID" value="@document.VetVisitDocumentID" />
-                                                            <button type="submit" class="btn btn-sm btn-outline-danger"
-                                                                    onclick="return confirm('Remove this document record and its stored file?');">Remove</button>
-                                                        </form>
+                                                    <div class="collapse document-preview-collapse" id="@previewID">
+                                                        <div class="document-preview">
+                                                            <div class="document-preview-frame">
+                                                                @if (isImage)
+                                                                {
+                                                                    <img class="document-preview-image" data-preview-src="@previewUrl"
+                                                                         alt="Preview of @document.DisplayName" />
+                                                                }
+                                                                else if (isPdf)
+                                                                {
+                                                                    <iframe data-preview-src="@previewUrl" title="Preview of @document.DisplayName"></iframe>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <div class="document-preview-unavailable">
+                                                                        <strong>Preview is not available for Word documents.</strong>
+                                                                        <div class="small mt-1">Download the attachment to open it in Word.</div>
+                                                                    </div>
+                                                                }
+                                                            </div>
+                                                            <div class="document-preview-actions">
+                                                                <form method="post" asp-page-handler="DownloadDocument">
+                                                                    <input type="hidden" name="documentID" value="@document.VetVisitDocumentID" />
+                                                                    <button type="submit" class="btn btn-sm btn-outline-secondary">Download</button>
+                                                                </form>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             }
@@ -382,7 +420,7 @@
 @section Modals {
     <div class="modal fade" id="addVisitModal" tabindex="-1" aria-labelledby="addVisitLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
-            <form method="post" asp-page-handler="AddVisit" class="modal-content visit-form">
+            <form method="post" asp-page-handler="AddVisit" enctype="multipart/form-data" class="modal-content visit-form">
                     <input type="hidden" name="submissionToken" value="@Model.AddSubmissionToken" />
                     <div class="modal-header">
                         <div><p class="app-eyebrow mb-1">NEW APPOINTMENT</p><h2 class="modal-title fs-5" id="addVisitLabel">Add vet visit</h2></div>
@@ -393,47 +431,67 @@
                         <fieldset class="vet-form-section mb-3">
                             <legend>Appointment</legend>
                             <div class="row g-3">
-                                <div class="col-md-4"><label asp-for="NewVisit.PetID" class="form-label">Pet *</label><select asp-for="NewVisit.PetID" class="form-select" required><option value="0">Choose a pet</option>@foreach (var pet in Model.Pets) { <option value="@pet.PetID">@pet.Name</option> }</select><span asp-validation-for="NewVisit.PetID" class="text-danger small"></span></div>
-                                <div class="col-md-4"><label asp-for="NewVisit.VisitDate" class="form-label">Visit date *</label><input asp-for="NewVisit.VisitDate" type="date" class="form-control" required /><span asp-validation-for="NewVisit.VisitDate" class="text-danger small"></span></div>
+                                <div class="col-md-4"><label asp-for="NewVisit.PetID" class="form-label">Pet <span class="required-marker" aria-hidden="true">*</span></label><select asp-for="NewVisit.PetID" class="form-select" required><option value="0">Choose a pet</option>@foreach (var pet in Model.Pets) { <option value="@pet.PetID">@pet.Name</option> }</select><span asp-validation-for="NewVisit.PetID" class="text-danger small"></span></div>
+                                <div class="col-md-4"><label asp-for="NewVisit.VisitDate" class="form-label">Visit date <span class="required-marker" aria-hidden="true">*</span></label><input asp-for="NewVisit.VisitDate" type="date" class="form-control" required /><span asp-validation-for="NewVisit.VisitDate" class="text-danger small"></span></div>
                                 <div class="col-md-4"><label asp-for="NewVisit.VisitTime" class="form-label">Visit time</label><input asp-for="NewVisit.VisitTime" type="time" class="form-control visit-time-input" /></div>
-                                <div class="col-md-4"><label asp-for="NewVisit.VisitType" class="form-label">Visit type *</label><select asp-for="NewVisit.VisitType" class="form-select">@foreach (var type in PetPotty.Pages.VetVisitsModel.VisitTypes) { <option>@type</option> }</select></div>
-                                <div class="col-md-4"><label asp-for="NewVisit.Status" class="form-label">Status *</label><select asp-for="NewVisit.Status" class="form-select"><option>Scheduled</option><option>Confirmed</option><option>Completed</option></select></div>
+                                <div class="col-md-4"><label asp-for="NewVisit.VisitType" class="form-label">Visit type <span class="required-marker" aria-hidden="true">*</span></label><select asp-for="NewVisit.VisitType" class="form-select">@foreach (var type in PetPotty.Pages.VetVisitsModel.VisitTypes) { <option>@type</option> }</select></div>
+                                <div class="col-md-4"><label asp-for="NewVisit.Status" class="form-label">Status <span class="required-marker" aria-hidden="true">*</span></label><select asp-for="NewVisit.Status" class="form-select"><option>Scheduled</option><option>Confirmed</option><option>Completed</option></select></div>
                                 <div class="col-md-4 d-flex align-items-end"><div><div class="form-check"><input asp-for="NewVisit.IsAllDay" class="form-check-input all-day-toggle" /><label asp-for="NewVisit.IsAllDay" class="form-check-label">All-day / no specific time</label></div><div class="form-check mt-2"><input asp-for="NewVisit.IsEmergency" class="form-check-input" /><label asp-for="NewVisit.IsEmergency" class="form-check-label">Emergency visit</label></div></div></div>
-                                <div class="col-12"><label asp-for="NewVisit.VisitReason" class="form-label">Reason for visit *</label><input asp-for="NewVisit.VisitReason" class="form-control" maxlength="500" required placeholder="What does your pet need care for?" /><span asp-validation-for="NewVisit.VisitReason" class="text-danger small"></span></div>
+                                <div class="col-12"><label asp-for="NewVisit.VisitReason" class="form-label">Reason for visit <span class="required-marker" aria-hidden="true">*</span></label><input asp-for="NewVisit.VisitReason" class="form-control" maxlength="500" required placeholder="What does your pet need care for?" /><span asp-validation-for="NewVisit.VisitReason" class="text-danger small"></span></div>
                             </div>
                         </fieldset>
                         <fieldset class="vet-form-section mb-3">
                             <legend>Clinic and planning</legend>
                             <div class="row g-3">
                                 <div class="col-12">
-                                    <label for="newClinicSelector" class="form-label">Clinic *</label>
-                                    <select id="newClinicSelector" class="form-select clinic-selector" required
+                                    <label for="newClinicSelector" class="form-label">Clinic <span class="required-marker" aria-hidden="true">*</span></label>
+                                    <select asp-for="NewClinicChoice" id="newClinicSelector" class="form-select clinic-selector" required
                                             data-clinic-id="newClinicName" data-veterinarian-id="newVeterinarian"
-                                            data-location-id="newLocation" data-phone-id="newPhone">
+                                            data-details-id="newClinicDetails">
                                         <option value="">Choose a clinic</option>
                                         @foreach (var clinic in Model.ClinicOptions)
                                         {
                                             <option value="@clinic.ClinicName"
                                                     data-clinic="@clinic.ClinicName"
-                                                    data-veterinarian="@clinic.VeterinarianName"
-                                                    data-location="@clinic.Location"
-                                                    data-phone="@clinic.PhoneNumber">@clinic.ClinicName</option>
+                                                    data-veterinarian="@clinic.VeterinarianName">@clinic.ClinicName</option>
                                         }
                                         <option value="__new__">New clinic…</option>
                                     </select>
                                     <div class="form-text">Choose a previous clinic to autofill its details, or select New clinic.</div>
                                 </div>
-                                <div class="col-md-6"><label asp-for="NewVisit.ClinicName" class="form-label">Clinic name *</label><input asp-for="NewVisit.ClinicName" id="newClinicName" class="form-control" maxlength="200" required readonly /><span asp-validation-for="NewVisit.ClinicName" class="text-danger small"></span></div>
-                                <div class="col-md-6"><label asp-for="NewVisit.VeterinarianName" class="form-label">Veterinarian *</label><input asp-for="NewVisit.VeterinarianName" id="newVeterinarian" class="form-control" maxlength="150" required /><span asp-validation-for="NewVisit.VeterinarianName" class="text-danger small"></span></div>
-                                <div class="col-md-6"><label asp-for="NewVisit.Location" class="form-label">Address / location *</label><input asp-for="NewVisit.Location" id="newLocation" class="form-control" maxlength="400" required /><span asp-validation-for="NewVisit.Location" class="text-danger small"></span></div>
-                                <div class="col-md-3"><label asp-for="NewVisit.PhoneNumber" class="form-label">Phone *</label><input asp-for="NewVisit.PhoneNumber" id="newPhone" class="form-control" maxlength="50" required /><span asp-validation-for="NewVisit.PhoneNumber" class="text-danger small"></span></div>
-                                <div class="col-md-3"><label asp-for="NewVisit.Cost" class="form-label">Estimated cost *</label><input asp-for="NewVisit.Cost" type="number" min="0" step=".01" class="form-control" required /><span asp-validation-for="NewVisit.Cost" class="text-danger small"></span></div>
-                                <div class="col-md-6"><label asp-for="NewVisit.PreparationInstructions" class="form-label">Preparation / transportation instructions</label><textarea asp-for="NewVisit.PreparationInstructions" class="form-control" rows="2" maxlength="2000"></textarea></div>
-                                <div class="col-md-6"><label asp-for="NewVisit.Notes" class="form-label">Notes</label><textarea asp-for="NewVisit.Notes" class="form-control" rows="2" maxlength="4000"></textarea></div>
+                                <div id="newClinicDetails" class="col-12" hidden>
+                                    <div class="row g-3">
+                                        <div class="col-md-6"><label asp-for="NewVisit.ClinicName" class="form-label">Clinic name <span class="required-marker" aria-hidden="true">*</span></label><input asp-for="NewVisit.ClinicName" id="newClinicName" class="form-control" maxlength="200" required /><span asp-validation-for="NewVisit.ClinicName" class="text-danger small"></span></div>
+                                        <div class="col-md-6"><label asp-for="NewVisit.VeterinarianName" class="form-label">Veterinarian <span class="required-marker" aria-hidden="true">*</span></label><input asp-for="NewVisit.VeterinarianName" id="newVeterinarian" class="form-control" maxlength="150" required /><span asp-validation-for="NewVisit.VeterinarianName" class="text-danger small"></span></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4"><label asp-for="NewVisit.Cost" class="form-label">Estimated cost <span class="text-muted fw-normal">(optional)</span></label><input asp-for="NewVisit.Cost" type="number" min="0" step=".01" class="form-control" /><span asp-validation-for="NewVisit.Cost" class="text-danger small"></span></div>
+                                <div class="col-md-8"><label asp-for="NewVisit.Notes" class="form-label">Preparation / Notes</label><textarea asp-for="NewVisit.Notes" class="form-control" rows="3" maxlength="6000"></textarea></div>
+                                <div class="col-12">
+                                    <div class="vet-attachment-panel">
+                                        <div class="vet-attachment-heading">
+                                            <strong>Attachments <span class="text-muted fw-normal">(optional)</span></strong>
+                                            <small>Add a receipt, invoice, care instructions, or another visit record.</small>
+                                        </div>
+                                        <div class="row g-3 align-items-end">
+                                            <div class="col-md-8">
+                                                <label asp-for="NewVisitDocument" class="form-label">File</label>
+                                                <input asp-for="NewVisitDocument" id="newVisitDocumentUpload" type="file" class="visually-hidden vet-document-input" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" data-file-name-target="newVisitDocumentFileName" />
+                                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                                    <label for="newVisitDocumentUpload" class="btn btn-outline-primary mb-0">Insert file</label>
+                                                    <span id="newVisitDocumentFileName" class="small text-muted" aria-live="polite">No file selected</span>
+                                                </div>
+                                                <div class="form-text">Word, PDF, JPEG, or PNG; maximum 10 MB.</div>
+                                                <span asp-validation-for="NewVisitDocument" class="text-danger small"></span>
+                                            </div>
+                                            <div class="col-md-4"><label asp-for="NewVisitDocumentType" class="form-label">Attachment type</label><select asp-for="NewVisitDocumentType" class="form-select">@foreach (var type in PetPotty.Pages.VetVisitsModel.DocumentTypes) { <option>@type</option> }</select></div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </fieldset>
                         <fieldset class="vet-form-section">
-                            <legend>Reminder and follow-up</legend>
+                            <legend>Reminder and follow-up <span class="text-muted fw-normal">(Optional)</span></legend>
                             <div class="row g-3">
                                 <div class="col-md-4"><label asp-for="NewVisit.ReminderChoice" class="form-label">In-app reminder</label><select asp-for="NewVisit.ReminderChoice" class="form-select reminder-choice"><option value="None">No reminder</option><option value="SameDay">Same day</option><option value="OneDay">1 day before</option><option value="ThreeDays">3 days before</option><option value="OneWeek">1 week before</option><option value="Custom">Custom</option></select></div>
                                 <div class="col-md-4 custom-reminder-wrap"><label asp-for="NewVisit.CustomReminderAt" class="form-label">Custom reminder</label><input asp-for="NewVisit.CustomReminderAt" type="datetime-local" class="form-control" /><span asp-validation-for="NewVisit.CustomReminderAt" class="text-danger small"></span></div>
@@ -448,7 +506,7 @@
 
     <div class="modal fade" id="editVisitModal" tabindex="-1" aria-labelledby="editVisitLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
-            <form method="post" asp-page-handler="EditVisit" class="modal-content visit-form">
+            <form method="post" asp-page-handler="EditVisit" enctype="multipart/form-data" class="modal-content visit-form">
                     <input asp-for="EditVisit.VetVisitID" type="hidden" id="editVisitID" />
                     <div class="modal-header"><div><p class="app-eyebrow mb-1">APPOINTMENT DETAILS</p><h2 class="modal-title fs-5" id="editVisitLabel">Edit vet visit</h2></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
                     <div class="modal-body">
@@ -456,47 +514,67 @@
                         <fieldset class="vet-form-section mb-3">
                             <legend>Appointment</legend>
                             <div class="row g-3">
-                                <div class="col-md-4"><label asp-for="EditVisit.PetID" class="form-label">Pet *</label><select asp-for="EditVisit.PetID" id="editPetID" class="form-select">@foreach (var pet in Model.Pets) { <option value="@pet.PetID">@pet.Name</option> }</select><span asp-validation-for="EditVisit.PetID" class="text-danger small"></span></div>
-                                <div class="col-md-4"><label asp-for="EditVisit.VisitDate" class="form-label">Visit date *</label><input asp-for="EditVisit.VisitDate" id="editVisitDate" type="date" class="form-control" required /><span asp-validation-for="EditVisit.VisitDate" class="text-danger small"></span></div>
+                                <div class="col-md-4"><label asp-for="EditVisit.PetID" class="form-label">Pet <span class="required-marker" aria-hidden="true">*</span></label><select asp-for="EditVisit.PetID" id="editPetID" class="form-select">@foreach (var pet in Model.Pets) { <option value="@pet.PetID">@pet.Name</option> }</select><span asp-validation-for="EditVisit.PetID" class="text-danger small"></span></div>
+                                <div class="col-md-4"><label asp-for="EditVisit.VisitDate" class="form-label">Visit date <span class="required-marker" aria-hidden="true">*</span></label><input asp-for="EditVisit.VisitDate" id="editVisitDate" type="date" class="form-control" required /><span asp-validation-for="EditVisit.VisitDate" class="text-danger small"></span></div>
                                 <div class="col-md-4"><label asp-for="EditVisit.VisitTime" class="form-label">Visit time</label><input asp-for="EditVisit.VisitTime" id="editVisitTime" type="time" class="form-control visit-time-input" /></div>
-                                <div class="col-md-4"><label asp-for="EditVisit.VisitType" class="form-label">Visit type *</label><select asp-for="EditVisit.VisitType" id="editVisitType" class="form-select">@foreach (var type in PetPotty.Pages.VetVisitsModel.VisitTypes) { <option>@type</option> }</select></div>
-                                <div class="col-md-4"><label asp-for="EditVisit.Status" class="form-label">Status *</label><select asp-for="EditVisit.Status" id="editVisitStatus" class="form-select">@foreach (var status in PetPotty.Pages.VetVisitsModel.AppointmentStatuses) { <option>@status</option> }</select></div>
+                                <div class="col-md-4"><label asp-for="EditVisit.VisitType" class="form-label">Visit type <span class="required-marker" aria-hidden="true">*</span></label><select asp-for="EditVisit.VisitType" id="editVisitType" class="form-select">@foreach (var type in PetPotty.Pages.VetVisitsModel.VisitTypes) { <option>@type</option> }</select></div>
+                                <div class="col-md-4"><label asp-for="EditVisit.Status" class="form-label">Status <span class="required-marker" aria-hidden="true">*</span></label><select asp-for="EditVisit.Status" id="editVisitStatus" class="form-select">@foreach (var status in PetPotty.Pages.VetVisitsModel.AppointmentStatuses) { <option>@status</option> }</select></div>
                                 <div class="col-md-4 d-flex align-items-end"><div><div class="form-check"><input asp-for="EditVisit.IsAllDay" id="editAllDay" class="form-check-input all-day-toggle" /><label asp-for="EditVisit.IsAllDay" class="form-check-label">All-day / no specific time</label></div><div class="form-check mt-2"><input asp-for="EditVisit.IsEmergency" id="editEmergency" class="form-check-input" /><label asp-for="EditVisit.IsEmergency" class="form-check-label">Emergency visit</label></div></div></div>
-                                <div class="col-12"><label asp-for="EditVisit.VisitReason" class="form-label">Reason for visit *</label><input asp-for="EditVisit.VisitReason" id="editVisitReason" class="form-control" maxlength="500" required /><span asp-validation-for="EditVisit.VisitReason" class="text-danger small"></span></div>
+                                <div class="col-12"><label asp-for="EditVisit.VisitReason" class="form-label">Reason for visit <span class="required-marker" aria-hidden="true">*</span></label><input asp-for="EditVisit.VisitReason" id="editVisitReason" class="form-control" maxlength="500" required /><span asp-validation-for="EditVisit.VisitReason" class="text-danger small"></span></div>
                             </div>
                         </fieldset>
                         <fieldset class="vet-form-section mb-3">
                             <legend>Clinic and planning</legend>
                             <div class="row g-3">
                                 <div class="col-12">
-                                    <label for="editClinicSelector" class="form-label">Clinic *</label>
-                                    <select id="editClinicSelector" class="form-select clinic-selector" required
+                                    <label for="editClinicSelector" class="form-label">Clinic <span class="required-marker" aria-hidden="true">*</span></label>
+                                    <select asp-for="EditClinicChoice" id="editClinicSelector" class="form-select clinic-selector" required
                                             data-clinic-id="editClinic" data-veterinarian-id="editVeterinarian"
-                                            data-location-id="editLocation" data-phone-id="editPhone">
+                                            data-details-id="editClinicDetails">
                                         <option value="">Choose a clinic</option>
                                         @foreach (var clinic in Model.ClinicOptions)
                                         {
                                             <option value="@clinic.ClinicName"
                                                     data-clinic="@clinic.ClinicName"
-                                                    data-veterinarian="@clinic.VeterinarianName"
-                                                    data-location="@clinic.Location"
-                                                    data-phone="@clinic.PhoneNumber">@clinic.ClinicName</option>
+                                                    data-veterinarian="@clinic.VeterinarianName">@clinic.ClinicName</option>
                                         }
                                         <option value="__new__">New clinic…</option>
                                     </select>
                                     <div class="form-text">Choose a previous clinic to autofill its details, or select New clinic.</div>
                                 </div>
-                                <div class="col-md-6"><label asp-for="EditVisit.ClinicName" class="form-label">Clinic name *</label><input asp-for="EditVisit.ClinicName" id="editClinic" class="form-control" maxlength="200" required readonly /><span asp-validation-for="EditVisit.ClinicName" class="text-danger small"></span></div>
-                                <div class="col-md-6"><label asp-for="EditVisit.VeterinarianName" class="form-label">Veterinarian *</label><input asp-for="EditVisit.VeterinarianName" id="editVeterinarian" class="form-control" maxlength="150" required /><span asp-validation-for="EditVisit.VeterinarianName" class="text-danger small"></span></div>
-                                <div class="col-md-6"><label asp-for="EditVisit.Location" class="form-label">Address / location *</label><input asp-for="EditVisit.Location" id="editLocation" class="form-control" maxlength="400" required /><span asp-validation-for="EditVisit.Location" class="text-danger small"></span></div>
-                                <div class="col-md-3"><label asp-for="EditVisit.PhoneNumber" class="form-label">Phone *</label><input asp-for="EditVisit.PhoneNumber" id="editPhone" class="form-control" maxlength="50" required /><span asp-validation-for="EditVisit.PhoneNumber" class="text-danger small"></span></div>
-                                <div class="col-md-3"><label asp-for="EditVisit.Cost" class="form-label">Cost *</label><input asp-for="EditVisit.Cost" id="editCost" type="number" min="0" step=".01" class="form-control" required /><span asp-validation-for="EditVisit.Cost" class="text-danger small"></span></div>
-                                <div class="col-md-6"><label asp-for="EditVisit.PreparationInstructions" class="form-label">Preparation / transportation instructions</label><textarea asp-for="EditVisit.PreparationInstructions" id="editPreparation" class="form-control" rows="2"></textarea></div>
-                                <div class="col-md-6"><label asp-for="EditVisit.Notes" class="form-label">Notes</label><textarea asp-for="EditVisit.Notes" id="editNotes" class="form-control" rows="2"></textarea></div>
+                                <div id="editClinicDetails" class="col-12" hidden>
+                                    <div class="row g-3">
+                                        <div class="col-md-6"><label asp-for="EditVisit.ClinicName" class="form-label">Clinic name <span class="required-marker" aria-hidden="true">*</span></label><input asp-for="EditVisit.ClinicName" id="editClinic" class="form-control" maxlength="200" required /><span asp-validation-for="EditVisit.ClinicName" class="text-danger small"></span></div>
+                                        <div class="col-md-6"><label asp-for="EditVisit.VeterinarianName" class="form-label">Veterinarian <span class="required-marker" aria-hidden="true">*</span></label><input asp-for="EditVisit.VeterinarianName" id="editVeterinarian" class="form-control" maxlength="150" required /><span asp-validation-for="EditVisit.VeterinarianName" class="text-danger small"></span></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4"><label asp-for="EditVisit.Cost" class="form-label">Cost <span class="text-muted fw-normal">(optional)</span></label><input asp-for="EditVisit.Cost" id="editCost" type="number" min="0" step=".01" class="form-control" /><span asp-validation-for="EditVisit.Cost" class="text-danger small"></span></div>
+                                <div class="col-md-8"><label asp-for="EditVisit.Notes" class="form-label">Preparation / Notes</label><textarea asp-for="EditVisit.Notes" id="editNotes" class="form-control" rows="3" maxlength="6000"></textarea></div>
+                                <div class="col-12">
+                                    <div class="vet-attachment-panel">
+                                        <div class="vet-attachment-heading">
+                                            <strong>Attachments <span class="text-muted fw-normal">(optional)</span></strong>
+                                            <small>Add a receipt, invoice, care instructions, or another visit record.</small>
+                                        </div>
+                                        <div class="row g-3 align-items-end">
+                                            <div class="col-md-8">
+                                                <label asp-for="EditVisitDocument" class="form-label">File</label>
+                                                <input asp-for="EditVisitDocument" id="editVisitDocumentUpload" type="file" class="visually-hidden vet-document-input" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" data-file-name-target="editVisitDocumentFileName" />
+                                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                                    <label for="editVisitDocumentUpload" class="btn btn-outline-primary mb-0">Insert file</label>
+                                                    <span id="editVisitDocumentFileName" class="small text-muted" aria-live="polite">No file selected</span>
+                                                </div>
+                                                <div class="form-text">Word, PDF, JPEG, or PNG; maximum 10 MB.</div>
+                                                <span asp-validation-for="EditVisitDocument" class="text-danger small"></span>
+                                            </div>
+                                            <div class="col-md-4"><label asp-for="EditVisitDocumentType" class="form-label">Attachment type</label><select asp-for="EditVisitDocumentType" class="form-select">@foreach (var type in PetPotty.Pages.VetVisitsModel.DocumentTypes) { <option>@type</option> }</select></div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </fieldset>
                         <fieldset class="vet-form-section">
-                            <legend>Reminder and follow-up</legend>
+                            <legend>Reminder and follow-up <span class="text-muted fw-normal">(Optional)</span></legend>
                             <div class="row g-3">
                                 <div class="col-md-4"><label asp-for="EditVisit.ReminderChoice" class="form-label">In-app reminder</label><select asp-for="EditVisit.ReminderChoice" id="editReminderChoice" class="form-select reminder-choice"><option value="None">No reminder</option><option value="SameDay">Same day</option><option value="OneDay">1 day before</option><option value="ThreeDays">3 days before</option><option value="OneWeek">1 week before</option><option value="Custom">Custom</option></select></div>
                                 <div class="col-md-4 custom-reminder-wrap"><label asp-for="EditVisit.CustomReminderAt" class="form-label">Custom reminder</label><input asp-for="EditVisit.CustomReminderAt" id="editReminderAt" type="datetime-local" class="form-control" /><span asp-validation-for="EditVisit.CustomReminderAt" class="text-danger small"></span></div>
@@ -517,7 +595,7 @@
                     <div class="modal-body">
                         <div asp-validation-summary="All" class="alert alert-danger"></div>
                         <div class="row g-3">
-                            <div class="col-12"><label asp-for="Completion.VisitSummary" class="form-label">Visit summary *</label><textarea asp-for="Completion.VisitSummary" id="completeSummary" class="form-control" rows="3" required></textarea><span asp-validation-for="Completion.VisitSummary" class="text-danger small"></span></div>
+                            <div class="col-12"><label asp-for="Completion.VisitSummary" class="form-label">Visit summary <span class="required-marker" aria-hidden="true">*</span></label><textarea asp-for="Completion.VisitSummary" id="completeSummary" class="form-control" rows="3" required></textarea><span asp-validation-for="Completion.VisitSummary" class="text-danger small"></span></div>
                             <div class="col-md-6"><label asp-for="Completion.Diagnosis" class="form-label">Diagnosis</label><textarea asp-for="Completion.Diagnosis" class="form-control" rows="2"></textarea></div>
                             <div class="col-md-6"><label asp-for="Completion.TreatmentProvided" class="form-label">Treatment provided</label><textarea asp-for="Completion.TreatmentProvided" class="form-control" rows="2"></textarea></div>
                             <div class="col-md-6"><label asp-for="Completion.VaccinationsReceived" class="form-label">Vaccinations received</label><textarea asp-for="Completion.VaccinationsReceived" class="form-control" rows="2"></textarea></div>
@@ -526,7 +604,16 @@
                             <div class="col-md-6"><label asp-for="Completion.FollowUpDate" class="form-label">Follow-up date</label><input asp-for="Completion.FollowUpDate" id="completeFollowUp" type="date" class="form-control" /><span asp-validation-for="Completion.FollowUpDate" class="text-danger small"></span></div>
                             <div class="col-md-6"><label asp-for="Completion.FinalCost" class="form-label">Final cost</label><input asp-for="Completion.FinalCost" id="completeCost" type="number" min="0" step=".01" class="form-control" /></div>
                             <div class="col-12"><label asp-for="Completion.AdditionalNotes" class="form-label">Additional notes</label><textarea asp-for="Completion.AdditionalNotes" class="form-control" rows="2"></textarea></div>
-                            <div class="col-md-7"><label asp-for="CompletionDocument" class="form-label">Visit document</label><input asp-for="CompletionDocument" type="file" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.docx" /><div class="form-text">Optional; PDF, JPEG, PNG, or DOCX up to 10 MB.</div><span asp-validation-for="CompletionDocument" class="text-danger small"></span></div>
+                            <div class="col-md-7">
+                                <label asp-for="CompletionDocument" class="form-label">Visit document</label>
+                                <input asp-for="CompletionDocument" id="completionDocumentUpload" type="file" class="visually-hidden vet-document-input" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" data-file-name-target="completionDocumentFileName" />
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <label for="completionDocumentUpload" class="btn btn-outline-primary mb-0">Insert file</label>
+                                    <span id="completionDocumentFileName" class="small text-muted" aria-live="polite">No file selected</span>
+                                </div>
+                                <div class="form-text">Optional; Word, PDF, JPEG, or PNG up to 10 MB.</div>
+                                <span asp-validation-for="CompletionDocument" class="text-danger small"></span>
+                            </div>
                             <div class="col-md-5"><label asp-for="CompletionDocumentType" class="form-label">Document type</label><select asp-for="CompletionDocumentType" class="form-select">@foreach (var type in PetPotty.Pages.VetVisitsModel.DocumentTypes) { <option>@type</option> }</select></div>
                         </div>
                     </div>
@@ -540,10 +627,19 @@
             <div class="modal-content">
                 <form method="post" asp-page-handler="UploadDocument" enctype="multipart/form-data">
                     <input asp-for="DocumentVisitID" type="hidden" id="documentVisitID" />
-                    <div class="modal-header"><div><h2 class="modal-title fs-5" id="documentLabel">Attach visit document</h2><div class="small opacity-75" id="documentContext"></div></div><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                    <div class="modal-header"><div><h2 class="modal-title fs-5" id="documentLabel">Attach receipt or document</h2><div class="small opacity-75" id="documentContext"></div></div><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
                     <div class="modal-body">
-                        <div class="mb-3"><label asp-for="DocumentUpload" class="form-label">File *</label><input asp-for="DocumentUpload" type="file" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.docx" required /><div class="form-text">PDF, JPEG, PNG, or DOCX; maximum 10 MB.</div></div>
-                        <div class="mb-3"><label asp-for="DocumentType" class="form-label">Document type *</label><select asp-for="DocumentType" class="form-select">@foreach (var type in PetPotty.Pages.VetVisitsModel.DocumentTypes) { <option>@type</option> }</select></div>
+                        <div class="mb-3">
+                            <label asp-for="DocumentUpload" class="form-label">File <span class="required-marker" aria-hidden="true">*</span></label>
+                            <input asp-for="DocumentUpload" id="documentUpload" type="file" class="visually-hidden vet-document-input" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" data-file-name-target="documentFileName" required />
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <label for="documentUpload" class="btn btn-outline-primary mb-0">Insert file</label>
+                                <span id="documentFileName" class="small text-muted" aria-live="polite">No file selected</span>
+                            </div>
+                            <div class="form-text">Upload a receipt, invoice, care instructions, or another record. Word, PDF, JPEG, or PNG; maximum 10 MB.</div>
+                            <span asp-validation-for="DocumentUpload" class="text-danger small"></span>
+                        </div>
+                        <div class="mb-3"><label asp-for="DocumentType" class="form-label">Document type <span class="required-marker" aria-hidden="true">*</span></label><select asp-for="DocumentType" class="form-select">@foreach (var type in PetPotty.Pages.VetVisitsModel.DocumentTypes) { <option>@type</option> }</select></div>
                         <div class="mb-3"><label asp-for="DocumentDisplayName" class="form-label">Display name</label><input asp-for="DocumentDisplayName" class="form-control" maxlength="260" placeholder="Defaults to the file name" /></div>
                         <div><label asp-for="DocumentDescription" class="form-label">Description</label><textarea asp-for="DocumentDescription" class="form-control" rows="2" maxlength="1000"></textarea></div>
                     </div>
@@ -556,16 +652,26 @@
     <div class="modal fade" id="editDocumentModal" tabindex="-1" aria-labelledby="editDocumentLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
-                <form method="post" asp-page-handler="UpdateDocument">
+                <form method="post" asp-page-handler="UpdateDocument" id="editDocumentForm">
                     <input type="hidden" name="documentID" id="editDocumentID" />
-                    <div class="modal-header"><h2 class="modal-title fs-5" id="editDocumentLabel">Edit document details</h2><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                    <div class="modal-header"><h2 class="modal-title fs-5" id="editDocumentLabel">Edit attachment details</h2><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
                     <div class="modal-body">
-                        <div class="mb-3"><label for="editDocumentType" class="form-label">Document type</label><select name="documentType" id="editDocumentType" class="form-select">@foreach (var type in PetPotty.Pages.VetVisitsModel.DocumentTypes) { <option>@type</option> }</select></div>
-                        <div class="mb-3"><label for="editDocumentName" class="form-label">Display name</label><input name="displayName" id="editDocumentName" class="form-control" maxlength="260" required /></div>
+                        <div class="mb-3"><label for="editDocumentType" class="form-label">Attachment type</label><select name="documentType" id="editDocumentType" class="form-select">@foreach (var type in PetPotty.Pages.VetVisitsModel.DocumentTypes) { <option>@type</option> }</select></div>
+                        <div class="mb-3"><label for="editDocumentName" class="form-label">Display name <span class="required-marker" aria-hidden="true">*</span></label><input name="displayName" id="editDocumentName" class="form-control" maxlength="260" required /></div>
                         <div><label for="editDocumentDescription" class="form-label">Description</label><textarea name="description" id="editDocumentDescription" class="form-control" rows="2" maxlength="1000"></textarea></div>
                     </div>
-                    <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary submit-once">Save details</button></div>
                 </form>
+                <form method="post" asp-page-handler="DeleteDocument" id="deleteDocumentForm">
+                    <input type="hidden" name="documentID" id="deleteDocumentID" />
+                </form>
+                <div class="modal-footer d-flex justify-content-between">
+                    <button type="submit" form="deleteDocumentForm" class="btn btn-danger"
+                            onclick="return confirm('Delete this attachment and its stored file?');">Delete attachment</button>
+                    <div>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" form="editDocumentForm" class="btn btn-warning submit-once">Save changes</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -590,9 +696,7 @@
         function getClinicFields(select) {
             return {
                 clinic: document.getElementById(select.dataset.clinicId),
-                veterinarian: document.getElementById(select.dataset.veterinarianId),
-                location: document.getElementById(select.dataset.locationId),
-                phone: document.getElementById(select.dataset.phoneId)
+                veterinarian: document.getElementById(select.dataset.veterinarianId)
             };
         }
 
@@ -601,13 +705,16 @@
             const option = select.selectedOptions[0];
             const isNew = select.value === '__new__';
             const isExisting = select.value !== '' && !isNew;
+            const details = document.getElementById(select.dataset.detailsId);
 
-            fields.clinic.readOnly = !isNew;
+            details.hidden = !isNew;
+            Object.values(fields).forEach(field => {
+                field.disabled = select.value === '';
+                field.readOnly = !isNew;
+            });
             if (isExisting && fillValues) {
                 fields.clinic.value = option.dataset.clinic || option.value;
                 fields.veterinarian.value = option.dataset.veterinarian || '';
-                fields.location.value = option.dataset.location || '';
-                fields.phone.value = option.dataset.phone || '';
             } else if ((isNew || select.value === '') && clearNewValues) {
                 Object.values(fields).forEach(field => field.value = '');
             }
@@ -618,6 +725,10 @@
 
         function initializeClinicSelector(select) {
             const fields = getClinicFields(select);
+            if (select.value) {
+                applyClinicSelection(select, false, false);
+                return;
+            }
             const clinicName = fields.clinic.value.trim();
             const matchingOption = Array.from(select.options).find(option =>
                 option.value !== '' && option.value !== '__new__'
@@ -652,15 +763,16 @@
                 document.getElementById('editVeterinarian').value = data.veterinarian;
                 document.getElementById('editVisitReason').value = data.reason;
                 document.getElementById('editVisitType').value = data.type;
-                document.getElementById('editLocation').value = data.location;
-                document.getElementById('editPhone').value = data.phone;
                 document.getElementById('editVisitStatus').value = data.status;
                 document.getElementById('editNotes').value = data.notes;
                 document.getElementById('editFollowUp').value = data.followUp;
                 document.getElementById('editCost').value = data.cost;
                 document.getElementById('editEmergency').checked = data.emergency === 'true';
-                document.getElementById('editPreparation').value = data.preparation;
+                document.getElementById('editClinicSelector').value = '';
                 initializeClinicSelector(document.getElementById('editClinicSelector'));
+                const editDocument = document.getElementById('editVisitDocumentUpload');
+                editDocument.value = '';
+                updateDocumentFileName(editDocument);
                 document.getElementById('editReminderChoice').value = data.reminderAt ? 'Custom' : 'None';
                 document.getElementById('editReminderAt').value = data.reminderAt;
                 syncReminderFields(document.getElementById('editReminderChoice'));
@@ -678,6 +790,15 @@
             });
         });
 
+        function updateDocumentFileName(input) {
+            const target = document.getElementById(input.dataset.fileNameTarget);
+            if (target) target.textContent = input.files?.[0]?.name || 'No file selected';
+        }
+
+        document.querySelectorAll('.vet-document-input').forEach(input => {
+            input.addEventListener('change', () => updateDocumentFileName(input));
+        });
+
         document.querySelectorAll('.upload-document-btn').forEach(button => {
             button.addEventListener('click', () => {
                 document.getElementById('documentVisitID').value = button.dataset.visitId;
@@ -688,9 +809,40 @@
         document.querySelectorAll('.edit-document-btn').forEach(button => {
             button.addEventListener('click', () => {
                 document.getElementById('editDocumentID').value = button.dataset.id;
+                document.getElementById('deleteDocumentID').value = button.dataset.id;
                 document.getElementById('editDocumentType').value = button.dataset.type;
                 document.getElementById('editDocumentName').value = button.dataset.name;
                 document.getElementById('editDocumentDescription').value = button.dataset.description;
+            });
+        });
+
+        const panelControlSelector = 'button, a, input, select, textarea, label, form';
+
+        document.querySelectorAll('.visit-card-main').forEach(panel => {
+            panel.addEventListener('click', event => {
+                if (!(event.target instanceof Element)
+                    || event.target.closest(panelControlSelector)) return;
+
+                document.getElementById(panel.dataset.detailsButtonId)?.click();
+            });
+        });
+
+        document.querySelectorAll('.document-row').forEach(row => {
+            row.addEventListener('click', event => {
+                if (!(event.target instanceof Element)
+                    || event.target.closest(panelControlSelector)
+                    || event.target.closest('.document-preview')) return;
+
+                row.querySelector('.document-title')?.click();
+            });
+        });
+
+        document.querySelectorAll('.document-preview-collapse').forEach(preview => {
+            preview.addEventListener('show.bs.collapse', () => {
+                preview.querySelectorAll('[data-preview-src]').forEach(element => {
+                    if (!element.getAttribute('src'))
+                        element.setAttribute('src', element.dataset.previewSrc);
+                });
             });
         });
 
@@ -700,12 +852,17 @@
             if (button.dataset.idleHtml) button.innerHTML = button.dataset.idleHtml;
         }
 
+        function getSubmitButton(form) {
+            return form.querySelector('.submit-once')
+                || (form.id ? document.querySelector(`.submit-once[form="${form.id}"]`) : null);
+        }
+
         document.querySelectorAll('form').forEach(form => {
-            const button = form.querySelector('.submit-once');
+            const button = getSubmitButton(form);
             if (button) button.dataset.idleHtml = button.innerHTML;
 
             form.addEventListener('submit', event => {
-                const button = form.querySelector('.submit-once');
+                const button = getSubmitButton(form);
                 if (!button) return;
 
                 const nativeValid = form.checkValidity();

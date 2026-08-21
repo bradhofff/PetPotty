@@ -34,8 +34,8 @@
                     {
                         <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
                     }
-                    <div class="mb-3"><label asp-for="Username" class="form-label">Username</label><input asp-for="Username" class="form-control" autocomplete="username" placeholder="Enter your username" /><span asp-validation-for="Username" class="text-danger small"></span></div>
-                    <div class="mb-4"><div class="d-flex justify-content-between"><label asp-for="Password" class="form-label">Password</label></div><input asp-for="Password" type="password" class="form-control" autocomplete="current-password" placeholder="Enter your password" /><span asp-validation-for="Password" class="text-danger small"></span></div>
+                    <div class="mb-3"><label asp-for="Username" class="form-label">Username <span class="required-marker" aria-hidden="true">*</span></label><input asp-for="Username" class="form-control" autocomplete="username" placeholder="Enter your username" required /><span asp-validation-for="Username" class="text-danger small"></span></div>
+                    <div class="mb-4"><div class="d-flex justify-content-between"><label asp-for="Password" class="form-label">Password <span class="required-marker" aria-hidden="true">*</span></label></div><input asp-for="Password" type="password" class="form-control" autocomplete="current-password" placeholder="Enter your password" required /><span asp-validation-for="Password" class="text-danger small"></span></div>
                     <button type="submit" class="btn auth-primary-btn w-100">Log in <span aria-hidden="true">→</span></button>
                 </form>
                 <p class="auth-switch">New to PackTracker? <a asp-page="/Signup">Create an account</a></p>

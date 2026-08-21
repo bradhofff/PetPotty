@@ -69,32 +69,20 @@ namespace PetPotty.Models
         [StringLength(50)]
         public string VisitType { get; set; } = "Wellness exam";
 
-        [Required(ErrorMessage = "Clinic address or location is required.")]
-        [StringLength(400)]
-        public string Location { get; set; } = string.Empty;
-
-        [Required(ErrorMessage = "Clinic phone number is required.")]
-        [Phone]
-        [StringLength(50)]
-        public string PhoneNumber { get; set; } = string.Empty;
-
         [Required]
         [StringLength(25)]
         public string Status { get; set; } = "Scheduled";
 
-        [StringLength(4000)]
+        [StringLength(6000)]
         public string? Notes { get; set; }
 
         [DataType(DataType.Date)]
         public DateTime? FollowUpDate { get; set; }
 
-        [Required(ErrorMessage = "Cost is required.")]
         [Range(typeof(decimal), "0", "99999999.99", ErrorMessage = "Cost cannot be negative.")]
         public decimal? Cost { get; set; }
         public bool IsEmergency { get; set; }
 
-        [StringLength(2000)]
-        public string? PreparationInstructions { get; set; }
         public string ReminderChoice { get; set; } = "OneDay";
 
         [DataType(DataType.DateTime)]
@@ -105,8 +93,6 @@ namespace PetPotty.Models
     {
         public string ClinicName { get; set; } = string.Empty;
         public string VeterinarianName { get; set; } = string.Empty;
-        public string Location { get; set; } = string.Empty;
-        public string PhoneNumber { get; set; } = string.Empty;
     }
 
     public class CompleteVetVisitInput

@@ -26,17 +26,17 @@
 
                 <form method="post">
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Full Name <span class="text-danger">*</span></label>
+                        <label class="form-label fw-semibold">Full Name <span class="required-marker" aria-hidden="true">*</span></label>
                         <input asp-for="SignupName" class="form-control" placeholder="e.g. Bradley" required />
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Username <span class="text-danger">*</span></label>
+                        <label class="form-label fw-semibold">Username <span class="required-marker" aria-hidden="true">*</span></label>
                         <input asp-for="SignupUserName" class="form-control" placeholder="No spaces allowed" required />
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Email <span class="text-danger">*</span></label>
+                        <label class="form-label fw-semibold">Email <span class="required-marker" aria-hidden="true">*</span></label>
                         <input asp-for="SignupEmail" type="email" class="form-control" placeholder="example@email.com" required />
                     </div>
 
@@ -46,7 +46,7 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Password <span class="text-danger">*</span></label>
+                        <label class="form-label fw-semibold">Password <span class="required-marker" aria-hidden="true">*</span></label>
                         <div class="input-group">
                             <input asp-for="SignupPass" type="password" class="form-control"
                                    id="signupPass" placeholder="Create a password" required />
@@ -58,7 +58,7 @@
                     </div>
 
                     <div class="mb-4">
-                        <label class="form-label fw-semibold">Confirm Password <span class="text-danger">*</span></label>
+                        <label class="form-label fw-semibold">Confirm Password <span class="required-marker" aria-hidden="true">*</span></label>
                         <div class="input-group">
                             <input asp-for="SignupConfirmPass" type="password" class="form-control"
                                    id="signupConfirmPass" placeholder="Re-enter your password" required />

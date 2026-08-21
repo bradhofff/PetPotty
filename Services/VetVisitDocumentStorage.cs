@@ -12,6 +12,7 @@ namespace PetPotty.Services
             [".jpg"] = ["image/jpeg", "image/jpg"],
             [".jpeg"] = ["image/jpeg", "image/jpg"],
             [".png"] = ["image/png"],
+            [".doc"] = ["application/msword", "application/octet-stream"],
             [".docx"] = ["application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                          "application/zip", "application/octet-stream"]
         };
@@ -45,7 +46,7 @@ namespace PetPotty.Services
 
             var extension = Path.GetExtension(document.FileName).ToLowerInvariant();
             if (!AllowedContentTypes.TryGetValue(extension, out var contentTypes))
-                return "Only PDF, JPEG, PNG, and DOCX documents are supported.";
+                return "Only PDF, Word, JPEG, and PNG documents are supported.";
             if (!contentTypes.Contains(document.ContentType, StringComparer.OrdinalIgnoreCase))
                 return "The document content type does not match its extension.";
 
@@ -57,6 +58,7 @@ namespace PetPotty.Services
                 ".pdf" => count >= 5 && header[..5].SequenceEqual("%PDF-"u8),
                 ".jpg" or ".jpeg" => count >= 3 && header[..3].SequenceEqual(new byte[] { 0xFF, 0xD8, 0xFF }),
                 ".png" => count >= 8 && header.SequenceEqual(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }),
+                ".doc" => count >= 8 && header.SequenceEqual(new byte[] { 0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1 }),
                 ".docx" => count >= 4 && header[..4].SequenceEqual(new byte[] { 0x50, 0x4B, 0x03, 0x04 }),
                 _ => false
             };

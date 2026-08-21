@@ -26,6 +26,28 @@ For the saved light/dark account preference, review and run
 database before deploying the matching application build. The script is
 idempotent and does not contain a `USE` statement.
 
+For the medication schedule range toggle, review and run
+`Migrationsss/2026-08-20_UpdateMedicationScheduleRange.sql` against the intended
+database before deploying the matching application build. It creates the
+all-time and next-two-month stored procedures used by the application.
+
+For optional vet-visit costs, review and run
+`Migrationsss/2026-08-20_MakeVetVisitCostOptional.sql` against the intended
+database before deploying the matching application build. It updates the add
+and edit procedures so a missing cost is stored as `NULL`.
+
+For the simplified vet-visit forms and Add/Edit attachments, review and run
+`Migrationsss/2026-08-21_SimplifyVetVisitForms.sql` against the intended
+database before deploying the matching application build. It removes the
+stored-procedure requirement for address and phone, combines legacy preparation
+text into notes, and expands that combined field to `nvarchar(max)`.
+
+After applying the release SQL, run
+`Migrationsss/2026-08-21_VerifyCurrentRelease.sql` for read-only schema and
+procedure checks. For a functional Add/Update check, set an existing pet ID in
+`Migrationsss/2026-08-21_SmokeTestVetVisit.sql` and run it; the test performs an
+outer transaction rollback and leaves no test visit behind.
+
 ## VPS filesystem
 
 Run the setup script with the user (and optional group) from the `petpotty`
@@ -60,9 +82,11 @@ owned by the application service account.
 - Add, edit, reschedule, cancel, and complete an owned vet visit. Confirm each
   status change appears in record history and a second user cannot access it by
   changing posted IDs.
-- Upload each supported document type (PDF, JPEG, PNG, DOCX), reject an
+- Upload each supported document type (PDF, DOC, DOCX, JPEG, PNG), reject an
   unsupported or over-10-MB file, download as the owner, and confirm another
   user receives no document.
+- Add and update a vet visit with an attachment. Confirm the file appears in
+  the visit's Attachments list and can only be downloaded by its owner.
 - Confirm dashboard pet cards only show unconfirmed medication doses and active
   vet visits from today through three calendar days ahead, with at most three
   visible rows.
