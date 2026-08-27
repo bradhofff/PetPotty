@@ -17,6 +17,8 @@ namespace PetPotty.Services
     {
         List<Pet> GetPetsByUser(int userID);
         List<TaskItem> GetTasksByPetID(int petID, bool allTime);
+        List<TaskItem> GetTasksByPetIDSince(int petID, DateTime startDate, out bool hasOlderTasks);
+        List<TaskItem> GetLatestActivityTasksByPetID(int petID);
         Pet? GetPetByID(int userID, int petID);
         int AddPet(int userID, string name, string type, string breed, string age, DateTime birthdate, string gender);
         void EditPet(int petID, string name, string type, string breed, string age, DateTime birthdate, string gender);

@@ -992,3 +992,26 @@ html[data-bs-theme="dark"] :is(.home-dashboard, .medications-page) .seg-option:h
     background: #202832 !important;
     color: #fff !important;
 }
+
+/* Permanent PackTracker brand color in both light and dark modes. */
+.site-navbar,
+.app-navbar,
+html[data-bs-theme="dark"] .site-navbar,
+html[data-bs-theme="dark"] .app-navbar {
+    background: linear-gradient(90deg, #e8650a, #c9520b) !important;
+    border-bottom-color: rgba(255, 255, 255, .25) !important;
+}
+
+.home-dashboard .add-task-card-btn,
+html[data-bs-theme="dark"] .home-dashboard .add-task-card-btn {
+    background: #d96420 !important;
+    border-color: #d96420 !important;
+    color: #fff !important;
+}
+
+.home-dashboard .add-task-card-btn:hover,
+html[data-bs-theme="dark"] .home-dashboard .add-task-card-btn:hover {
+    background: #af4811 !important;
+    border-color: #af4811 !important;
+    color: #fff !important;
+}

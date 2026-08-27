@@ -24,13 +24,18 @@ namespace PetPotty.Pages
 
         [BindProperty] public int SelectedPetID { get; set; } = 0;
         [BindProperty] public bool ShowAllTime { get; set; } = false;
+        public string? MedicationError { get; set; }
+        public string? ModalToOpen { get; set; }
 
         // ── Add Medication fields ────────────────────────────────────
+        [BindProperty] public int NewMedPetID { get; set; }
         [BindProperty] public string NewMedName { get; set; } = string.Empty;
         [BindProperty] public string NewMedDosage { get; set; } = string.Empty;
         [BindProperty] public string NewMedFrequencyType { get; set; } = string.Empty;
         [BindProperty] public int? NewMedFrequencyInterval { get; set; }
+        [BindProperty] public bool NewMedTimingDoesNotMatter { get; set; } = true;
         [BindProperty] public DateTime NewMedStartDate { get; set; } = DateTime.Today;
+        [BindProperty] public TimeSpan? NewMedStartTime { get; set; }
         [BindProperty] public DateTime? NewMedEndDate { get; set; }
         [BindProperty] public bool NewMedForever { get; set; } = true;
         [BindProperty] public string NewMedNotes { get; set; } = string.Empty;
@@ -41,7 +46,9 @@ namespace PetPotty.Pages
         [BindProperty] public string EditMedDosage { get; set; } = string.Empty;
         [BindProperty] public string EditMedFrequencyType { get; set; } = string.Empty;
         [BindProperty] public int? EditMedFrequencyInterval { get; set; }
+        [BindProperty] public bool EditMedTimingDoesNotMatter { get; set; }
         [BindProperty] public DateTime EditMedStartDate { get; set; } = DateTime.Today;
+        [BindProperty] public TimeSpan? EditMedStartTime { get; set; }
         [BindProperty] public DateTime? EditMedEndDate { get; set; }
         [BindProperty] public bool EditMedForever { get; set; }
         [BindProperty] public string EditMedNotes { get; set; } = string.Empty;
@@ -58,6 +65,8 @@ namespace PetPotty.Pages
             LoadData();
             if (petID.HasValue && SelectedPetID == petID.Value)
                 SetSelectedPetID(petID.Value);
+            if (NewMedPetID == 0 && SelectedPetID > 0)
+                NewMedPetID = SelectedPetID;
             return Page();
         }
 
@@ -89,28 +98,60 @@ namespace PetPotty.Pages
 
             UserID = userID;
             RestoreStateFromSession();
-            SetSelectedPetID(SelectedPetID);
+            Pets = _petService.GetPetsByUser(UserID);
+
+            if (NewMedPetID <= 0)
+                return ShowMedicationModalError("addMedModal", "Choose a pet for this medication.");
+            if (Pets.All(pet => pet.PetID != NewMedPetID))
+                return Forbid();
+
+            if (!TryNormalizeMedicationTiming(
+                    NewMedFrequencyType,
+                    NewMedTimingDoesNotMatter,
+                    NewMedStartDate,
+                    NewMedStartTime,
+                    out var timingDoesNotMatter,
+                    out var normalizedStartDate,
+                    out var timingError))
+            {
+                return ShowMedicationModalError("addMedModal", timingError);
+            }
+
+            NewMedTimingDoesNotMatter = timingDoesNotMatter;
+            NewMedStartDate = normalizedStartDate;
 
             if (!NewMedForever)
             {
                 if (!NewMedEndDate.HasValue)
                 {
-                    TempData["StatusMessage"] = "Error: End date is required when Forever is unchecked.";
-                    return RedirectToPage();
+                    return ShowMedicationModalError(
+                        "addMedModal",
+                        "End date is required when Forever is unchecked.");
                 }
-                if (NewMedEndDate.Value <= NewMedStartDate)
+
+                NewMedEndDate = timingDoesNotMatter
+                    ? NewMedEndDate.Value.Date
+                    : NewMedEndDate.Value;
+                var invalidEndDate = timingDoesNotMatter
+                    ? NewMedEndDate.Value.Date < normalizedStartDate.Date
+                    : NewMedEndDate.Value <= normalizedStartDate;
+                if (invalidEndDate)
                 {
-                    TempData["StatusMessage"] = "Error: End date must be after start date.";
-                    return RedirectToPage();
+                    return ShowMedicationModalError(
+                        "addMedModal",
+                        timingDoesNotMatter
+                            ? "End date cannot be before the start date."
+                            : "End date and time must be after the start date and time.");
                 }
             }
 
             _medService.AddMedication(
-                SelectedPetID, NewMedName, NewMedDosage,
-                NewMedFrequencyType, NewMedFrequencyInterval,
+                NewMedPetID, NewMedName, NewMedDosage,
+                NewMedFrequencyType, NewMedFrequencyInterval, NewMedTimingDoesNotMatter,
                 NewMedStartDate, NewMedForever ? null : NewMedEndDate,
                 NewMedNotes);
 
+            SetSelectedPetID(NewMedPetID);
             TempData["StatusMessage"] = $"{NewMedName} added successfully!";
             return RedirectToPage();
         }
@@ -125,23 +166,49 @@ namespace PetPotty.Pages
             RestoreStateFromSession();
             SetSelectedPetID(SelectedPetID);
 
+            if (!TryNormalizeMedicationTiming(
+                    EditMedFrequencyType,
+                    EditMedTimingDoesNotMatter,
+                    EditMedStartDate,
+                    EditMedStartTime,
+                    out var timingDoesNotMatter,
+                    out var normalizedStartDate,
+                    out var timingError))
+            {
+                return ShowMedicationModalError("editMedModal", timingError);
+            }
+
+            EditMedTimingDoesNotMatter = timingDoesNotMatter;
+            EditMedStartDate = normalizedStartDate;
+
             if (!EditMedForever)
             {
                 if (!EditMedEndDate.HasValue)
                 {
-                    TempData["StatusMessage"] = "Error: End date is required when Forever is unchecked.";
-                    return RedirectToPage();
+                    return ShowMedicationModalError(
+                        "editMedModal",
+                        "End date is required when Forever is unchecked.");
                 }
-                if (EditMedEndDate.Value <= EditMedStartDate)
+
+                EditMedEndDate = timingDoesNotMatter
+                    ? EditMedEndDate.Value.Date
+                    : EditMedEndDate.Value;
+                var invalidEndDate = timingDoesNotMatter
+                    ? EditMedEndDate.Value.Date < normalizedStartDate.Date
+                    : EditMedEndDate.Value <= normalizedStartDate;
+                if (invalidEndDate)
                 {
-                    TempData["StatusMessage"] = "Error: End date must be after start date.";
-                    return RedirectToPage();
+                    return ShowMedicationModalError(
+                        "editMedModal",
+                        timingDoesNotMatter
+                            ? "End date cannot be before the start date."
+                            : "End date and time must be after the start date and time.");
                 }
             }
 
             _medService.UpdateMedication(
                 EditMedID, EditMedName, EditMedDosage,
-                EditMedFrequencyType, EditMedFrequencyInterval,
+                EditMedFrequencyType, EditMedFrequencyInterval, EditMedTimingDoesNotMatter,
                 EditMedStartDate, EditMedForever ? null : EditMedEndDate,
                 EditMedNotes);
 
@@ -192,6 +259,57 @@ namespace PetPotty.Pages
         }
 
         // ── Helpers ──────────────────────────────────────────────────
+        private static bool TryNormalizeMedicationTiming(
+            string frequencyType,
+            bool requestedTimingDoesNotMatter,
+            DateTime startDate,
+            TimeSpan? startTime,
+            out bool timingDoesNotMatter,
+            out DateTime normalizedStartDate,
+            out string error)
+        {
+            timingDoesNotMatter = false;
+            normalizedStartDate = startDate;
+            error = string.Empty;
+
+            var normalizedFrequency = frequencyType?.Trim() ?? string.Empty;
+            var validFrequencies = new[] { "Hourly", "Daily", "Weekly", "Monthly" };
+            if (!validFrequencies.Contains(normalizedFrequency, StringComparer.OrdinalIgnoreCase))
+            {
+                error = "Choose a valid medication frequency.";
+                return false;
+            }
+
+            if (startDate == default)
+            {
+                error = "Choose a valid start date.";
+                return false;
+            }
+
+            var isHourly = normalizedFrequency.Equals("Hourly", StringComparison.OrdinalIgnoreCase);
+            timingDoesNotMatter = !isHourly && requestedTimingDoesNotMatter;
+
+            if (!timingDoesNotMatter && !startTime.HasValue)
+            {
+                error = isHourly
+                    ? "Hourly medications require an exact start time."
+                    : "Choose a start time or select ‘Timing doesn’t matter’.";
+                return false;
+            }
+
+            normalizedStartDate = startDate.Date
+                + (timingDoesNotMatter ? TimeSpan.Zero : startTime!.Value);
+            return true;
+        }
+
+        private PageResult ShowMedicationModalError(string modalID, string message)
+        {
+            MedicationError = message;
+            ModalToOpen = modalID;
+            LoadData();
+            return Page();
+        }
+
         private void LoadData()
         {
             Pets = _petService.GetPetsByUser(UserID);

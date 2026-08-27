@@ -56,6 +56,55 @@
             opacity: 1;
         }
     }
+
+    .medication-schedule-table {
+        min-width: 780px;
+        table-layout: fixed;
+        width: 100%;
+    }
+    .medication-schedule-table col.schedule-medication { width: 22%; }
+    .medication-schedule-table col.schedule-scheduled { width: 20%; }
+    .medication-schedule-table col.schedule-status { width: 16%; }
+    .medication-schedule-table col.schedule-confirmed-at { width: 20%; }
+    .medication-schedule-table col.schedule-action { width: 22%; }
+    .medication-schedule-table :is(th, td) { vertical-align: middle; }
+    .medication-schedule-table :is(th, td).schedule-medication,
+    .medication-schedule-table :is(th, td).schedule-scheduled,
+    .medication-schedule-table :is(th, td).schedule-confirmed-at {
+        text-align: left !important;
+    }
+    .medication-schedule-table :is(th, td).schedule-status,
+    .medication-schedule-table :is(th, td).schedule-action {
+        text-align: center !important;
+    }
+    .medication-schedule-table tbody tr.med-schedule-overdue > td {
+        background: #fff0f1 !important;
+        border-bottom-color: #e5757d !important;
+        border-top-color: #e5757d !important;
+    }
+    .medication-schedule-table tbody tr.med-schedule-overdue > td:first-child {
+        box-shadow: inset 5px 0 0 #dc3545;
+    }
+    .med-overdue-badge {
+        background: #dc3545;
+        border-radius: 999px;
+        color: #fff !important;
+        display: inline-block;
+        font-size: .66rem;
+        font-weight: 800;
+        letter-spacing: .06em;
+        margin-top: 5px;
+        padding: 3px 8px;
+        text-transform: uppercase;
+    }
+    html[data-bs-theme="dark"] .medication-schedule-table tbody tr.med-schedule-overdue > td {
+        background: #3a1519 !important;
+        border-bottom-color: #ff6b73 !important;
+        border-top-color: #ff6b73 !important;
+    }
+    html[data-bs-theme="dark"] .medication-schedule-table tbody tr.med-schedule-overdue > td:first-child {
+        box-shadow: inset 5px 0 0 #ff5964;
+    }
 </style>
 
 <div class="medications-page">
@@ -67,11 +116,24 @@
     </div>
 }
 
+@if (!string.IsNullOrWhiteSpace(Model.MedicationError))
+{
+    <div class="alert alert-danger" role="alert">@Model.MedicationError</div>
+}
+
 @* ── PAGE HEADER ─────────────────────────────────────────── *@
-<div class="app-page-heading mb-4">
-    <p class="app-eyebrow">CARE PLANNER</p>
-    <h1 class="mb-1 fw-bold" style="color: var(--pet-dark);">Medications</h1>
-    <p class="text-muted mb-0" style="font-size: 1.05rem;">Keep every dose on track.</p>
+<div class="app-page-heading mb-4 d-flex align-items-center justify-content-between gap-3 flex-wrap">
+    <div>
+        <p class="app-eyebrow">CARE PLANNER</p>
+        <h1 class="mb-1 fw-bold" style="color: var(--pet-dark);">Medications</h1>
+        <p class="text-muted mb-0" style="font-size: 1.05rem;">Keep every dose on track.</p>
+    </div>
+    <button type="button"
+            class="btn btn-primary"
+            style="border-radius: 30px; padding: 8px 22px; font-weight: 600;"
+            data-bs-toggle="modal" data-bs-target="#addMedModal">
+        + Add Medication
+    </button>
 </div>
 
 @* ── PET SELECTOR ────────────────────────────────────────── *@
@@ -117,16 +179,10 @@
     var selectedPet = Model.Pets.FirstOrDefault(p => p.PetID == Model.SelectedPetID);
 
     @* ── MEDICATIONS SECTION ─────────────────────────────────── *@
-    <div class="d-flex align-items-center justify-content-between app-section-heading mb-3">
+    <div class="app-section-heading mb-3">
         <h2 class="mb-0 fw-semibold" style="color: var(--pet-dark); font-size: 1.35rem;">
             @selectedPet?.Name's Medications
         </h2>
-        <button type="button"
-                class="btn btn-primary"
-                style="border-radius: 30px; padding: 8px 22px; font-weight: 600;"
-                data-bs-toggle="modal" data-bs-target="#addMedModal">
-            + Add Medication
-        </button>
     </div>
 
     @if (Model.Medications.Count == 0)
@@ -151,7 +207,9 @@
                                 data-med-dosage="@med.Dosage"
                                 data-med-frequency-type="@med.FrequencyType"
                                 data-med-frequency-interval="@med.FrequencyInterval"
-                                data-med-start-date="@med.StartDate.ToString("yyyy-MM-ddTHH:mm")"
+                                data-med-timing-does-not-matter="@med.TimingDoesNotMatter.ToString().ToLowerInvariant()"
+                                data-med-start-date="@med.StartDate.ToString("yyyy-MM-dd")"
+                                data-med-start-time="@med.StartDate.ToString("HH:mm")"
                                 data-med-end-date="@(med.EndDate.HasValue ? med.EndDate.Value.ToString("yyyy-MM-ddTHH:mm") : "")"
                                 data-med-notes="@med.Notes"
                                 title="Edit @med.MedicationName">
@@ -230,24 +288,43 @@
         else
         {
             <div class="table-responsive app-table-wrap">
-                <table class="table" style="border-radius: 12px; overflow: hidden;">
+                <table class="table medication-schedule-table" style="border-radius: 12px; overflow: hidden;">
+                    <colgroup>
+                        <col class="schedule-medication" />
+                        <col class="schedule-scheduled" />
+                        <col class="schedule-status" />
+                        <col class="schedule-confirmed-at" />
+                        <col class="schedule-action" />
+                    </colgroup>
                     <thead>
                         <tr>
-                            <th>Medication</th>
-                            <th>Scheduled</th>
-                            <th class="text-center">Dosage Given?</th>
-                            <th>Dosage At</th>
-                            <th class="text-center">Action</th>
+                            <th scope="col" class="schedule-medication">Medication</th>
+                            <th scope="col" class="schedule-scheduled">Scheduled</th>
+                            <th scope="col" class="schedule-status">Dosage Given?</th>
+                            <th scope="col" class="schedule-confirmed-at">Dosage At</th>
+                            <th scope="col" class="schedule-action">Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var s in Model.Schedule)
                         {
                             var logDateStr = s.ScheduleDate.ToString("yyyy-MM-ddTHH:mm:ss");
-                            <tr>
-                                <td class="fw-semibold">@s.MedicationName</td>
-                                <td>@s.ScheduleDate.ToString("MMM d, h:mm tt")</td>
-                                <td class="text-center">
+                            var scheduleDisplay = s.TimingDoesNotMatter
+                                ? s.ScheduleDate.ToString("MMM d, yyyy")
+                                : s.ScheduleDate.ToString("MMM d, yyyy 'at' h:mm tt");
+                            var isPastDue = !s.IsConfirmed && (s.TimingDoesNotMatter
+                                ? s.ScheduleDate.Date < DateTime.Today
+                                : s.ScheduleDate < DateTime.Now);
+                            <tr class="@(isPastDue ? "med-schedule-overdue" : null)">
+                                <td class="schedule-medication fw-semibold">@s.MedicationName</td>
+                                <td class="schedule-scheduled">
+                                    <span class="d-block">@scheduleDisplay</span>
+                                    @if (isPastDue)
+                                    {
+                                        <span class="med-overdue-badge">Past due</span>
+                                    }
+                                </td>
+                                <td class="schedule-status">
                                     @if (s.IsConfirmed)
                                     {
                                         <span class="fw-semibold" style="color: var(--pet-success);">✓ Yes</span>
@@ -257,10 +334,10 @@
                                         <span class="fw-semibold" style="color: #dc3545;">✕ No</span>
                                     }
                                 </td>
-                                <td style="color: #666; font-size: 0.9rem;">
+                                <td class="schedule-confirmed-at" style="color: #666; font-size: 0.9rem;">
                                     @(s.ConfirmedAt.HasValue ? s.ConfirmedAt.Value.ToString("MMM d, h:mm tt") : "—")
                                 </td>
-                                <td class="text-center">
+                                <td class="schedule-action">
                                     @if (!s.IsConfirmed)
                                     {
                                         <button type="button"
@@ -271,7 +348,7 @@
                                                 data-med-id="@s.MedID"
                                                 data-med-name="@s.MedicationName"
                                                 data-log-date="@logDateStr"
-                                                data-scheduled-display="@s.ScheduleDate.ToString("MMM d, h:mm tt")">
+                                                data-scheduled-display="@scheduleDisplay">
                                             ✔ Confirm Dose
                                         </button>
                                     }
@@ -320,9 +397,24 @@ else
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <form method="post" asp-page-handler="AddMedication">
-                    <input type="hidden" name="SelectedPetID" value="@Model.SelectedPetID" />
                     <div class="modal-body">
+                        @if (Model.ModalToOpen == "addMedModal" && !string.IsNullOrWhiteSpace(Model.MedicationError))
+                        {
+                            <div class="alert alert-danger" role="alert">@Model.MedicationError</div>
+                        }
                         <div class="row g-3">
+                            <div class="col-md-6">
+                                <label asp-for="NewMedPetID" class="form-label fw-semibold">
+                                    Pet <span class="required-marker" aria-hidden="true">*</span>
+                                </label>
+                                <select asp-for="NewMedPetID" class="form-select" id="newMedPetID" required>
+                                    <option value="">-- Select a Pet --</option>
+                                    @foreach (var pet in Model.Pets)
+                                    {
+                                        <option value="@pet.PetID">@pet.Name</option>
+                                    }
+                                </select>
+                            </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Medication Name <span class="required-marker" aria-hidden="true">*</span></label>
                                 <input asp-for="NewMedName" class="form-control" placeholder="e.g. Apoquel" required />
@@ -333,7 +425,7 @@ else
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Frequency Type <span class="required-marker" aria-hidden="true">*</span></label>
-                                <select asp-for="NewMedFrequencyType" class="form-select" required>
+                                <select asp-for="NewMedFrequencyType" class="form-select" id="newMedFrequencyType" required>
                                     <option value="">-- Select --</option>
                                     <option>Hourly</option>
                                     <option>Daily</option>
@@ -349,10 +441,27 @@ else
                                 <input asp-for="NewMedFrequencyInterval" type="number" min="1"
                                        class="form-control" placeholder="e.g. 8" />
                             </div>
+                            <div class="col-12" id="newMedTimingOption">
+                                <div class="form-check">
+                                    <input asp-for="NewMedTimingDoesNotMatter" class="form-check-input"
+                                           id="newMedTimingDoesNotMatter" />
+                                    <label class="form-check-label fw-semibold" for="newMedTimingDoesNotMatter">
+                                        Timing doesn’t matter
+                                    </label>
+                                </div>
+                                <div class="form-text">
+                                    Check this when the medication can be given at any time on its scheduled day.
+                                </div>
+                            </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Start Date & Time <span class="required-marker" aria-hidden="true">*</span></label>
-                                <input asp-for="NewMedStartDate" type="datetime-local"
+                                <label class="form-label fw-semibold">Start Date <span class="required-marker" aria-hidden="true">*</span></label>
+                                <input asp-for="NewMedStartDate" type="date"
                                        id="newMedStartDate" class="form-control" required />
+                            </div>
+                            <div class="col-md-6" id="newMedStartTimeWrapper">
+                                <label class="form-label fw-semibold">Start Time <span class="required-marker" aria-hidden="true">*</span></label>
+                                <input asp-for="NewMedStartTime" type="time"
+                                       id="newMedStartTime" class="form-control" />
                             </div>
                             <div class="col-md-6 d-flex flex-column justify-content-end">
                                 <div class="form-check mb-2">
@@ -422,10 +531,27 @@ else
                                 <input asp-for="EditMedFrequencyInterval" type="number" min="1"
                                        class="form-control" id="editMedFrequencyInterval" placeholder="e.g. 8" />
                             </div>
+                            <div class="col-12" id="editMedTimingOption">
+                                <div class="form-check">
+                                    <input asp-for="EditMedTimingDoesNotMatter" class="form-check-input"
+                                           id="editMedTimingDoesNotMatter" />
+                                    <label class="form-check-label fw-semibold" for="editMedTimingDoesNotMatter">
+                                        Timing doesn’t matter
+                                    </label>
+                                </div>
+                                <div class="form-text">
+                                    Check this when the medication can be given at any time on its scheduled day.
+                                </div>
+                            </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Start Date & Time <span class="required-marker" aria-hidden="true">*</span></label>
-                                <input asp-for="EditMedStartDate" type="datetime-local" class="form-control"
+                                <label class="form-label fw-semibold">Start Date <span class="required-marker" aria-hidden="true">*</span></label>
+                                <input asp-for="EditMedStartDate" type="date" class="form-control"
                                        id="editMedStartDate" required />
+                            </div>
+                            <div class="col-md-6" id="editMedStartTimeWrapper">
+                                <label class="form-label fw-semibold">Start Time <span class="required-marker" aria-hidden="true">*</span></label>
+                                <input asp-for="EditMedStartTime" type="time" class="form-control"
+                                       id="editMedStartTime" />
                             </div>
                             <div class="col-md-6 d-flex flex-column justify-content-end">
                                 <div class="form-check mb-2">
@@ -522,6 +648,44 @@ else
                 String(d.getMinutes()).padStart(2, '0');
         }
 
+        function formatDateLocal(d) {
+            return formatDateTimeLocal(d).slice(0, 10);
+        }
+
+        function formatTimeLocal(d) {
+            return formatDateTimeLocal(d).slice(11, 16);
+        }
+
+        const modalToOpen = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ModalToOpen));
+
+        function updateTimingControls(prefix) {
+            const frequency = document.getElementById(`${prefix}MedFrequencyType`);
+            const option = document.getElementById(`${prefix}MedTimingOption`);
+            const checkbox = document.getElementById(`${prefix}MedTimingDoesNotMatter`);
+            const timeWrapper = document.getElementById(`${prefix}MedStartTimeWrapper`);
+            const timeInput = document.getElementById(`${prefix}MedStartTime`);
+            const frequencyValue = frequency.value.trim().toLowerCase();
+            const hasFrequency = frequencyValue.length > 0;
+            const isHourly = frequencyValue === 'hourly';
+
+            if (isHourly) {
+                checkbox.checked = false;
+                checkbox.disabled = true;
+                option.classList.add('d-none');
+            } else if (hasFrequency) {
+                checkbox.disabled = false;
+                option.classList.remove('d-none');
+            } else {
+                checkbox.disabled = true;
+                option.classList.add('d-none');
+            }
+
+            const needsExactTime = hasFrequency && (isHourly || !checkbox.checked);
+            timeWrapper.classList.toggle('d-none', !needsExactTime);
+            timeInput.disabled = !needsExactTime;
+            timeInput.required = needsExactTime;
+        }
+
         // ── Confirm Dose modal — default confirmed time to now ──
         document.querySelectorAll('.confirm-dose-btn').forEach(button => {
             button.addEventListener('click', function () {
@@ -533,18 +697,34 @@ else
             });
         });
 
-        // ── ADD MODAL — reset on open: start = now, Forever checked, end date hidden ──
+        // ── ADD MODAL — frequency defaults and date/time controls ──
         const addMedModal = document.getElementById('addMedModal');
+        const addMedForm = addMedModal?.querySelector('form');
+        const addFrequency = document.getElementById('newMedFrequencyType');
+        const addTimingCheckbox = document.getElementById('newMedTimingDoesNotMatter');
+        let preservePostedAddValues = modalToOpen === 'addMedModal';
         if (addMedModal) {
             addMedModal.addEventListener('show.bs.modal', function () {
-                const now = new Date();
-                document.getElementById('newMedStartDate').value = formatDateTimeLocal(now);
-                document.getElementById('newMedEndDate').value   = '';
-                // Ensure Forever is checked and end date wrapper is hidden
-                document.getElementById('newMedForever').checked = true;
-                document.getElementById('newMedEndDateWrapper').classList.add('d-none');
-                document.getElementById('newMedEndDate').removeAttribute('required');
+                if (!preservePostedAddValues) {
+                    const now = new Date();
+                    addMedForm.reset();
+                    document.getElementById('newMedStartDate').value = formatDateLocal(now);
+                    document.getElementById('newMedStartTime').value = formatTimeLocal(now);
+                    document.getElementById('newMedEndDate').value = '';
+                    document.getElementById('newMedForever').checked = true;
+                    document.getElementById('newMedEndDateWrapper').classList.add('d-none');
+                    document.getElementById('newMedEndDate').removeAttribute('required');
+                }
+                updateTimingControls('new');
+                preservePostedAddValues = false;
             });
+
+            addFrequency.addEventListener('change', function () {
+                if (this.value && this.value.toLowerCase() !== 'hourly')
+                    addTimingCheckbox.checked = true;
+                updateTimingControls('new');
+            });
+            addTimingCheckbox.addEventListener('change', () => updateTimingControls('new'));
         }
 
         // ── Forever checkbox toggle — Add modal ──
@@ -584,10 +764,16 @@ else
                 document.getElementById('editMedDosage').value            = this.dataset.medDosage;
                 document.getElementById('editMedFrequencyType').value     = this.dataset.medFrequencyType;
                 document.getElementById('editMedFrequencyInterval').value = this.dataset.medFrequencyInterval || '';
+                document.getElementById('editMedTimingDoesNotMatter').checked =
+                    this.dataset.medTimingDoesNotMatter === 'true';
                 document.getElementById('editMedNotes').value             = this.dataset.medNotes || '';
 
-                // These come in as yyyy-MM-ddTHH:mm already — datetime-local accepts this directly
+                // Date and time are separate so calendar-day medications can omit the time.
                 document.getElementById('editMedStartDate').value = this.dataset.medStartDate || '';
+                document.getElementById('editMedStartTime').value = this.dataset.medStartTime || '';
+                document.getElementById('editMedFrequencyType').dataset.previousFrequency =
+                    this.dataset.medFrequencyType || '';
+                updateTimingControls('edit');
 
                 const endDate = this.dataset.medEndDate || '';
                 const forever = !endDate;
@@ -607,5 +793,26 @@ else
                 }
             });
         });
+
+        const editFrequency = document.getElementById('editMedFrequencyType');
+        const editTimingCheckbox = document.getElementById('editMedTimingDoesNotMatter');
+        editFrequency.addEventListener('change', function () {
+            const previousFrequency = (this.dataset.previousFrequency || '').toLowerCase();
+            const newFrequency = this.value.toLowerCase();
+            if (newFrequency !== 'hourly' && previousFrequency === 'hourly')
+                editTimingCheckbox.checked = true;
+            updateTimingControls('edit');
+            this.dataset.previousFrequency = this.value;
+        });
+        editTimingCheckbox.addEventListener('change', () => updateTimingControls('edit'));
+
+        if (modalToOpen === 'editMedModal') {
+            editFrequency.dataset.previousFrequency = editFrequency.value;
+            updateTimingControls('edit');
+        }
+
+        if (modalToOpen) {
+            bootstrap.Modal.getOrCreateInstance(document.getElementById(modalToOpen)).show();
+        }
     </script>
 }
