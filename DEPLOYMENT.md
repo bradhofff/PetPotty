@@ -42,6 +42,14 @@ database before deploying the matching application build. It removes the
 stored-procedure requirement for address and phone, combines legacy preparation
 text into notes, and expands that combined field to `nvarchar(max)`.
 
+For unconfirmed medication reminders that were dropping off the dashboard
+overnight, review and run
+`Migrationsss/2026-08-28_KeepUnconfirmedMedsVisible.sql` against the intended
+database before deploying the matching application build. It updates
+`GetScheduledMedsByPetID_Next2Months` so an unconfirmed dose stays in the
+result set no matter how far in the past its schedule date is; only confirmed
+doses are still limited to the forward-looking window.
+
 After applying the release SQL, run
 `Migrationsss/2026-08-21_VerifyCurrentRelease.sql` for read-only schema and
 procedure checks. For a functional Add/Update check, set an existing pet ID in
@@ -90,3 +98,6 @@ owned by the application service account.
 - Confirm dashboard pet cards only show unconfirmed medication doses and active
   vet visits from today through three calendar days ahead, with at most three
   visible rows.
+- Leave a medication dose unconfirmed past its scheduled time/day and confirm
+  its reminder stays on the pet card (does not silently disappear) until it is
+  actually confirmed on the Medications page.
