@@ -376,8 +376,8 @@ namespace PetPotty.Pages
                 return $"Last {taskType.ToLower()}: More than a week ago...";
 
             var timeText = lastTask.CreatedAt.ToString("h:mm tt");
-            if (elapsed.TotalHours > 24)
-                timeText = $"{lastTask.CreatedAt:dddd} {timeText}";
+            if (lastTask.CreatedAt.Date != DateTime.Today)
+                timeText = $"{lastTask.CreatedAt:dddd} @ {timeText}";
 
             return $"Last {taskType.ToLower()}: {timeText}";
         }
@@ -475,7 +475,8 @@ namespace PetPotty.Pages
             var taskHistoryStartDate = GetTaskHistoryStartDate(TaskHistoryStage);
             var today = DateTime.Today;
             var reminderWindowEnd = today.AddDays(4);
-            var vetItems = _vetVisitService.GetDashboardVisits(UserID, today, reminderWindowEnd);
+            var vetReminderWindowEnd = today.AddDays(7);
+            var vetItems = _vetVisitService.GetDashboardVisits(UserID, today, vetReminderWindowEnd);
             foreach (var pet in Pets)
             {
                 if (ShowAllTime)

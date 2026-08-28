@@ -95,9 +95,12 @@ owned by the application service account.
   user receives no document.
 - Add and update a vet visit with an attachment. Confirm the file appears in
   the visit's Attachments list and can only be downloaded by its owner.
-- Confirm dashboard pet cards only show unconfirmed medication doses and active
-  vet visits from today through three calendar days ahead, with at most three
-  visible rows.
+- Confirm dashboard pet cards only show unconfirmed medication doses from today
+  through three calendar days ahead, and active vet visits from today through
+  six calendar days ahead (a 7-day heads-up), with at most three visible rows.
 - Leave a medication dose unconfirmed past its scheduled time/day and confirm
   its reminder stays on the pet card (does not silently disappear) until it is
   actually confirmed on the Medications page.
+- Confirm the pet card's last pee/poop label shows just the time for same-day
+  activity, and "Day of week @ time" (e.g. "Wednesday @ 9:15 PM") once the
+  activity happened on a different calendar day than today.
