@@ -247,7 +247,7 @@ namespace PetPotty.Pages
         }
 
         // ============================================================
-        // Quick Log — instant Pee or Poop with current time, no modal
+        // Quick Log — Pee or Poop at the client-local time selected in the popup
         // ============================================================
         public IActionResult OnPostQuickLog(int petID, string taskType, string? localTime = null)
         {
@@ -377,10 +377,22 @@ namespace PetPotty.Pages
 
             var timeText = lastTask.CreatedAt.ToString("h:mm tt");
             if (lastTask.CreatedAt.Date != DateTime.Today)
-                timeText = $"{lastTask.CreatedAt:dddd} @ {timeText}";
+                timeText = $"{ShortWeekday(lastTask.CreatedAt.DayOfWeek)} @ {timeText}";
 
             return $"Last {taskType.ToLower()}: {timeText}";
         }
+
+        private static string ShortWeekday(DayOfWeek day) => day switch
+        {
+            DayOfWeek.Sunday => "Sun",
+            DayOfWeek.Monday => "Mon",
+            DayOfWeek.Tuesday => "Tues",
+            DayOfWeek.Wednesday => "Wed",
+            DayOfWeek.Thursday => "Thurs",
+            DayOfWeek.Friday => "Fri",
+            DayOfWeek.Saturday => "Sat",
+            _ => string.Empty
+        };
 
         public static string CareItemLabel(DashboardCareItem item)
         {

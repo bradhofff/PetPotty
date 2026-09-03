@@ -78,6 +78,74 @@
     .modal .form-label { color: #344054; font-size: .85rem; font-weight: 650; }
     .modal .validation-summary-valid { display: none; }
     .modal .validation-summary-errors { display: block; }
+
+    /* Preserve the light-theme visit-card cues with explicit contrast in dark mode. */
+    html[data-bs-theme="dark"] .vet-visits-page .visit-date {
+        background: #ffe9dc !important;
+        border: 1px solid #f1a978;
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, .08);
+    }
+    html[data-bs-theme="dark"] .vet-visits-page .visit-date b,
+    html[data-bs-theme="dark"] .vet-visits-page .visit-date span {
+        color: #8f3608 !important;
+    }
+    html[data-bs-theme="dark"] .vet-visits-page .visit-date strong {
+        color: #263442 !important;
+    }
+    html[data-bs-theme="dark"] .vet-visits-page .visit-chip {
+        background: #f1f3f6 !important;
+        border: 1px solid #c8d0da;
+        color: #3f4b5c !important;
+    }
+    html[data-bs-theme="dark"] .vet-visits-page .visit-chip.status-scheduled,
+    html[data-bs-theme="dark"] .vet-visits-page .visit-chip.status-confirmed,
+    html[data-bs-theme="dark"] .vet-visits-page .visit-chip.status-rescheduled {
+        background: #dcefff !important;
+        border-color: #83b9de;
+        color: #164f76 !important;
+    }
+    html[data-bs-theme="dark"] .vet-visits-page .visit-chip.status-completed {
+        background: #dff3e8 !important;
+        border-color: #8dc9aa;
+        color: #175f3b !important;
+    }
+    html[data-bs-theme="dark"] .vet-visits-page .visit-chip.status-cancelled,
+    html[data-bs-theme="dark"] .vet-visits-page .visit-chip.status-missed,
+    html[data-bs-theme="dark"] .vet-visits-page .visit-chip.emergency {
+        background: #fbe4e4 !important;
+        border-color: #e4a0a0;
+        color: #8d2929 !important;
+    }
+    html[data-bs-theme="dark"] .vet-visits-page .visit-actions :is(.btn-light, .btn-outline-secondary) {
+        background: #f8f9fb !important;
+        border-color: #b8c2cf !important;
+        color: #354254 !important;
+    }
+    html[data-bs-theme="dark"] .vet-visits-page .visit-actions :is(.btn-light, .btn-outline-secondary):is(:hover, :focus-visible) {
+        background: #e5eaf0 !important;
+        border-color: #d96420 !important;
+        color: #263442 !important;
+    }
+    html[data-bs-theme="dark"] .vet-visits-page .visit-actions .btn-outline-danger {
+        background: #fff0f0 !important;
+        border-color: #df7b82 !important;
+        color: #982d37 !important;
+    }
+    html[data-bs-theme="dark"] .vet-visits-page .visit-actions .btn-outline-danger:is(:hover, :focus-visible) {
+        background: #b73540 !important;
+        border-color: #d75c66 !important;
+        color: #fff !important;
+    }
+    html[data-bs-theme="dark"] .vet-visits-page .visit-actions .btn-success {
+        background: #23875d !important;
+        border-color: #55b88d !important;
+        color: #fff !important;
+    }
+    html[data-bs-theme="dark"] .vet-visits-page .visit-actions .btn-success:is(:hover, :focus-visible) {
+        background: #1a6d49 !important;
+        border-color: #70cea6 !important;
+        color: #fff !important;
+    }
     @@media (hover: none), (pointer: coarse) { .document-edit-btn { opacity: 1; } }
     @@media (max-width: 767.98px) {
         .vet-page-header { align-items: stretch; flex-direction: column; }
