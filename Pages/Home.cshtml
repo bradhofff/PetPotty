@@ -274,9 +274,44 @@
     }
     .quick-log-time-option:active { transform: scale(0.98); }
     .quick-log-custom-time {
-        border-top: 1px solid #e4e7eb;
-        margin-top: 18px;
-        padding-top: 16px;
+        margin-top: 0;
+    }
+    .quick-log-choice-heading {
+        color: var(--pet-dark);
+        font-size: 1rem;
+        font-weight: 700;
+        margin-bottom: 12px;
+    }
+    .quick-log-or-divider {
+        align-items: center;
+        color: #7b8491;
+        display: flex;
+        font-size: .72rem;
+        font-weight: 800;
+        gap: 12px;
+        letter-spacing: .12em;
+        margin: 20px 0;
+        text-transform: uppercase;
+    }
+    .quick-log-or-divider::before,
+    .quick-log-or-divider::after {
+        background: #dfe3e8;
+        content: "";
+        flex: 1;
+        height: 1px;
+    }
+    .quick-log-custom-time-label {
+        color: var(--pet-dark);
+        display: block;
+        font-size: 1rem;
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+    .quick-log-custom-time-help {
+        color: #6c757d;
+        display: block;
+        font-size: .78rem;
+        margin-bottom: 10px;
     }
 
     /* Add Task button inside card */
@@ -1129,15 +1164,17 @@ else
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-muted mb-3">When did it happen?</p>
+                    <div class="quick-log-choice-heading">When did it happen?</div>
                     <div class="quick-log-time-grid">
                         <button type="button" class="quick-log-time-option" data-minutes-ago="0">Now</button>
                         <button type="button" class="quick-log-time-option" data-minutes-ago="15">15 minutes ago</button>
                         <button type="button" class="quick-log-time-option" data-minutes-ago="30">30 minutes ago</button>
                         <button type="button" class="quick-log-time-option" data-minutes-ago="60">1 hour ago</button>
                     </div>
+                    <div class="quick-log-or-divider" role="separator" aria-label="Or"><span>OR</span></div>
                     <div class="quick-log-custom-time">
-                        <label class="form-label fw-semibold" for="quickLogCustomTime">Select a time</label>
+                        <label class="quick-log-custom-time-label" for="quickLogCustomTime">Select a specific date &amp; time</label>
+                        <span class="quick-log-custom-time-help">Use this instead of a quick choice above.</span>
                         <div class="d-flex gap-2 align-items-stretch">
                             <input type="datetime-local" class="form-control" id="quickLogCustomTime" required />
                             <button type="button" class="btn btn-primary flex-shrink-0" id="quickLogCustomSubmit">Log</button>
