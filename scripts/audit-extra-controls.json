@@ -1,0 +1,32 @@
+[
+  {
+    "Test": "GET /Home with forged identity cookies, no session",
+    "Pass": true,
+    "Status": 302
+  },
+  {
+    "Test": "GET foreign photo with forged identity cookies, no session",
+    "Pass": true,
+    "Status": 401
+  },
+  {
+    "Test": "GET /VetVisits?handler=PreviewDocument with no session",
+    "Pass": true,
+    "Status": 401
+  },
+  {
+    "Test": "POST /Home?handler=AddPet forged UserID and NewPetID creates only an A pet",
+    "Pass": true,
+    "Status": 302
+  },
+  {
+    "Test": "POST /Home?handler=DeleteTask without antiforgery token",
+    "Pass": true,
+    "Status": 400
+  },
+  {
+    "Test": "JSON POST /Home?handler=DeleteTask, foreign query ID, valid antiforgery header",
+    "Pass": true,
+    "Status": 404
+  }
+]

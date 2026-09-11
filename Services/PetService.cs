@@ -8,6 +8,8 @@ namespace PetPotty.Services
     {
         private readonly string _connStr;
 
+        // DI supplies configuration. Each method opens/disposes its own SQL connection;
+        // scoped lifetime shares the service within a request, not a connection/transaction.
         public PetService(IConfiguration configuration)
         {
             _connStr = configuration.GetConnectionString("DefaultConnection")
@@ -162,7 +164,7 @@ namespace PetPotty.Services
             return Convert.ToInt32(result);
         }
 
-        public void EditPet(int petID, string name, string type, string breed, string age, DateTime birthdate, string gender)
+        public bool EditPet(int userID, int petID, string name, string type, string breed, string age, DateTime birthdate, string gender)
         {
             using var conn = new SqlConnection(_connStr);
             using var cmd = new SqlCommand("UpdatePet", conn)
@@ -177,10 +179,10 @@ namespace PetPotty.Services
             cmd.Parameters.AddWithValue("@birthdate", birthdate);
             cmd.Parameters.AddWithValue("@gender", gender);
             conn.Open();
-            cmd.ExecuteNonQuery();
+            return OwnedRecordCommand.Execute(cmd, userID, petID, OwnedRecordCommand.Pet);
         }
 
-        public void UpdatePetProfileImagePath(int petID, string? profileImagePath)
+        public bool UpdatePetProfileImagePath(int userID, int petID, string? profileImagePath)
         {
             using var conn = new SqlConnection(_connStr);
             using var cmd = new SqlCommand("UpdatePetProfileImagePath", conn)
@@ -191,37 +193,56 @@ namespace PetPotty.Services
             cmd.Parameters.Add("@ProfileImagePath", SqlDbType.NVarChar, 255).Value =
                 profileImagePath == null ? DBNull.Value : profileImagePath;
             conn.Open();
-            cmd.ExecuteNonQuery();
+            return OwnedRecordCommand.Execute(cmd, userID, petID, OwnedRecordCommand.Pet);
         }
 
-        public void DeletePet(int petID)
+        public bool DeletePet(int userID, int petID)
         {
             using var conn = new SqlConnection(_connStr);
-            using var cmd = new SqlCommand("DeletePetByPetID", conn)
-            {
-                CommandType = CommandType.StoredProcedure
-            };
+            // The legacy procedure was created with QUOTED_IDENTIFIER OFF,
+            // which fails against the vet-visit filtered indexes. Execute the
+            // cascade with correct SET options inside the ownership transaction.
+            using var cmd = new SqlCommand("""
+                SET QUOTED_IDENTIFIER ON;
+                DELETE s FROM dbo.MedicationSchedule s
+                INNER JOIN dbo.Medications m ON m.medID = s.medID
+                INNER JOIN dbo.Pets p ON p.petID = m.petID
+                WHERE p.petID = @petID AND p.userID = @UserID;
+                DELETE m FROM dbo.Medications m
+                INNER JOIN dbo.Pets p ON p.petID = m.petID
+                WHERE p.petID = @petID AND p.userID = @UserID;
+                DELETE t FROM dbo.Tasks t
+                INNER JOIN dbo.Pets p ON p.petID = t.petID
+                WHERE p.petID = @petID AND p.userID = @UserID;
+                DELETE v FROM dbo.VetVisits v
+                INNER JOIN dbo.Pets p ON p.petID = v.PetID
+                WHERE p.petID = @petID AND p.userID = @UserID;
+                DELETE FROM dbo.Pets WHERE petID = @petID AND userID = @UserID;
+                """, conn);
             cmd.Parameters.AddWithValue("@petID", petID);
+            cmd.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
             conn.Open();
-            cmd.ExecuteNonQuery();
+            return OwnedRecordCommand.Execute(cmd, userID, petID, OwnedRecordCommand.Pet);
         }
 
-        public void AddTask(int petID, string taskType, string notes, DateTime createdAt)
+        public bool AddTask(int userID, int petID, string taskType, string notes, DateTime createdAt)
         {
             using var conn = new SqlConnection(_connStr);
-            using var cmd = new SqlCommand("AddTaskByPetID", conn)
-            {
-                CommandType = CommandType.StoredProcedure
-            };
-            cmd.Parameters.AddWithValue("@petID", petID);
-            cmd.Parameters.AddWithValue("@taskType", taskType);
-            cmd.Parameters.AddWithValue("@notes", string.IsNullOrEmpty(notes) ? string.Empty : notes);
-            cmd.Parameters.AddWithValue("@createdAt", createdAt);
+            using var cmd = new SqlCommand("""
+                INSERT dbo.Tasks (petID, taskType, notes, createdAt, RecordedByUserID)
+                VALUES (@petID, @taskType, @notes, @createdAt, @RecordedByUserID);
+                """, conn);
+            cmd.Parameters.Add("@petID", SqlDbType.Int).Value = petID;
+            cmd.Parameters.Add("@taskType", SqlDbType.VarChar, 50).Value = taskType;
+            cmd.Parameters.Add("@notes", SqlDbType.VarChar, 255).Value =
+                string.IsNullOrEmpty(notes) ? string.Empty : notes;
+            cmd.Parameters.Add("@createdAt", SqlDbType.DateTime).Value = createdAt;
+            cmd.Parameters.Add("@RecordedByUserID", SqlDbType.Int).Value = userID;
             conn.Open();
-            cmd.ExecuteNonQuery();
+            return OwnedRecordCommand.Execute(cmd, userID, petID, OwnedRecordCommand.Pet);
         }
 
-        public void UpdateTask(int taskID, string taskType, string notes, DateTime createdAt)
+        public bool UpdateTask(int userID, int taskID, string taskType, string notes, DateTime createdAt)
         {
             using var conn = new SqlConnection(_connStr);
             using var cmd = new SqlCommand("UpdateTaskByID", conn)
@@ -233,10 +254,10 @@ namespace PetPotty.Services
             cmd.Parameters.AddWithValue("@notes", string.IsNullOrEmpty(notes) ? string.Empty : notes);
             cmd.Parameters.AddWithValue("@createdAt", createdAt);
             conn.Open();
-            cmd.ExecuteNonQuery();
+            return OwnedRecordCommand.Execute(cmd, userID, taskID, OwnedRecordCommand.Task);
         }
 
-        public void DeleteTask(int taskID)
+        public bool DeleteTask(int userID, int taskID)
         {
             using var conn = new SqlConnection(_connStr);
             using var cmd = new SqlCommand("DeleteTaskByTaskID", conn)
@@ -245,7 +266,7 @@ namespace PetPotty.Services
             };
             cmd.Parameters.AddWithValue("@taskID", taskID);
             conn.Open();
-            cmd.ExecuteNonQuery();
+            return OwnedRecordCommand.Execute(cmd, userID, taskID, OwnedRecordCommand.Task);
         }
 
         private static List<TaskItem> ReadTasks(SqlDataReader reader)

@@ -1,0 +1,481 @@
+[
+  {
+    "Method": "GET",
+    "Endpoint": "/uploads/pets/19_54ce5a5606f545a59b128bfbe0650875.png",
+    "Variant": "photo path",
+    "Fields": {},
+    "Status": 200,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": false
+  },
+  {
+    "Method": "GET",
+    "Endpoint": "/Medications?petID=19",
+    "Variant": "query",
+    "Fields": {},
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "POST",
+    "Endpoint": "/Medications?handler=SelectPet",
+    "Variant": "form",
+    "Fields": {
+      "selectedPetID": 19
+    },
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "GET",
+    "Endpoint": "/VetVisits?petID=19&vetVisitID=23",
+    "Variant": "query",
+    "Fields": {},
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "GET",
+    "Endpoint": "/Home/19",
+    "Variant": "route",
+    "Fields": {},
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "GET",
+    "Endpoint": "/Medications/19",
+    "Variant": "route",
+    "Fields": {},
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "GET",
+    "Endpoint": "/VetVisits/19",
+    "Variant": "route",
+    "Fields": {},
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "POST",
+    "Endpoint": "/Home?handler=EditPet",
+    "Variant": "form",
+    "Fields": {
+      "EditPetGender": "Male",
+      "EditPetID": 19,
+      "EditPetBirthdate": "2024-01-01",
+      "EditPetType": "Dog",
+      "EditPetAge": "2",
+      "EditPetName": "ATTACK",
+      "EditPetBreed": "Audit"
+    },
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "POST",
+    "Endpoint": "/Home?handler=ResetPetImage",
+    "Variant": "form",
+    "Fields": {
+      "EditPetID": 19
+    },
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "POST",
+    "Endpoint": "/Home?handler=DeletePet",
+    "Variant": "form",
+    "Fields": {
+      "EditPetID": 19
+    },
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "POST",
+    "Endpoint": "/Home?handler=QuickLog",
+    "Variant": "form",
+    "Fields": {
+      "taskType": "Pee",
+      "petID": 19
+    },
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "POST",
+    "Endpoint": "/Home?handler=QuickLog&petID=19&taskType=Poop",
+    "Variant": "query",
+    "Fields": {},
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "POST",
+    "Endpoint": "/Home?handler=AddTask",
+    "Variant": "form",
+    "Fields": {
+      "NewTaskType": "Walk",
+      "NewTaskCreatedAt": "2026-09-06T03:08:17",
+      "NewTaskPetID": 19,
+      "NewTaskNotes": "ATTACK"
+    },
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "POST",
+    "Endpoint": "/Home?handler=UpdateTask",
+    "Variant": "form",
+    "Fields": {
+      "UpdateTaskCreatedAt": "2026-09-06T03:08:18",
+      "UpdateTaskNotes": "ATTACK",
+      "UpdateTaskID": 33,
+      "UpdateTaskType": "Play"
+    },
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "POST",
+    "Endpoint": "/Home?handler=DeleteTask&taskID=33",
+    "Variant": "query",
+    "Fields": {},
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "POST",
+    "Endpoint": "/Medications?handler=AddMedication",
+    "Variant": "form",
+    "Fields": {
+      "NewMedFrequencyType": "Daily",
+      "NewMedTimingDoesNotMatter": "true",
+      "NewMedPetID": 19,
+      "NewMedForever": "false",
+      "NewMedFrequencyInterval": "1",
+      "NewMedDosage": "1",
+      "NewMedEndDate": "2026-09-09",
+      "NewMedName": "ATTACK",
+      "NewMedStartDate": "2026-09-06",
+      "NewMedNotes": "ATTACK"
+    },
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "POST",
+    "Endpoint": "/Medications?handler=EditMedication",
+    "Variant": "form",
+    "Fields": {
+      "EditMedNotes": "ATTACK",
+      "EditMedID": 1018,
+      "EditMedStartDate": "2026-09-06",
+      "SelectedPetID": 18,
+      "EditMedEndDate": "2026-09-09",
+      "EditMedDosage": "1",
+      "EditMedName": "ATTACK",
+      "EditMedTimingDoesNotMatter": "true",
+      "EditMedFrequencyInterval": "1",
+      "EditMedForever": "false",
+      "EditMedFrequencyType": "Daily"
+    },
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "POST",
+    "Endpoint": "/Medications?handler=ConfirmSchedule",
+    "Variant": "form",
+    "Fields": {
+      "confirmedAt": "2026-09-06T03:08:20",
+      "medID": 1018,
+      "logDate": "2026-09-06T00:00:00"
+    },
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "POST",
+    "Endpoint": "/Medications?handler=UnconfirmSchedule&medID=1018&logDate=2026-09-06T00:00:00",
+    "Variant": "query",
+    "Fields": {},
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "POST",
+    "Endpoint": "/Medications?handler=DeleteMedication",
+    "Variant": "form",
+    "Fields": {
+      "medID": 1018
+    },
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "POST",
+    "Endpoint": "/VetVisits",
+    "Variant": "form",
+    "Fields": {
+      "add": "true",
+      "selectedPetID": 19
+    },
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "POST",
+    "Endpoint": "/VetVisits?handler=AddVisit",
+    "Variant": "form",
+    "Fields": {
+      "submissionToken": "f666ab510b624abea69765d27f6ff525",
+      "NewVisit.PetID": 19,
+      "NewVisit.ReminderChoice": "OneDay",
+      "NewVisit.VisitType": "Wellness exam",
+      "NewVisit.VisitDate": "2026-09-08",
+      "NewVisit.Status": "Scheduled",
+      "NewVisit.VeterinarianName": "Audit Vet",
+      "NewVisit.ClinicName": "ATTACK",
+      "NewVisit.VisitReason": "ATTACK",
+      "NewVisit.IsAllDay": "true"
+    },
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "POST",
+    "Endpoint": "/VetVisits?handler=EditVisit",
+    "Variant": "form",
+    "Fields": {
+      "EditVisit.PetID": 19,
+      "EditVisit.VisitDate": "2026-09-08",
+      "EditVisit.VisitType": "Wellness exam",
+      "EditVisit.VeterinarianName": "Audit Vet",
+      "EditVisit.IsAllDay": "true",
+      "EditVisit.VetVisitID": 23,
+      "EditVisit.ReminderChoice": "OneDay",
+      "EditVisit.Status": "Scheduled",
+      "submissionToken": "20a2419fe44b486291116bb8b5b3218d",
+      "EditVisit.ClinicName": "ATTACK",
+      "EditVisit.VisitReason": "ATTACK"
+    },
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "POST",
+    "Endpoint": "/VetVisits?handler=EditVisit",
+    "Variant": "reparent",
+    "Fields": {
+      "EditVisit.PetID": 19,
+      "EditVisit.VisitDate": "2026-09-08",
+      "EditVisit.VisitType": "Wellness exam",
+      "EditVisit.VeterinarianName": "Audit Vet",
+      "EditVisit.IsAllDay": "true",
+      "EditVisit.VetVisitID": 22,
+      "EditVisit.ReminderChoice": "OneDay",
+      "EditVisit.Status": "Scheduled",
+      "submissionToken": "f6def55a17e249aca676d69624952c40",
+      "EditVisit.ClinicName": "ATTACK",
+      "EditVisit.VisitReason": "ATTACK"
+    },
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "POST",
+    "Endpoint": "/VetVisits?handler=ChangeStatus&vetVisitID=23",
+    "Variant": "query",
+    "Fields": {
+      "status": "Cancelled",
+      "details": "ATTACK"
+    },
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "POST",
+    "Endpoint": "/VetVisits?handler=CompleteVisit",
+    "Variant": "form",
+    "Fields": {
+      "Completion.VetVisitID": 23,
+      "Completion.VisitSummary": "ATTACK"
+    },
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "POST",
+    "Endpoint": "/VetVisits?handler=DismissReminder",
+    "Variant": "form",
+    "Fields": {
+      "petID": 18,
+      "reminderID": 23
+    },
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "POST",
+    "Endpoint": "/VetVisits?handler=UploadDocument",
+    "Variant": "multipart",
+    "Fields": {
+      "DocumentType": "Other",
+      "DocumentDisplayName": "ATTACK",
+      "DocumentVisitID": 23
+    },
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "GET",
+    "Endpoint": "/VetVisits?handler=PreviewDocument&documentID=17",
+    "Variant": "query",
+    "Fields": {},
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "POST",
+    "Endpoint": "/VetVisits?handler=DownloadDocument",
+    "Variant": "form",
+    "Fields": {
+      "documentID": 17
+    },
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "POST",
+    "Endpoint": "/VetVisits?handler=UpdateDocument",
+    "Variant": "form",
+    "Fields": {
+      "description": "ATTACK",
+      "documentType": "Other",
+      "displayName": "ATTACK",
+      "documentID": 17
+    },
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "POST",
+    "Endpoint": "/VetVisits?handler=DeleteDocument&documentID=17",
+    "Variant": "query",
+    "Fields": {},
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "POST",
+    "Endpoint": "/VetVisits?handler=DeleteVisit",
+    "Variant": "form",
+    "Fields": {
+      "vetVisitID": 23
+    },
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  }
+]

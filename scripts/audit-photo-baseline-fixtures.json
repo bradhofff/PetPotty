@@ -1,0 +1,25 @@
+{
+  "A": {
+    "Task": 32,
+    "Name": "authaudit_b36cf73e20c4_A",
+    "Visit": 22,
+    "User": 18,
+    "Pet": 18,
+    "Reminder": 22,
+    "Med": 1017,
+    "Photo": "/uploads/pets/18_d47196adb379410a922c12f15c91aeaf.png",
+    "Doc": 16
+  },
+  "B": {
+    "Task": 33,
+    "Name": "authaudit_073dd8715236_B",
+    "Visit": 23,
+    "User": 19,
+    "Pet": 19,
+    "Reminder": 23,
+    "Med": 1018,
+    "Photo": "/uploads/pets/19_54ce5a5606f545a59b128bfbe0650875.png",
+    "Doc": 17
+  },
+  "Phase": "photo-baseline"
+}

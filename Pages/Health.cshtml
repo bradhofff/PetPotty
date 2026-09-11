@@ -1,0 +1,658 @@
+@page
+@model PetPotty.Pages.HealthModel
+@using PetPotty.Models
+@{
+    ViewData["Title"] = "Health";
+    var selectedPet = Model.PetID.HasValue ? Model.Pets.FirstOrDefault(p => p.PetID == Model.PetID.Value) : null;
+    var rangeDays = (Model.To!.Value.Date - Model.From!.Value.Date).Days + 1;
+    var presetValue = rangeDays == 7 ? "7" : rangeDays == 30 ? "30" : rangeDays == 90 ? "90" : "custom";
+}
+@functions {
+    string FriendlyDate(DateTime date)
+    {
+        var today = Model.Local(DateTime.UtcNow).Date;
+        if (date == today) return "Today";
+        if (date == today.AddDays(-1)) return "Yesterday";
+        return date.ToString("dddd, MMM d");
+    }
+
+    string StatusBadgeClass(string status) => status switch
+    {
+        MedicationDoseStatuses.Taken or MedicationDoseStatuses.TakenLate or "Completed" or "Confirmed" => "health-badge-taken",
+        MedicationDoseStatuses.Skipped or "Rescheduled" => "health-badge-skipped",
+        MedicationDoseStatuses.Missed or "Cancelled" or "Late" => "health-badge-missed",
+        _ => "health-badge-due"
+    };
+}
+
+<style>
+    .health-page { max-width: 1080px; margin: 0 auto; }
+
+    /* Header — compact application workspace heading, not a marketing hero. */
+    .health-heading { padding: .3rem 0 1.1rem; border-bottom: 1px solid var(--app-line); }
+    .health-heading h1 { font-size: clamp(1.7rem, 3vw, 2.3rem); letter-spacing: -.04em; color: var(--app-ink); margin-bottom: .2rem; }
+    .health-actions { display: flex; flex-wrap: wrap; gap: .6rem; }
+    .health-actions .btn { border-radius: 999px; font-weight: 650; padding: .5rem 1.1rem; white-space: nowrap; }
+    .health-pet-switch { min-width: 170px; }
+    .health-pet-switch .form-select { font-weight: 650; }
+    .health-section-heading { font-size: 1.2rem; letter-spacing: -.02em; color: var(--app-ink); margin: 0; }
+
+    /* Overview — compact, clickable stat tiles. No embedded detail lists here. */
+    .health-overview { margin-top: 1.4rem; }
+    .health-stat-card { align-items: center; background: #fff; border: 1px solid var(--app-line); border-radius: 13px; box-shadow: 0 5px 18px rgba(30,41,57,.05); display: flex; gap: .8rem; height: 100%; padding: 1rem; text-decoration: none; transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
+    .health-stat-card:hover { border-color: #f0c2a4; box-shadow: 0 12px 26px rgba(30,41,57,.09); transform: translateY(-2px); }
+    .health-stat-icon { align-items: center; background: var(--app-accent-soft); border-radius: 9px; display: inline-flex; font-size: 1.05rem; height: 38px; justify-content: center; width: 38px; flex-shrink: 0; }
+    .health-stat-body { display: flex; flex-direction: column; min-width: 0; }
+    .health-stat-body small { color: var(--app-muted); font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+    .health-stat-body strong { color: var(--app-ink); font-size: 1.15rem; letter-spacing: -.02em; line-height: 1.3; }
+    .health-stat-body em { color: #778193; font-size: .72rem; font-style: normal; }
+
+    /* Shared status/severity pill. Color-coded but never the only signal — always paired with text. */
+    .health-badge { display: inline-block; border-radius: 999px; font-size: .68rem; font-weight: 700; padding: .15rem .55rem; white-space: nowrap; }
+    .health-badge-taken { background: #e9f8f0; color: #1f8b5a; }
+    .health-badge-due { background: #eaf2fa; color: #3a72a6; }
+    .health-badge-late, .health-badge-missed { background: #fdecec; color: #c23b3b; }
+    .health-badge-skipped { background: #fff3d6; color: #96690a; }
+    .health-badge-severity { background: #fff1e8; color: #ad501d; }
+
+    /* Current medications — a health-focused summary; editing stays on /Medications. */
+    .health-med-card { border: 1px solid var(--app-line); border-radius: 13px; padding: 1rem 1.1rem; height: 100%; box-shadow: 0 5px 18px rgba(30,41,57,.05); display: flex; flex-direction: column; gap: .7rem; }
+    .health-med-name { font-weight: 700; color: var(--app-ink); font-size: 1rem; }
+    .health-med-meta { color: var(--app-muted); font-size: .82rem; margin-top: 1px; }
+    .health-med-doses { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; border-top: 1px solid var(--app-line); border-bottom: 1px solid var(--app-line); padding: .7rem 0; }
+    .health-med-dose-label { display: block; color: var(--app-muted); font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-bottom: .3rem; }
+    .health-med-dose-when { display: block; color: var(--app-ink); font-size: .84rem; font-weight: 650; margin-bottom: .3rem; }
+    .health-med-view { align-self: flex-start; border-radius: 999px; }
+
+    /* Health history — a compact list, not a card-per-row timeline. */
+    .health-timeline { list-style: none; margin: 0; padding: 0; }
+    .health-date-pill { display: inline-block; background: var(--app-accent-soft); color: var(--app-accent); border: 1px solid #f4d2b7; border-radius: 999px; font-size: .72rem; font-weight: 700; padding: 3px 12px; margin: 18px 0 6px; text-transform: uppercase; letter-spacing: .04em; }
+    .health-timeline-row { display: flex; gap: .7rem; align-items: flex-start; padding: .65rem 0; border-bottom: 1px solid rgba(217,100,32,.12); }
+    .health-timeline-row:last-child { border-bottom: 0; }
+    .health-timeline-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: .95rem; flex-shrink: 0; margin-top: 1px; background: var(--app-accent-soft); }
+    .health-timeline-icon-symptom { background: #fff1e8; }
+    .health-timeline-icon-incident { background: #fdecec; }
+    .health-timeline-icon-medication { background: #eaf2fa; }
+    .health-timeline-icon-vetvisit { background: #eef1f5; }
+    .health-timeline-body { flex: 1; min-width: 0; }
+    .health-timeline-top { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+    .health-timeline-title { font-weight: 650; color: var(--app-ink); font-size: .92rem; }
+    .health-timeline-meta { color: var(--app-muted); font-size: .78rem; margin-top: 1px; }
+    .health-timeline-summary { color: var(--app-muted); font-size: .85rem; margin-top: 3px; white-space: pre-wrap; }
+    .health-timeline-actions { display: flex; gap: .3rem; align-items: flex-start; flex-shrink: 0; opacity: 0; transition: opacity .15s ease; }
+    .health-timeline-row:hover .health-timeline-actions,
+    .health-timeline-actions:focus-within { opacity: 1; }
+    .health-timeline-action-btn { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--app-line); background: #fff; color: #768193; display: inline-flex; align-items: center; justify-content: center; font-size: .78rem; text-decoration: none; padding: 0; cursor: pointer; }
+    .health-timeline-action-btn:hover { background: var(--app-accent-soft); border-color: #eca273; color: var(--app-accent); }
+    .health-timeline-delete:hover { background: #fdecec; border-color: #f0b4b4; color: #c23b3b; }
+    @@media (hover: none), (pointer: coarse) { .health-timeline-actions { opacity: 1; } }
+
+    /* Filters — one preset dropdown instead of raw date pickers; auto-applies on change. */
+    .health-filter { background: #fff; border: 1px solid var(--app-line); border-radius: 13px; padding: 1rem; margin-top: 1rem; }
+    .health-filter .form-label { font-size: .74rem; font-weight: 700; color: #505a6b; margin-bottom: .3rem; }
+    .health-filter-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)) auto; gap: .75rem; align-items: end; }
+
+    /* Vet care — a light pointer to /VetVisits, not a duplicate of it. */
+    .health-vet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .health-vet-card { border: 1px solid var(--app-line); border-radius: 13px; padding: 1rem 1.1rem; box-shadow: 0 5px 18px rgba(30,41,57,.05); }
+    .health-vet-card small { color: var(--app-accent); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; font-size: .68rem; }
+    .health-vet-card h3 { font-size: 1rem; margin: .4rem 0 .15rem; color: var(--app-ink); }
+    .health-vet-card p { color: var(--app-muted); font-size: .85rem; margin: 0 0 .8rem; }
+
+    .empty-health { border: 1px dashed var(--app-line); border-radius: 14px; color: var(--app-muted); padding: 2.3rem 1.2rem; text-align: center; }
+
+    /* "More details" disclosure inside the symptom/incident modal — same on Dashboard and Health. */
+    .event-advanced { border-top: 1px solid var(--app-line); margin-top: 1rem; padding-top: .8rem; }
+    .event-advanced summary { color: var(--app-accent); cursor: pointer; font-weight: 700; }
+
+    /* Vet report — deliberately quieter than Health History; a secondary, occasional action. */
+    .vet-report-card { background: #fbfaf9; border: 1px solid var(--app-line); border-radius: 14px; margin-top: 2rem; padding: clamp(1rem, 3vw, 1.4rem); scroll-margin-top: 1rem; }
+    .vet-report-card h2 { color: var(--app-ink); font-size: 1.1rem; }
+
+    @@media (max-width: 767.98px) {
+        .health-filter-grid { grid-template-columns: 1fr 1fr; }
+        .health-filter-grid > button { grid-column: 1 / -1; }
+        .health-vet-grid { grid-template-columns: 1fr; }
+    }
+    @@media (max-width: 575.98px) {
+        .health-heading { padding-bottom: .9rem; }
+        .health-actions .btn { flex: 1; }
+        .health-med-doses { grid-template-columns: 1fr; }
+        .health-timeline-actions { opacity: 1; }
+    }
+    @@media print { .health-filter, .health-actions, .health-pet-switch, .health-timeline-actions, nav, footer { display: none !important; } }
+
+    /* .btn-light keeps its light chip look even in dark mode (same fix VetVisits uses for
+       its .visit-actions buttons) — otherwise the high-contrast rules force its text white
+       while its background stays light, making the label unreadable. */
+    html[data-bs-theme="dark"] .health-page .btn-light {
+        background: #f8f9fb !important;
+        border-color: #b8c2cf !important;
+        color: #354254 !important;
+    }
+    html[data-bs-theme="dark"] .health-page .btn-light:is(:hover, :focus-visible) {
+        background: #e5eaf0 !important;
+        border-color: #d96420 !important;
+        color: #263442 !important;
+    }
+
+    /* Same problem, smaller control: the timeline's round Open/Delete icon buttons keep a
+       white background while the high-contrast rules force their glyph white too. */
+    html[data-bs-theme="dark"] .health-page .health-timeline-action-btn {
+        background: #111820 !important;
+        border-color: #fff !important;
+    }
+    html[data-bs-theme="dark"] .health-page .health-timeline-action-btn:hover {
+        background: #202832 !important;
+    }
+    html[data-bs-theme="dark"] .health-page .health-timeline-delete:hover {
+        background: #3a1519 !important;
+        border-color: #ff9d9d !important;
+    }
+</style>
+
+<div class="health-page pb-5">
+    <header class="health-heading d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+        <div>
+            <p class="app-eyebrow mb-1">HEALTH</p>
+            <h1 class="mb-1">Health</h1>
+            <p class="text-secondary mb-0">
+                Medical history, medications, symptoms, and vet care
+                @(selectedPet != null ? $"for {selectedPet.Name}." : Model.Pets.Count == 1 ? $"for {Model.Pets[0].Name}." : "for your pets.")
+            </p>
+        </div>
+        @if (Model.Pets.Count > 0)
+        {
+            <div class="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 gap-sm-3">
+                @if (Model.Pets.Count > 1)
+                {
+                    <form method="get" class="health-pet-switch">
+                        <label class="visually-hidden" for="healthPetSwitch">Pet</label>
+                        <select asp-for="PetID" id="healthPetSwitch" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="">All pets</option>
+                            @foreach (var pet in Model.Pets) { <option value="@pet.PetID">@pet.Name</option> }
+                        </select>
+                    </form>
+                }
+                <div class="health-actions">
+                    <button class="btn btn-outline-primary log-health-event" type="button" data-kind="Symptom" data-bs-toggle="modal" data-bs-target="#healthEventModal">🩺 Log Symptom</button>
+                    <button class="btn btn-primary log-health-event" type="button" data-kind="Incident" data-bs-toggle="modal" data-bs-target="#healthEventModal">⚠️ Log Incident</button>
+                </div>
+            </div>
+        }
+    </header>
+
+    @if (TempData["StatusMessage"] is string statusMessage)
+    {
+        <div class="alert alert-success mt-3" role="status">@statusMessage</div>
+    }
+    @if (!string.IsNullOrWhiteSpace(Model.HealthError))
+    {
+        <div class="alert alert-danger mt-3" role="alert">@Model.HealthError</div>
+    }
+
+    @if (Model.Pets.Count == 0)
+    {
+        <div class="empty-health mt-4">
+            <h2 class="h5 mb-2">Add a pet first</h2>
+            <p class="mb-3">Create a pet profile before recording health history.</p>
+            <a asp-page="/Home" class="btn btn-primary btn-sm">Go to dashboard</a>
+        </div>
+    }
+    else
+    {
+        @* ── HEALTH OVERVIEW — a handful of clickable stats, not a dashboard. ───── *@
+        <section class="health-overview" aria-label="Health overview">
+            <div class="row row-cols-2 row-cols-md-4 g-3">
+                <div class="col">
+                    <a class="health-stat-card" href="#current-medications">
+                        <span class="health-stat-icon" aria-hidden="true">💊</span>
+                        <span class="health-stat-body">
+                            <small>Current medications</small>
+                            <strong>@(Model.CurrentMedications.Count == 0 ? "None" : $"{Model.CurrentMedications.Count} active")</strong>
+                        </span>
+                    </a>
+                </div>
+                <div class="col">
+                    <a class="health-stat-card" href="#health-history">
+                        <span class="health-stat-icon" aria-hidden="true">🩺</span>
+                        <span class="health-stat-body">
+                            <small>Recent health events</small>
+                            <strong>@Model.RecentHealthEventCount</strong>
+                            <em>last 30 days</em>
+                        </span>
+                    </a>
+                </div>
+                <div class="col">
+                    <a class="health-stat-card" href="#current-medications">
+                        <span class="health-stat-icon" aria-hidden="true">📈</span>
+                        <span class="health-stat-body">
+                            <small>Medication adherence</small>
+                            @if (Model.RecentAdherence.Total == 0)
+                            {
+                                <strong>—</strong><em>No doses logged yet</em>
+                            }
+                            else
+                            {
+                                <strong>@Model.RecentAdherence.AdherencePercent%</strong><em>this month</em>
+                            }
+                        </span>
+                    </a>
+                </div>
+                <div class="col">
+                    <a class="health-stat-card" href="#vet-care">
+                        <span class="health-stat-icon" aria-hidden="true">🏥</span>
+                        <span class="health-stat-body">
+                            <small>Next vet visit</small>
+                            @if (Model.NextVetVisit == null)
+                            {
+                                <strong>None scheduled</strong>
+                            }
+                            else
+                            {
+                                <strong>@Model.NextVetVisit.AppointmentDateTime.ToString("MMM d")</strong>
+                                <em>@(Model.NextVetVisit.IsAllDay ? "All day" : Model.NextVetVisit.AppointmentDateTime.ToString("h:mm tt"))</em>
+                            }
+                        </span>
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        @* ── CURRENT MEDICATIONS — health-focused summary; editing stays on /Medications. ── *@
+        <section class="mt-4" id="current-medications" aria-labelledby="currentMedicationsHeading">
+            <div class="d-flex justify-content-between align-items-end gap-2 mb-3">
+                <div>
+                    <p class="app-eyebrow mb-1">MEDICATIONS</p>
+                    <h2 class="health-section-heading" id="currentMedicationsHeading">Current medications</h2>
+                </div>
+                <a asp-page="/Medications" asp-route-petID="@Model.PetID" class="small">Manage medications →</a>
+            </div>
+
+            @if (Model.CurrentMedications.Count == 0)
+            {
+                <div class="empty-health">
+                    <p class="mb-3">No active medications.</p>
+                    <a asp-page="/Medications" class="btn btn-outline-primary btn-sm">Manage medications</a>
+                </div>
+            }
+            else
+            {
+                <div class="row g-3">
+                    @foreach (var med in Model.CurrentMedications)
+                    {
+                        <div class="col-md-6">
+                            <article class="health-med-card">
+                                <div>
+                                    <div class="health-med-name">@med.MedicationName</div>
+                                    <div class="health-med-meta">
+                                        @med.Dosage · @med.FrequencyDisplay@(Model.Pets.Count > 1 ? $" · {med.PetName}" : "")
+                                    </div>
+                                </div>
+                                <div class="health-med-doses">
+                                    <div>
+                                        <span class="health-med-dose-label">Last dose</span>
+                                        @if (string.IsNullOrEmpty(med.LastDoseStatus))
+                                        {
+                                            <span class="text-secondary small">No doses yet</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="health-med-dose-when">@med.LastDoseWhen</span>
+                                            <span class="health-badge @StatusBadgeClass(med.LastDoseStatus)">@med.LastDoseStatus</span>
+                                        }
+                                    </div>
+                                    <div>
+                                        <span class="health-med-dose-label">Next dose</span>
+                                        @if (string.IsNullOrEmpty(med.NextDoseWhen))
+                                        {
+                                            <span class="text-secondary small">None scheduled</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="health-med-dose-when">@med.NextDoseWhen</span>
+                                            <span class="health-badge @(med.NextDoseIsLate ? "health-badge-late" : "health-badge-due")">@(med.NextDoseIsLate ? "Late" : "Due")</span>
+                                        }
+                                    </div>
+                                </div>
+                                <a asp-page="/Medications" asp-route-petID="@med.PetID" class="btn btn-sm btn-light health-med-view">View medication</a>
+                            </article>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+
+        @* ── HEALTH HISTORY — the main chronological record. Tasks never appear here. ── *@
+        <section class="mt-4" id="health-history" aria-labelledby="healthHistoryHeading">
+            <div class="mb-3">
+                <p class="app-eyebrow mb-1">HISTORY</p>
+                <h2 class="health-section-heading mb-1" id="healthHistoryHeading">Health history</h2>
+                <p class="text-secondary mb-0 small">Symptoms, incidents, medication activity, and vet visits — not routine daily care.</p>
+            </div>
+
+            <form method="get" class="health-filter" aria-label="Health history filters">
+                <input type="hidden" name="PetID" value="@Model.PetID" />
+                <div class="health-filter-grid">
+                    <div>
+                        <label class="form-label" for="healthRangePreset">Date range</label>
+                        <select id="healthRangePreset" class="form-select">
+                            <option value="7" selected="@(presetValue == "7")">Last 7 days</option>
+                            <option value="30" selected="@(presetValue == "30")">Last 30 days</option>
+                            <option value="90" selected="@(presetValue == "90")">Last 90 days</option>
+                            <option value="custom" selected="@(presetValue == "custom")">Custom range</option>
+                        </select>
+                    </div>
+                    <div class="health-filter-custom-field @(presetValue == "custom" ? "" : "d-none")">
+                        <label class="form-label" for="healthFrom">From</label>
+                        <input asp-for="From" id="healthFrom" type="date" class="form-control" />
+                    </div>
+                    <div class="health-filter-custom-field @(presetValue == "custom" ? "" : "d-none")">
+                        <label class="form-label" for="healthTo">To</label>
+                        <input asp-for="To" id="healthTo" type="date" class="form-control" />
+                    </div>
+                    <div>
+                        <label class="form-label" for="healthEventTypeFilter">Type</label>
+                        <select asp-for="EventType" id="healthEventTypeFilter" class="form-select" onchange="this.form.submit()">
+                            @foreach (var type in PetPotty.Pages.HealthModel.SourceTypes)
+                            {
+                                <option value="@type">@(type == "All" ? "All health events" : type == "VetVisit" ? "Vet visits" : type)</option>
+                            }
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label" for="healthSort">Sort</label>
+                        <select asp-for="Sort" id="healthSort" class="form-select" onchange="this.form.submit()">
+                            <option>Newest</option>
+                            <option>Oldest</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-outline-secondary" type="submit">Apply</button>
+                </div>
+            </form>
+
+            @if (Model.Timeline.Count == 0)
+            {
+                <div class="empty-health mt-3">
+                    <div class="display-6" aria-hidden="true">🩺</div>
+                    <h3 class="h5 mt-2 mb-1">No health concerns recorded yet</h3>
+                    <p class="mb-3">When something unusual happens, log a symptom or incident so you can track it over time.</p>
+                    <div class="d-flex gap-2 justify-content-center flex-wrap">
+                        <button class="btn btn-outline-primary log-health-event" type="button" data-kind="Symptom" data-bs-toggle="modal" data-bs-target="#healthEventModal">Log Symptom</button>
+                        <button class="btn btn-primary log-health-event" type="button" data-kind="Incident" data-bs-toggle="modal" data-bs-target="#healthEventModal">Log Incident</button>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <ol class="health-timeline mt-2">
+                    @{ DateTime? renderedDate = null; }
+                    @foreach (var item in Model.Timeline)
+                    {
+                        if (renderedDate != item.EventAtLocal.Date)
+                        {
+                            renderedDate = item.EventAtLocal.Date;
+                            <li class="health-date-pill">@FriendlyDate(item.EventAtLocal.Date)</li>
+                        }
+                        var eventID = item.SourceType is HealthEventKinds.Symptom or HealthEventKinds.Incident
+                            ? $"health-event-{item.SourceID}"
+                            : null;
+                        <li class="health-timeline-row" id="@eventID">
+                            <span class="health-timeline-icon health-timeline-icon-@item.SourceType.ToLowerInvariant()" aria-hidden="true">@item.Icon</span>
+                            <div class="health-timeline-body">
+                                <div class="health-timeline-top">
+                                    <span class="health-timeline-title">@item.Title</span>
+                                    @if (item.Severity.HasValue) { <span class="health-badge health-badge-severity">Severity @item.Severity/5</span> }
+                                    @if (!string.IsNullOrWhiteSpace(item.Status)) { <span class="health-badge @StatusBadgeClass(item.Status)">@item.Status</span> }
+                                </div>
+                                <div class="health-timeline-meta">
+                                    @item.EventAtLocal.ToString("h:mm tt")
+                                    @if (Model.Pets.Count > 1) { <text> · @item.PetName</text> }
+                                    @if (!string.IsNullOrWhiteSpace(item.Attribution))
+                                    {
+                                        <text> · @(item.SourceType == "Medication" ? "by" : "recorded by") @item.Attribution</text>
+                                    }
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(item.Summary))
+                                {
+                                    <div class="health-timeline-summary">@item.Summary</div>
+                                }
+                            </div>
+                            <div class="health-timeline-actions">
+                                <a href="@item.Url" class="health-timeline-action-btn" title="Open" aria-label="Open @item.Title">↗</a>
+                                @if (item.SourceType is HealthEventKinds.Symptom or HealthEventKinds.Incident)
+                                {
+                                    <form method="post" asp-page-handler="DeleteEvent" onsubmit="return confirm('Remove this health event?');">
+                                        <input type="hidden" name="healthEventID" value="@item.SourceID" />
+                                        <input type="hidden" name="petID" value="@item.PetID" />
+                                        <button type="submit" class="health-timeline-action-btn health-timeline-delete" title="Delete" aria-label="Delete @item.Title">✕</button>
+                                    </form>
+                                }
+                            </div>
+                        </li>
+                    }
+                </ol>
+            }
+        </section>
+
+        @* ── VET CARE — a light pointer to /VetVisits, not a duplicate of it. ───── *@
+        <section class="mt-4" id="vet-care" aria-labelledby="vetCareHeading">
+            <div class="d-flex justify-content-between align-items-end gap-2 mb-3">
+                <div>
+                    <p class="app-eyebrow mb-1">VET CARE</p>
+                    <h2 class="health-section-heading" id="vetCareHeading">Vet care</h2>
+                </div>
+                <a asp-page="/VetVisits" class="small">View vet visits →</a>
+            </div>
+
+            @if (Model.NextVetVisit == null && Model.RecentVetVisit == null)
+            {
+                <div class="empty-health">
+                    <p class="mb-3">No vet visits recorded.</p>
+                    <a asp-page="/VetVisits" class="btn btn-outline-primary btn-sm">Add vet visit</a>
+                </div>
+            }
+            else
+            {
+                <div class="health-vet-grid">
+                    @if (Model.NextVetVisit != null)
+                    {
+                        <article class="health-vet-card">
+                            <small>Next visit</small>
+                            <h3>@Model.NextVetVisit.AppointmentDateTime.ToString(Model.NextVetVisit.IsAllDay ? "MMM d, yyyy" : "MMM d 'at' h:mm tt")</h3>
+                            <p>@(string.IsNullOrWhiteSpace(Model.NextVetVisit.VisitReason) ? Model.NextVetVisit.ClinicName : Model.NextVetVisit.VisitReason)</p>
+                            <a asp-page="/VetVisits" asp-route-petID="@Model.NextVetVisit.PetID" asp-route-vetVisitID="@Model.NextVetVisit.VetVisitID" asp-fragment="@($"visit-{Model.NextVetVisit.VetVisitID}")" class="btn btn-sm btn-light">View appointment</a>
+                        </article>
+                    }
+                    @if (Model.RecentVetVisit != null)
+                    {
+                        <article class="health-vet-card">
+                            <small>Recent visit</small>
+                            <h3>@Model.RecentVetVisit.AppointmentDateTime.ToString("MMM d, yyyy")</h3>
+                            <p>@(string.IsNullOrWhiteSpace(Model.RecentVetVisit.VisitReason) ? Model.RecentVetVisit.ClinicName : Model.RecentVetVisit.VisitReason)</p>
+                            <a asp-page="/VetVisits" asp-route-petID="@Model.RecentVetVisit.PetID" asp-route-vetVisitID="@Model.RecentVetVisit.VetVisitID" asp-fragment="@($"visit-{Model.RecentVetVisit.VetVisitID}")" class="btn btn-sm btn-light">View visit</a>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+
+        @* ── VET REPORT — deliberately quiet; a secondary, occasional action. ───── *@
+        <section class="vet-report-card" id="vet-report" aria-labelledby="vetReportHeading">
+            <p class="app-eyebrow mb-1">FOR YOUR VET</p>
+            <h2 id="vetReportHeading" class="mb-1">Vet health report</h2>
+            <p class="text-secondary mb-3">Prepare a summary of medications, adherence, symptoms, incidents, and vet history to bring to your veterinarian.</p>
+            <form method="post" asp-page="/Reports" asp-page-handler="Generate" class="row g-3 align-items-end">
+                <div class="col-12 col-md-3">
+                    <label class="form-label" for="vetReportPet">Pet</label>
+                    <select class="form-select" id="vetReportPet" name="SelectedPetID" required>
+                        <option value="">Choose pet</option>
+                        @foreach (var pet in Model.Pets)
+                        {
+                            if (Model.PetID == pet.PetID || (!Model.PetID.HasValue && Model.Pets.Count == 1))
+                            {
+                                <option value="@pet.PetID" selected>@pet.Name</option>
+                            }
+                            else
+                            {
+                                <option value="@pet.PetID">@pet.Name</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label" for="vetReportPeriod">Date range</label>
+                    <select class="form-select" id="vetReportPeriod" name="Period">
+                        <option value="30">Last 30 days</option>
+                        <option value="90">Last 90 days</option>
+                        <option value="Custom">Custom range</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-2 health-report-custom" hidden>
+                    <label class="form-label" for="vetReportFrom">From</label>
+                    <input class="form-control" id="vetReportFrom" name="CustomFrom" type="date" />
+                </div>
+                <div class="col-6 col-md-2 health-report-custom" hidden>
+                    <label class="form-label" for="vetReportTo">To</label>
+                    <input class="form-control" id="vetReportTo" name="CustomTo" type="date" />
+                </div>
+                <div class="col-12">
+                    <label class="form-label" for="vetReportQuestions">Questions for the veterinarian <span class="text-secondary">(optional)</span></label>
+                    <textarea class="form-control" id="vetReportQuestions" name="QuestionsForVet" rows="2" maxlength="2000" placeholder="Include questions you want to discuss"></textarea>
+                </div>
+                <div class="col-12 d-grid d-md-flex justify-content-md-end">
+                    <button type="submit" class="btn btn-primary">Generate Vet Report</button>
+                </div>
+            </form>
+        </section>
+    }
+</div>
+
+@section Modals {
+    <div class="modal fade" id="healthEventModal" tabindex="-1" aria-labelledby="healthEventModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-scrollable modal-lg">
+            <form method="post" asp-page-handler="LogEvent" class="modal-content">
+                <input asp-for="NewEvent.EventKind" type="hidden" id="healthEventKind" />
+                <input asp-for="NewEvent.UtcOffsetMinutes" type="hidden" data-utc-offset />
+                <div class="modal-header">
+                    <div><p class="app-eyebrow mb-1">FAST HEALTH LOG</p><h2 class="modal-title fs-5" id="healthEventModalLabel">Log symptom</h2></div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
+                    <div class="row g-3">
+                        <div class="col-md-4"><label asp-for="NewEvent.PetID" class="form-label">Pet <span class="required-marker">*</span></label><select asp-for="NewEvent.PetID" id="healthEventPet" class="form-select" required><option value="">Choose pet</option>@foreach (var pet in Model.Pets) { <option value="@pet.PetID">@pet.Name</option> }</select><span asp-validation-for="NewEvent.PetID" class="text-danger small"></span></div>
+                        <div class="col-md-4"><label asp-for="NewEvent.EventType" class="form-label">What happened? <span class="required-marker">*</span></label><input asp-for="NewEvent.EventType" id="healthEventType" class="form-control" list="symptomTypes" maxlength="100" required /><span asp-validation-for="NewEvent.EventType" class="text-danger small"></span></div>
+                        <div class="col-md-4"><label asp-for="NewEvent.OccurredAtLocal" class="form-label">When <span class="required-marker">*</span></label><input asp-for="NewEvent.OccurredAtLocal" id="healthEventOccurred" type="datetime-local" class="form-control" required /><span asp-validation-for="NewEvent.OccurredAtLocal" class="text-danger small"></span></div>
+                        <div class="col-md-4"><label asp-for="NewEvent.Severity" class="form-label">Severity (optional)</label><select asp-for="NewEvent.Severity" class="form-select"><option value="">Not rated</option><option value="1">1 — Mild</option><option value="2">2</option><option value="3">3 — Moderate</option><option value="4">4</option><option value="5">5 — Severe</option></select><span asp-validation-for="NewEvent.Severity" class="text-danger small"></span></div>
+                        <div class="col-md-8"><label asp-for="NewEvent.Description" class="form-label">Quick note (optional)</label><textarea asp-for="NewEvent.Description" class="form-control" rows="2" maxlength="2000" placeholder="What did you notice?"></textarea></div>
+                    </div>
+
+                    <details class="event-advanced" @(Model.OpenEventModal ? "open" : null)>
+                        <summary>More details</summary>
+                        <div class="row g-3 mt-1">
+                            <div class="col-md-6"><label asp-for="NewEvent.EndedAtLocal" class="form-label">Ended at</label><input asp-for="NewEvent.EndedAtLocal" type="datetime-local" class="form-control" /><span asp-validation-for="NewEvent.EndedAtLocal" class="text-danger small"></span></div>
+                            <div class="col-md-6"><label asp-for="NewEvent.PossibleTrigger" class="form-label">Possible trigger</label><input asp-for="NewEvent.PossibleTrigger" class="form-control" maxlength="500" /></div>
+                            <div class="col-md-4"><label asp-for="NewEvent.AppetiteStatus" class="form-label">Appetite</label><select asp-for="NewEvent.AppetiteStatus" class="form-select"><option value="">Not recorded</option><option>Normal</option><option>Reduced</option><option>None</option><option>Increased</option></select></div>
+                            <div class="col-md-4"><label asp-for="NewEvent.DrinkingStatus" class="form-label">Drinking</label><select asp-for="NewEvent.DrinkingStatus" class="form-select"><option value="">Not recorded</option><option>Normal</option><option>Reduced</option><option>None</option><option>Increased</option></select></div>
+                            <div class="col-md-4"><label asp-for="NewEvent.RelatedMedicationID" class="form-label">Relevant medication</label><select asp-for="NewEvent.RelatedMedicationID" id="healthEventMedication" class="form-select"><option value="">None selected</option>@foreach (var med in Model.MedicationOptions) { <option value="@med.MedID" data-pet-id="@med.PetID">@med.MedicationName</option> }</select></div>
+                            <div class="col-md-6"><label asp-for="NewEvent.RecoveryStatus" class="form-label">Recovery</label><select asp-for="NewEvent.RecoveryStatus" class="form-select"><option value="">Not recorded</option><option>Ongoing</option><option>Improving</option><option>Recovered</option><option>Worsening</option></select></div>
+                            <div class="col-md-6"><label asp-for="NewEvent.RecoveredAtLocal" class="form-label">Recovered at</label><input asp-for="NewEvent.RecoveredAtLocal" type="datetime-local" class="form-control" /><span asp-validation-for="NewEvent.RecoveredAtLocal" class="text-danger small"></span></div>
+                            <div class="col-12"><div class="form-check"><input asp-for="NewEvent.VeterinarianContacted" class="form-check-input" /><label asp-for="NewEvent.VeterinarianContacted" class="form-check-label">Veterinarian contacted</label></div></div>
+                        </div>
+                    </details>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary" id="healthEventSubmit">Save event</button></div>
+            </form>
+        </div>
+    </div>
+    <datalist id="symptomTypes">@foreach (var type in PetPotty.Pages.HealthModel.SymptomTypes) { <option value="@type"></option> }</datalist>
+    <datalist id="incidentTypes">@foreach (var type in PetPotty.Pages.HealthModel.IncidentTypes) { <option value="@type"></option> }</datalist>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (() => {
+            const modal = document.getElementById('healthEventModal');
+            const kindInput = document.getElementById('healthEventKind');
+            const typeInput = document.getElementById('healthEventType');
+            const title = document.getElementById('healthEventModalLabel');
+            const submitBtn = document.getElementById('healthEventSubmit');
+            const petSelect = document.getElementById('healthEventPet');
+            const medication = document.getElementById('healthEventMedication');
+            const occurred = document.getElementById('healthEventOccurred');
+            const localValue = date => {
+                const shifted = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+                return shifted.toISOString().slice(0, 16);
+            };
+            const filterMedications = () => {
+                medication.querySelectorAll('option[data-pet-id]').forEach(option => {
+                    option.hidden = option.dataset.petId !== petSelect.value;
+                    if (option.hidden && option.selected) medication.value = '';
+                });
+            };
+
+            document.querySelectorAll('.log-health-event').forEach(button => {
+                button.addEventListener('click', () => {
+                    const kind = button.dataset.kind;
+                    kindInput.value = kind;
+                    title.textContent = `Log ${kind.toLowerCase()}`;
+                    submitBtn.textContent = `Save ${kind}`;
+                    typeInput.setAttribute('list', kind === 'Incident' ? 'incidentTypes' : 'symptomTypes');
+                    if (!occurred.value) occurred.value = localValue(new Date());
+                    filterMedications();
+                });
+            });
+            petSelect.addEventListener('change', filterMedications);
+            filterMedications();
+
+            const reportPeriod = document.getElementById('vetReportPeriod');
+            const reportCustomFields = document.querySelectorAll('.health-report-custom');
+            if (reportPeriod) {
+                const updateReportRange = () => {
+                    const isCustom = reportPeriod.value === 'Custom';
+                    reportCustomFields.forEach(field => { field.hidden = !isCustom; });
+                    document.getElementById('vetReportFrom').required = isCustom;
+                    document.getElementById('vetReportTo').required = isCustom;
+                };
+                reportPeriod.addEventListener('change', updateReportRange);
+                updateReportRange();
+            }
+
+            // Health history date-range preset — hides raw date fields unless Custom is chosen.
+            const rangePreset = document.getElementById('healthRangePreset');
+            if (rangePreset) {
+                const fromInput = document.getElementById('healthFrom');
+                const toInput = document.getElementById('healthTo');
+                const customFields = document.querySelectorAll('.health-filter-custom-field');
+                const asDateInput = date => {
+                    const shifted = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+                    return shifted.toISOString().slice(0, 10);
+                };
+                rangePreset.addEventListener('change', () => {
+                    const isCustom = rangePreset.value === 'custom';
+                    customFields.forEach(field => field.classList.toggle('d-none', !isCustom));
+                    if (isCustom) return;
+                    const days = Number(rangePreset.value);
+                    const to = new Date();
+                    const from = new Date();
+                    from.setDate(to.getDate() - (days - 1));
+                    toInput.value = asDateInput(to);
+                    fromInput.value = asDateInput(from);
+                    rangePreset.form.submit();
+                });
+            }
+
+            @if (Model.OpenEventModal)
+            {
+                <text>
+                typeInput.setAttribute('list', kindInput.value === 'Incident' ? 'incidentTypes' : 'symptomTypes');
+                title.textContent = `Log ${kindInput.value.toLowerCase()}`;
+                submitBtn.textContent = `Save ${kindInput.value}`;
+                bootstrap.Modal.getOrCreateInstance(modal).show();
+                </text>
+            }
+        })();
+    </script>
+}

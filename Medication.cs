@@ -1,5 +1,16 @@
 namespace PetPotty.Models
 {
+    public static class MedicationDoseStatuses
+    {
+        public const string Due = "Due";
+        public const string Taken = "Taken";
+        public const string TakenLate = "Taken late";
+        public const string Skipped = "Skipped";
+        public const string Missed = "Missed";
+
+        public static readonly string[] Recordable = [Taken, Skipped, Missed];
+    }
+
     public class Medication
     {
         public int MedID { get; set; }
@@ -39,12 +50,24 @@ namespace PetPotty.Models
 
     public class MedSchedule
     {
+        public int ScheduleID { get; set; }
         public int MedID { get; set; }
         public string MedicationName { get; set; } = string.Empty;
+        public string Dosage { get; set; } = string.Empty;
         public string FrequencyType { get; set; } = string.Empty;
         public bool TimingDoesNotMatter { get; set; }
         public DateTime ScheduleDate { get; set; }
         public bool IsConfirmed { get; set; }
         public DateTime? ConfirmedAt { get; set; }
+        public string DoseStatus { get; set; } = MedicationDoseStatuses.Due;
+        public string EffectiveStatus { get; set; } = MedicationDoseStatuses.Due;
+        public DateTime? AdministeredAtUtc { get; set; }
+        public DateTime? RecordedAtUtc { get; set; }
+        public int? RecordedByUserID { get; set; }
+        public string RecordedByName { get; set; } = string.Empty;
+        public string StatusReason { get; set; } = string.Empty;
+        public string AdministrationNotes { get; set; } = string.Empty;
+
+        public bool IsResolved => EffectiveStatus != MedicationDoseStatuses.Due;
     }
 }

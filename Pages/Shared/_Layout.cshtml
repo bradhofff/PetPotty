@@ -1,5 +1,6 @@
 ﻿<!DOCTYPE html>
 @{
+    // Shared navbar/account links and Bootstrap theme use the current session.
     var isLoggedIn = Context.Session.GetString("userID") != null;
     var darkMode = isLoggedIn && Context.Session.GetString("darkMode") == "true";
     var currentUrl = $"{Context.Request.PathBase}{Context.Request.Path}{Context.Request.QueryString}";
@@ -152,6 +153,7 @@
                     {
                     <ul class="navbar-nav me-auto ms-lg-4">
                         <li class="nav-item"><a class="nav-link" asp-page="/Home">🏠 Dashboard</a></li>
+                        <li class="nav-item"><a class="nav-link" asp-page="/Health">🩺 Health</a></li>
                         <li class="nav-item"><a class="nav-link" asp-page="/Medications">💊 Medications</a></li>
                         <li class="nav-item"><a class="nav-link" asp-page="/VetVisits">🏥 Vet Visits</a></li>
                         <li class="nav-item d-lg-none">
@@ -218,6 +220,7 @@
 
     <div class="container main-content mt-3">
         <main role="main">
+            @* Inserts the requested page, including Index (landing) or Home (dashboard). *@
             @RenderBody()
         </main>
     </div>

@@ -1,7 +1,9 @@
 # Uploaded file and Vet Visits deployment
 
-The application serves `/uploads` through ASP.NET Core from
-`/var/www/petpotty/uploads`. Nginx does not need an uploads location.
+The application serves `/uploads/pets/{fileName}` through an ownership-checked
+Razor Page from `/var/www/petpotty/uploads`. Keep uploads outside `wwwroot`.
+Nginx must proxy these requests to ASP.NET Core; do not configure an uploads
+alias or static-file location that bypasses the session and ownership checks.
 Vet visit documents are deliberately stored outside the publish and static-file
 directories at `/var/www/petpotty/vet-documents`; they are only returned by an
 owner-authorized Razor Page handler.
@@ -56,6 +58,33 @@ procedure checks. For a functional Add/Update check, set an existing pet ID in
 `Migrationsss/2026-08-21_SmokeTestVetVisit.sql` and run it; the test performs an
 outer transaction rollback and leaves no test visit behind.
 
+For the health timeline, structured symptoms/incidents, and medication
+adherence release, review and run
+`Migrationsss/2026-09-10_AddHealthHistoryMvp.sql` before deploying the matching
+application build. It is additive: it creates `HealthEvents`, extends existing
+medication schedule rows, backfills confirmed rows as Taken, adds task/visit
+creator attribution, and retains the legacy scheduling columns and procedures.
+It does not reinterpret historical local timestamps as UTC. Run
+`Migrationsss/2026-09-10_VerifyHealthHistoryMvp.sql` afterward for read-only
+schema/procedure checks.
+
+The adherence thresholds are configuration values:
+
+```json
+"MedicationAdherence": {
+  "LateAfterMinutes": 60,
+  "MissedAfterMinutes": 720
+}
+```
+
+`LateAfterMinutes` determines whether an exact-time administered dose is
+recorded as Taken late. An unresolved dose becomes effectively Missed after
+`MissedAfterMinutes`; for timing-does-not-matter medication the countdown
+starts at the end of the user's local scheduled day. The browser offset cookie
+is used for display and local-to-UTC conversion. Configure
+`TimeZone:FallbackUtcOffsetMinutes` for non-browser requests; zero (UTC) is the
+safe default.
+
 ## VPS filesystem
 
 Run the setup script with the user (and optional group) from the `petpotty`
@@ -104,3 +133,15 @@ owned by the application service account.
 - Confirm the pet card's last pee/poop label shows just the time for same-day
   activity, and "Day of week @ time" (e.g. "Wednesday @ 9:15 PM") once the
   activity happened on a different calendar day than today.
+- Log a minimal symptom and a detailed incident. Confirm each appears only on
+  the correct pet's Health timeline and that a second account receives 404 for
+  forged pet/event IDs.
+- Confirm an exact-time dose on time and more than the configured late window
+  afterward. Confirm Taken and Taken late remain distinct, actual time and user
+  are recorded, and future exact-time occurrences retain the existing shift
+  behavior.
+- Mark doses Skipped and Missed with reasons, then undo them. Confirm the
+  outcomes remain distinct and do not appear as administered doses.
+- Generate 30-day, 90-day, and custom reports. Confirm the inclusive local date
+  boundaries, health event types, adherence summary, vet visits, and daily care
+  counts; print or save the report as PDF from the browser.

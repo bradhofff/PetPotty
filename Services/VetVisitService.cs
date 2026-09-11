@@ -26,10 +26,12 @@ namespace PetPotty.Services
                        v.FollowUpDate, v.Cost, v.IsEmergency, v.PreparationInstructions,
                        v.VisitSummary, v.Diagnosis, v.TreatmentProvided,
                        v.VaccinationsReceived, v.Prescriptions, v.FollowUpInstructions,
-                       v.CreatedAt, v.UpdatedAt, r.VetVisitReminderID AS ReminderID,
+                       v.CreatedAt, v.UpdatedAt, v.CreatedByUserID, creator.name AS CreatedByName,
+                       r.VetVisitReminderID AS ReminderID,
                        r.ReminderAt, r.Status AS ReminderStatus
                 FROM dbo.VetVisits v
                 INNER JOIN dbo.Pets p ON p.petID = v.PetID
+                LEFT JOIN dbo.Users creator ON creator.userID = v.CreatedByUserID
                 LEFT JOIN dbo.VetVisitReminders r ON r.VetVisitID = v.VetVisitID
                 WHERE p.userID = @UserID
                   AND v.IsDeleted = 0
@@ -60,10 +62,12 @@ namespace PetPotty.Services
                        v.FollowUpDate, v.Cost, v.IsEmergency, v.PreparationInstructions,
                        v.VisitSummary, v.Diagnosis, v.TreatmentProvided,
                        v.VaccinationsReceived, v.Prescriptions, v.FollowUpInstructions,
-                       v.CreatedAt, v.UpdatedAt, r.VetVisitReminderID AS ReminderID,
+                       v.CreatedAt, v.UpdatedAt, v.CreatedByUserID, creator.name AS CreatedByName,
+                       r.VetVisitReminderID AS ReminderID,
                        r.ReminderAt, r.Status AS ReminderStatus
                 FROM dbo.VetVisits v
                 INNER JOIN dbo.Pets p ON p.petID = v.PetID
+                LEFT JOIN dbo.Users creator ON creator.userID = v.CreatedByUserID
                 LEFT JOIN dbo.VetVisitReminders r ON r.VetVisitID = v.VetVisitID
                 WHERE p.userID = @UserID AND v.VetVisitID = @VetVisitID AND v.IsDeleted = 0;
                 """;
@@ -87,7 +91,21 @@ namespace PetPotty.Services
             command.Parameters.Add("@ReminderAt", SqlDbType.DateTime2).Value =
                 (object?)reminderAt ?? DBNull.Value;
             var result = command.ExecuteScalar();
-            return result == null || result == DBNull.Value ? 0 : Convert.ToInt32(result);
+            var visitID = result == null || result == DBNull.Value ? 0 : Convert.ToInt32(result);
+            if (visitID > 0)
+            {
+                using var attribution = new SqlCommand("""
+                    UPDATE v
+                    SET CreatedByUserID = @UserID
+                    FROM dbo.VetVisits v
+                    INNER JOIN dbo.Pets p ON p.petID = v.PetID
+                    WHERE v.VetVisitID = @VetVisitID AND p.userID = @UserID;
+                    """, connection);
+                attribution.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+                attribution.Parameters.Add("@VetVisitID", SqlDbType.Int).Value = visitID;
+                attribution.ExecuteNonQuery();
+            }
+            return visitID;
         }
 
         public bool UpdateVisit(int userID, VetVisitInput input, DateTime? reminderAt)
@@ -515,7 +533,11 @@ namespace PetPotty.Services
                 Prescriptions = GetString(reader, "Prescriptions"),
                 FollowUpInstructions = GetString(reader, "FollowUpInstructions"),
                 CreatedAt = reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
-                UpdatedAt = reader.GetDateTime(reader.GetOrdinal("UpdatedAt")),
+            UpdatedAt = reader.GetDateTime(reader.GetOrdinal("UpdatedAt")),
+            CreatedByUserID = reader.IsDBNull(reader.GetOrdinal("CreatedByUserID"))
+                ? null
+                : reader.GetInt32(reader.GetOrdinal("CreatedByUserID")),
+            CreatedByName = GetString(reader, "CreatedByName"),
                 ReminderID = reader.IsDBNull(reader.GetOrdinal("ReminderID"))
                     ? null
                     : reader.GetInt32(reader.GetOrdinal("ReminderID")),

@@ -9,11 +9,16 @@ namespace PetPotty.Pages
     {
         private readonly IPetService _petService;
         private readonly IMedicationService _medService;
+        private readonly IUserTimeZoneService _timeZone;
 
-        public MedicationsModel(IPetService petService, IMedicationService medService)
+        public MedicationsModel(
+            IPetService petService,
+            IMedicationService medService,
+            IUserTimeZoneService timeZone)
         {
             _petService = petService;
             _medService = medService;
+            _timeZone = timeZone;
         }
 
         // ── Page state ──────────────────────────────────────────────
@@ -21,6 +26,8 @@ namespace PetPotty.Pages
         public List<Pet> Pets { get; set; } = new();
         public List<Medication> Medications { get; set; } = new();
         public List<MedSchedule> Schedule { get; set; } = new();
+        public int UtcOffsetMinutes { get; set; }
+        public DateTime UserNowLocal => _timeZone.ToLocal(DateTime.UtcNow, UtcOffsetMinutes);
 
         [BindProperty] public int SelectedPetID { get; set; } = 0;
         [BindProperty] public bool ShowAllTime { get; set; } = false;
@@ -60,6 +67,9 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            UtcOffsetMinutes = _timeZone.GetUtcOffsetMinutes(Request);
+            if (petID.HasValue && _petService.GetPetByID(UserID, petID.Value) == null)
+                return NotFound();
             if (petID.HasValue)
                 SelectedPetID = petID.Value;
             LoadData();
@@ -76,6 +86,8 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            if (selectedPetID != 0 && _petService.GetPetByID(UserID, selectedPetID) == null)
+                return NotFound();
             SetSelectedPetID(selectedPetID);
             return RedirectToPage();
         }
@@ -103,7 +115,7 @@ namespace PetPotty.Pages
             if (NewMedPetID <= 0)
                 return ShowMedicationModalError("addMedModal", "Choose a pet for this medication.");
             if (Pets.All(pet => pet.PetID != NewMedPetID))
-                return Forbid();
+                return NotFound();
 
             if (!TryNormalizeMedicationTiming(
                     NewMedFrequencyType,
@@ -145,11 +157,12 @@ namespace PetPotty.Pages
                 }
             }
 
-            _medService.AddMedication(
+            if (!_medService.AddMedication(UserID,
                 NewMedPetID, NewMedName, NewMedDosage,
                 NewMedFrequencyType, NewMedFrequencyInterval, NewMedTimingDoesNotMatter,
                 NewMedStartDate, NewMedForever ? null : NewMedEndDate,
-                NewMedNotes);
+                NewMedNotes))
+                return NotFound();
 
             SetSelectedPetID(NewMedPetID);
             TempData["StatusMessage"] = $"{NewMedName} added successfully!";
@@ -161,6 +174,9 @@ namespace PetPotty.Pages
         {
             if (!int.TryParse(HttpContext.Session.GetString("userID"), out int userID))
                 return RedirectToPage("/Login");
+
+            if (!_medService.OwnsMedication(userID, EditMedID))
+                return NotFound();
 
             UserID = userID;
             RestoreStateFromSession();
@@ -206,11 +222,12 @@ namespace PetPotty.Pages
                 }
             }
 
-            _medService.UpdateMedication(
+            if (!_medService.UpdateMedication(UserID,
                 EditMedID, EditMedName, EditMedDosage,
                 EditMedFrequencyType, EditMedFrequencyInterval, EditMedTimingDoesNotMatter,
                 EditMedStartDate, EditMedForever ? null : EditMedEndDate,
-                EditMedNotes);
+                EditMedNotes))
+                return NotFound();
 
             TempData["StatusMessage"] = $"{EditMedName} updated successfully!";
             return RedirectToPage();
@@ -224,23 +241,77 @@ namespace PetPotty.Pages
 
             UserID = userID;
             RestoreStateFromSession();
-            _medService.DeleteMedication(medID);
+            if (!_medService.DeleteMedication(UserID, medID))
+                return NotFound();
 
             TempData["StatusMessage"] = "Medication deleted.";
             return RedirectToPage();
         }
 
         // ── Confirm Schedule ─────────────────────────────────────────
-        public IActionResult OnPostConfirmSchedule(int medID, DateTime logDate, DateTime confirmedAt)
+        public IActionResult OnPostConfirmSchedule(
+            int medID,
+            DateTime logDate,
+            DateTime confirmedAt,
+            int utcOffsetMinutes,
+            string? notes)
         {
             if (!int.TryParse(HttpContext.Session.GetString("userID"), out int userID))
                 return RedirectToPage("/Login");
 
             UserID = userID;
             RestoreStateFromSession();
-            _medService.ConfirmSchedule(medID, logDate, confirmedAt);
+            if (confirmedAt == default)
+                return ShowMedicationModalError("confirmDoseModal", "Choose the administration date and time.");
+            if (!_medService.ConfirmSchedule(
+                    UserID,
+                    medID,
+                    logDate,
+                    confirmedAt,
+                    utcOffsetMinutes,
+                    notes ?? string.Empty))
+                return NotFound();
 
             TempData["StatusMessage"] = "Dose confirmed!";
+            return RedirectToPage();
+        }
+
+        public IActionResult OnPostRecordDose(
+            int medID,
+            DateTime logDate,
+            string status,
+            DateTime? administeredAt,
+            int utcOffsetMinutes,
+            string? reason,
+            string? notes)
+        {
+            if (!int.TryParse(HttpContext.Session.GetString("userID"), out int userID))
+                return RedirectToPage("/Login");
+
+            UserID = userID;
+            RestoreStateFromSession();
+            if (!MedicationDoseStatuses.Recordable.Contains(status, StringComparer.OrdinalIgnoreCase))
+                return BadRequest();
+            if ((status.Equals(MedicationDoseStatuses.Skipped, StringComparison.OrdinalIgnoreCase)
+                    || status.Equals(MedicationDoseStatuses.Missed, StringComparison.OrdinalIgnoreCase))
+                && string.IsNullOrWhiteSpace(reason))
+            {
+                MedicationError = "Add a short reason for a skipped or manually missed dose.";
+                LoadData();
+                return Page();
+            }
+            if (!_medService.RecordDose(
+                    UserID,
+                    medID,
+                    logDate,
+                    status,
+                    administeredAt,
+                    utcOffsetMinutes,
+                    reason ?? string.Empty,
+                    notes ?? string.Empty))
+                return NotFound();
+
+            TempData["StatusMessage"] = $"Dose marked {status.ToLowerInvariant()}.";
             return RedirectToPage();
         }
 
@@ -252,7 +323,8 @@ namespace PetPotty.Pages
 
             UserID = userID;
             RestoreStateFromSession();
-            _medService.UnconfirmSchedule(medID, logDate);
+            if (!_medService.UnconfirmSchedule(UserID, medID, logDate))
+                return NotFound();
 
             TempData["StatusMessage"] = "Dose unconfirmed.";
             return RedirectToPage();
@@ -312,6 +384,7 @@ namespace PetPotty.Pages
 
         private void LoadData()
         {
+            UtcOffsetMinutes = _timeZone.GetUtcOffsetMinutes(Request);
             Pets = _petService.GetPetsByUser(UserID);
             RestoreStateFromSession();
 
@@ -323,7 +396,7 @@ namespace PetPotty.Pages
             if (SelectedPetID > 0)
             {
                 Medications = _medService.GetMedicationsByPetID(SelectedPetID);
-                Schedule    = _medService.GetScheduleByPetID(SelectedPetID, ShowAllTime);
+                Schedule    = _medService.GetScheduleByPetID(SelectedPetID, ShowAllTime, UtcOffsetMinutes);
             }
         }
 

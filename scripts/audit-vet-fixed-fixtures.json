@@ -1,0 +1,25 @@
+{
+  "UserA": "authaudit_7d3dc7b69e04_A",
+  "B": {
+    "Pet": 17,
+    "Task": 31,
+    "Med": 1016,
+    "Visit": 21,
+    "Doc": 15,
+    "Reminder": 21,
+    "Name": "authaudit_bac987744b39_B",
+    "User": 17
+  },
+  "Phase": "vet-fixed",
+  "A": {
+    "Pet": 16,
+    "Task": 30,
+    "Med": 1015,
+    "Visit": 20,
+    "Doc": 14,
+    "Reminder": 20,
+    "Name": "authaudit_7d3dc7b69e04_A",
+    "User": 16
+  },
+  "UserB": "authaudit_bac987744b39_B"
+}

@@ -861,8 +861,8 @@ body:has(.simple-auth-page) > .main-content { background: transparent; box-shado
 .auth-form-panel { align-items: center; display: flex; padding: 2.5rem; }.auth-form-wrap { margin: auto; max-width: 420px; width: 100%; }.auth-form-wrap h2 { color: var(--auth-ink); font-size: 1.7rem; font-weight: 740; letter-spacing: -.035em; }.auth-form-wrap .form-label { color: #455064; font-size: .82rem; font-weight: 700; }.auth-form-wrap .form-control { border: 1px solid #dce1e8 !important; border-radius: 9px !important; padding: .75rem .9rem !important; }.auth-form-wrap .form-control:focus { border-color: #e38d59 !important; box-shadow: 0 0 0 .22rem rgba(217,100,32,.13) !important; }.auth-primary-btn { background: var(--auth-orange); border-color: var(--auth-orange); color: #fff; min-height: 48px; }.auth-primary-btn:hover { background: #af4811; border-color: #af4811; color: #fff; }.auth-switch { color: #737d8f; font-size: .84rem; margin: 1.4rem 0 .8rem; text-align: center; }.auth-switch a,.auth-back-link { color: #c65318; font-weight: 650; text-decoration: none; }.auth-back-link { display: block; font-size: .78rem; text-align: center; }
 
 /* Restored dashboard and medication surfaces beneath the shared navbar. */
-body:has(.home-dashboard),body:has(.medications-page),body:has(.coming-soon-page) { --app-ink:#202939;--app-muted:#697386;--app-line:#e6e8ee;--app-accent:#d96420;--app-accent-dark:#af4811;--app-accent-soft:#fff0e6;background:#f8f9fb;background-image:radial-gradient(circle at 88% 0,rgba(255,230,211,.68),transparent 26rem);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; }
-body:has(.home-dashboard) > .main-content,body:has(.medications-page) > .main-content,body:has(.coming-soon-page) > .main-content { background:transparent;box-shadow:none;padding-top:2rem; }
+body:has(.home-dashboard),body:has(.medications-page),body:has(.coming-soon-page),body:has(.health-page) { --app-ink:#202939;--app-muted:#697386;--app-line:#e6e8ee;--app-accent:#d96420;--app-accent-dark:#af4811;--app-accent-soft:#fff0e6;background:#f8f9fb;background-image:radial-gradient(circle at 88% 0,rgba(255,230,211,.68),transparent 26rem);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; }
+body:has(.home-dashboard) > .main-content,body:has(.medications-page) > .main-content,body:has(.coming-soon-page) > .main-content,body:has(.health-page) > .main-content { background:transparent;box-shadow:none;padding-top:2rem; }
 .dashboard-heading { align-items:flex-end;border-bottom:1px solid var(--app-line);display:flex;justify-content:space-between;padding:.4rem 0 1.5rem; }.dashboard-kicker,.app-eyebrow { color:var(--app-accent);font-size:.68rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase; }.dashboard-heading h1 { color:var(--app-ink)!important;font-family:inherit!important;font-size:clamp(1.8rem,3vw,2.45rem)!important;letter-spacing:-.04em;margin-bottom:.4rem!important; }.dashboard-heading p:not(.dashboard-kicker),.dashboard-date { color:var(--app-muted)!important; }.dashboard-date { font-size:.82rem;font-weight:650; }.dashboard-section-heading { margin-top:2.1rem; }.dashboard-section-heading h2 { color:var(--app-ink)!important;font-family:inherit;font-size:1.22rem!important; }
 .home-dashboard .pet-card { border:1px solid var(--app-line);border-radius:14px;box-shadow:0 5px 18px rgba(30,41,57,.05);height:100%;padding:1.25rem; }.home-dashboard .pet-card:hover { border-color:#efc3a6;box-shadow:0 14px 28px rgba(30,41,57,.1); }.home-dashboard .pet-card-edit-btn { border:1px solid #dce1e8;color:#768193;opacity:1; }.home-dashboard .pet-card-edit-btn:hover { background:var(--app-accent-soft);border-color:#eca273;color:var(--app-accent); }.home-dashboard .pet-avatar { background:var(--app-accent-soft); }.home-dashboard .quick-log-form { background:#fbfaf9;border:1px solid #eee9e4;border-radius:10px;padding:.6rem; }.home-dashboard .quick-log-label { color:#687080;font-size:.7rem;font-weight:600;max-width:none;overflow:hidden;text-align:left;text-overflow:ellipsis;white-space:nowrap;width:100%; }.home-dashboard .quick-log-pill { background:#fff;border:1px solid #ded7d0;border-radius:7px;color:#4b443f;font-size:.81rem;padding:.42rem .55rem; }.home-dashboard .quick-log-pill:hover { background:var(--app-accent-soft);border-color:#e5a779;transform:none; }.home-dashboard .add-task-card-btn { background:var(--app-ink);border-radius:8px; }.home-dashboard .add-task-card-btn:hover { background:#374151; }.home-dashboard .task-log-card { border:1px solid var(--app-line);border-radius:13px;box-shadow:0 5px 18px rgba(30,41,57,.05); }.home-dashboard .task-log-card-header { border-bottom-color:#eee9e4; }.home-dashboard .task-log-toggle { color:var(--app-ink);font-family:inherit;padding:1rem 1.1rem; }.home-dashboard .task-date-pill { background:#fff5ed;border-color:#f4d2b7;color:#b85820;font-size:.66rem; }.home-dashboard .task-row { border-bottom-color:#f0ebe7;padding:.65rem 0; }.home-dashboard .task-icon { background:#fff3e9;height:31px;width:31px; }.home-dashboard .btn-edit-tasks { border:1px solid #d7d1ca;border-radius:8px;color:#655c55; }
 .medications-page .app-page-heading { border-bottom:1px solid var(--app-line);padding-bottom:1.5rem; }.medications-page .app-page-heading h1 { color:var(--app-ink)!important;font-family:inherit;font-size:clamp(1.9rem,3vw,2.45rem);letter-spacing:-.04em; }.medications-page .app-panel,.medications-page .med-card { border:1px solid var(--app-line)!important;border-radius:13px!important;box-shadow:0 5px 18px rgba(30,41,57,.05)!important; }.medications-page .med-card:hover { border-color:#efc3a6!important;transform:translateY(-2px); }.medications-page .med-card-edit-btn { background:#fff!important;border:1px solid #dce1e8!important;color:#768193!important;opacity:1; }.medications-page .app-section-heading { margin-top:2.2rem; }.medications-page .app-section-heading h2 { color:var(--app-ink)!important;font-family:inherit;font-size:1.22rem!important; }.medications-page .form-control,.medications-page .form-select { border:1px solid #dce1e8!important;border-radius:9px!important; }.medications-page .form-control:focus,.medications-page .form-select:focus { border-color:#e38d59!important;box-shadow:0 0 0 .22rem rgba(217,100,32,.13)!important; }.medications-page .app-table-wrap { background:#fff;border:1px solid var(--app-line);border-radius:12px;box-shadow:0 5px 18px rgba(30,41,57,.04); }.medications-page .table { border:0!important;box-shadow:none!important;margin:0; }.medications-page .table thead th { background:#fbfaf9!important;border-bottom:1px solid var(--app-line)!important;color:#586273!important;font-size:.72rem;font-weight:750!important;letter-spacing:.04em;padding:.9rem 1rem!important;text-align:left!important;text-transform:uppercase; }.medications-page .table td { border-color:#edf0f3!important;color:#566172;font-size:.87rem;padding:.9rem 1rem!important;text-align:left; }.medications-page .table tbody tr:nth-child(even) td { background:#fff!important; }.medications-page .table tbody tr:hover td { background:#fff8f3!important; }
@@ -923,7 +923,9 @@ html[data-bs-theme="dark"] :is(
     .table, .app-panel, .app-table-wrap, .med-card, .profile-card,
     .profile-content .card, .care-notifications, .quick-log-form,
     .vet-integration-panel, .vet-integration-option, .coming-soon-page,
-    fieldset, .form-control, .form-select
+    fieldset, .form-control, .form-select,
+    .health-overview-card, .health-stat-card, .health-med-card, .health-filter,
+    .health-vet-card, .vet-report-card, .empty-health
 ) {
     background: #111820 !important;
     background-image: none !important;
@@ -990,6 +992,52 @@ html[data-bs-theme="dark"] :is(.home-dashboard, .medications-page) .seg-option.s
 
 html[data-bs-theme="dark"] :is(.home-dashboard, .medications-page) .seg-option:hover:not(.seg-active) {
     background: #202832 !important;
+    color: #fff !important;
+}
+
+/* Health page: status/severity badges keep their border+bg dark like every other
+   card, but stay color-coded through text color so meaning survives high-contrast mode.
+   Selectors double up the class (".health-badge.health-badge-due") because the
+   high-contrast block above forces color on every span/li/etc. via an :is() list that
+   itself contains class arguments (.text-muted, .nav-link, ...) — that gives the broad
+   rule specificity (0,2,2), so a single-class override here (0,2,1) loses without help. */
+html[data-bs-theme="dark"] .health-badge {
+    background: #111820 !important;
+    border: 1px solid #fff !important;
+}
+html[data-bs-theme="dark"] .health-badge.health-badge-taken { color: #7ee2ab !important; }
+html[data-bs-theme="dark"] .health-badge.health-badge-due { color: #8ec7f5 !important; }
+html[data-bs-theme="dark"] .health-badge.health-badge-late,
+html[data-bs-theme="dark"] .health-badge.health-badge-missed { color: #ff9d9d !important; }
+html[data-bs-theme="dark"] .health-badge.health-badge-skipped { color: #f0c96a !important; }
+html[data-bs-theme="dark"] .health-badge.health-badge-severity { color: #f0b27a !important; }
+html[data-bs-theme="dark"] .health-stat-card:hover,
+html[data-bs-theme="dark"] .health-med-card:hover {
+    border-color: #fff !important;
+    box-shadow: 0 0 0 1px #fff !important;
+}
+html[data-bs-theme="dark"] .health-page .form-select,
+html[data-bs-theme="dark"] .health-page .form-control {
+    background: #111820 !important;
+}
+
+/* These are plain <div>/<li> elements the high-contrast :is() list above doesn't reach,
+   so var(--app-ink)/var(--app-muted) (defined once, for light mode, on body:has(.health-page))
+   would otherwise render literally — dark navy / slate text on a near-black card. */
+html[data-bs-theme="dark"] .health-med-name,
+html[data-bs-theme="dark"] .health-timeline-body,
+html[data-bs-theme="dark"] .health-vet-card h3 {
+    color: #fff !important;
+}
+html[data-bs-theme="dark"] .health-med-meta,
+html[data-bs-theme="dark"] .health-timeline-meta,
+html[data-bs-theme="dark"] .health-timeline-summary,
+html[data-bs-theme="dark"] .health-vet-card p {
+    color: #aeb8c6 !important;
+}
+html[data-bs-theme="dark"] .health-date-pill.health-date-pill {
+    background: #111820 !important;
+    border-color: #fff !important;
     color: #fff !important;
 }
 

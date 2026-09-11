@@ -1,0 +1,132 @@
+@page
+@model PetPotty.Pages.ReportsModel
+@using PetPotty.Models
+@{
+    ViewData["Title"] = "Vet-ready report";
+    var symptomEvents = Model.HealthEvents.Where(item => item.EventKind == HealthEventKinds.Symptom).ToList();
+    var incidentEvents = Model.HealthEvents.Where(item => item.EventKind == HealthEventKinds.Incident).ToList();
+    var averageSeverity = Model.HealthEvents.Where(item => item.Severity.HasValue).Select(item => item.Severity!.Value).DefaultIfEmpty().Average();
+}
+
+<style>
+    .reports-page { max-width: 1050px; margin: 0 auto; }
+    .report-controls, .report-sheet { background: var(--bs-body-bg); border: 1px solid var(--app-line); border-radius: 14px; }
+    .report-controls { padding: 1rem; }
+    .report-sheet { padding: clamp(1.2rem, 4vw, 2.5rem); }
+    .report-header { border-bottom: 3px solid var(--app-accent); padding-bottom: 1rem; }
+    .report-section { border-top: 1px solid var(--app-line); margin-top: 1.5rem; padding-top: 1.2rem; }
+    .report-section h2 { color: var(--app-ink); font-size: 1.15rem; }
+    .report-stat { background: var(--app-accent-soft); border-radius: 10px; min-height: 80px; padding: .8rem; }
+    .report-stat strong { color: var(--app-ink); display: block; font-size: 1.35rem; }
+    .report-list { margin: 0; padding-left: 1.1rem; }
+    .report-list li { margin-bottom: .55rem; }
+    .report-note { background: #fff8f3; border-left: 4px solid var(--app-accent); padding: .8rem 1rem; white-space: pre-wrap; }
+    @@media print {
+        @@page { margin: .55in; }
+        header, footer, nav, .report-controls, .no-print { display: none !important; }
+        body, .main-content { background: #fff !important; color: #111 !important; margin: 0 !important; max-width: none !important; padding: 0 !important; }
+        .report-sheet { border: 0; box-shadow: none; padding: 0; }
+        .report-section { break-inside: avoid; }
+        .report-stat, .report-note { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    }
+</style>
+
+<div class="reports-page pb-5">
+    <header class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 py-4">
+        <div><p class="app-eyebrow mb-1">HEALTH / VET REPORT</p><h1 class="mb-1">Health report</h1><p class="text-secondary mb-0">A descriptive summary for a veterinary conversation—not a diagnosis.</p></div>
+        <div class="d-flex flex-wrap gap-2 no-print">
+            <a asp-page="/Health" asp-route-petID="@Model.SelectedPetID" class="btn btn-outline-secondary">Back to Health</a>
+            @if (Model.SelectedPet != null) { <button type="button" class="btn btn-primary" onclick="window.print()">Print or save PDF</button> }
+        </div>
+    </header>
+
+    @if (!string.IsNullOrWhiteSpace(Model.ReportError)) { <div class="alert alert-danger">@Model.ReportError</div> }
+
+    <form method="post" asp-page-handler="Generate" class="report-controls row g-2 align-items-end mb-3">
+        <div class="col-12 col-md-3"><label asp-for="SelectedPetID" class="form-label">Pet</label><select asp-for="SelectedPetID" class="form-select" required><option value="">Choose pet</option>@foreach (var pet in Model.Pets) { <option value="@pet.PetID">@pet.Name</option> }</select></div>
+        <div class="col-12 col-md-2"><label asp-for="Period" class="form-label">Period</label><select asp-for="Period" id="reportPeriod" class="form-select"><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="Custom">Custom</option></select></div>
+        <div class="col-6 col-md-2 custom-range"><label asp-for="CustomFrom" class="form-label">From</label><input asp-for="CustomFrom" type="date" class="form-control" /></div>
+        <div class="col-6 col-md-2 custom-range"><label asp-for="CustomTo" class="form-label">To</label><input asp-for="CustomTo" type="date" class="form-control" /></div>
+        <div class="col-12 col-md-3"><label asp-for="QuestionsForVet" class="form-label">Questions for the veterinarian</label><textarea asp-for="QuestionsForVet" class="form-control" rows="2" maxlength="2000" placeholder="Optional; included in the printout"></textarea></div>
+        <div class="col-12 d-grid d-md-flex justify-content-md-end"><button type="submit" class="btn btn-secondary">Generate report</button></div>
+    </form>
+
+    @if (Model.Pets.Count == 0)
+    {
+        <div class="report-sheet text-center"><h2 class="h5">Add a pet first</h2><a asp-page="/Home" class="btn btn-primary">Go to dashboard</a></div>
+    }
+    else if (Model.SelectedPet != null && string.IsNullOrWhiteSpace(Model.ReportError))
+    {
+        <article class="report-sheet">
+            <div class="report-header d-flex justify-content-between gap-3">
+                <div><p class="app-eyebrow mb-1">PETPOTTY HEALTH HISTORY</p><h1 class="h2 mb-1">@Model.SelectedPet.Name</h1><div>@Model.SelectedPet.Type · @Model.SelectedPet.Breed · @Model.SelectedPet.Gender</div></div>
+                <div class="text-end"><strong>@Model.RangeLabel</strong><div class="text-secondary small">Generated @DateTime.UtcNow.ToString("MMM d, yyyy 'UTC'")</div></div>
+            </div>
+
+            <section class="report-section">
+                <h2>At a glance</h2>
+                <div class="row g-2">
+                    <div class="col-6 col-md"><div class="report-stat"><strong>@symptomEvents.Count</strong><span>Symptoms</span></div></div>
+                    <div class="col-6 col-md"><div class="report-stat"><strong>@incidentEvents.Count</strong><span>Incidents</span></div></div>
+                    <div class="col-6 col-md"><div class="report-stat"><strong>@(averageSeverity == 0 ? "—" : averageSeverity.ToString("0.0"))</strong><span>Avg. severity</span></div></div>
+                    <div class="col-6 col-md"><div class="report-stat"><strong>@Model.Adherence.AdherencePercent%</strong><span>Dose adherence</span></div></div>
+                    <div class="col-6 col-md"><div class="report-stat"><strong>@Model.VetVisits.Count</strong><span>Vet visits</span></div></div>
+                </div>
+            </section>
+
+            <section class="report-section">
+                <h2>Current medications</h2>
+                @if (Model.CurrentMedications.Count == 0) { <p class="text-secondary">No current medications recorded.</p> }
+                else { <ul class="report-list">@foreach (var med in Model.CurrentMedications) { <li><strong>@med.MedicationName</strong> — @med.Dosage, @med.FrequencyDisplay @(med.TimingDoesNotMatter ? "(any time on scheduled day)" : null) @if (!string.IsNullOrWhiteSpace(med.Notes)) { <span> · @med.Notes</span> }</li> }</ul> }
+            </section>
+
+            <section class="report-section">
+                <h2>Medication adherence</h2>
+                <p>@Model.Adherence.Taken taken on time · @Model.Adherence.TakenLate taken late · @Model.Adherence.Skipped skipped · @Model.Adherence.Missed missed</p>
+                @if (Model.DoseRecords.Any(dose => dose.EffectiveStatus is MedicationDoseStatuses.Skipped or MedicationDoseStatuses.Missed))
+                {
+                    <ul class="report-list">@foreach (var dose in Model.DoseRecords.Where(dose => dose.EffectiveStatus is MedicationDoseStatuses.Skipped or MedicationDoseStatuses.Missed)) { <li><strong>@dose.ScheduleDate.ToString("MMM d") — @dose.MedicationName: @dose.EffectiveStatus</strong>@if (!string.IsNullOrWhiteSpace(dose.StatusReason)) { <span> · @dose.StatusReason</span> }</li> }</ul>
+                }
+            </section>
+
+            <section class="report-section">
+                <h2>Symptoms and incidents</h2>
+                @if (Model.HealthEvents.Count == 0) { <p class="text-secondary">No symptoms or incidents recorded in this period.</p> }
+                else
+                {
+                    <ul class="report-list">
+                        @foreach (var item in Model.HealthEvents)
+                        {
+                            <li><strong>@Model.Local(item.OccurredAtUtc).ToString("MMM d, h:mm tt") — @item.EventKind: @item.EventType</strong>@if (item.Severity.HasValue) { <span> · severity @item.Severity/5</span> }<span> · recorded by @item.CreatedByName</span>@if (!string.IsNullOrWhiteSpace(item.Description)) { <div>@item.Description</div> }@if (!string.IsNullOrWhiteSpace(item.AppetiteStatus) || !string.IsNullOrWhiteSpace(item.DrinkingStatus)) { <div>Appetite: @(string.IsNullOrWhiteSpace(item.AppetiteStatus) ? "not recorded" : item.AppetiteStatus); drinking: @(string.IsNullOrWhiteSpace(item.DrinkingStatus) ? "not recorded" : item.DrinkingStatus)</div> }</li>
+                        }
+                    </ul>
+                }
+            </section>
+
+            <section class="report-section">
+                <h2>Vet visits</h2>
+                @if (Model.VetVisits.Count == 0) { <p class="text-secondary">No vet visits recorded in this period.</p> }
+                else { <ul class="report-list">@foreach (var visit in Model.VetVisits) { <li><strong>@visit.VisitDate.ToString("MMM d") — @visit.VisitReason</strong> · @visit.Status · recorded by @(string.IsNullOrWhiteSpace(visit.CreatedByName) ? "account owner" : visit.CreatedByName)@if (!string.IsNullOrWhiteSpace(visit.VisitSummary)) { <div>@visit.VisitSummary</div> }@if (!string.IsNullOrWhiteSpace(visit.Diagnosis)) { <div>Diagnosis recorded by clinic: @visit.Diagnosis</div> }</li> }</ul> }
+            </section>
+
+            @if (!string.IsNullOrWhiteSpace(Model.QuestionsForVet))
+            {
+                <section class="report-section"><h2>Questions for the veterinarian</h2><div class="report-note">@Model.QuestionsForVet</div></section>
+            }
+
+            <p class="small text-secondary mt-4 mb-0">This report summarizes records entered in PetPotty. It does not provide a diagnosis or establish that one event caused another.</p>
+        </article>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        (() => {
+            const period = document.getElementById('reportPeriod');
+            const ranges = document.querySelectorAll('.custom-range');
+            const update = () => ranges.forEach(element => element.hidden = period.value !== 'Custom');
+            period.addEventListener('change', update);
+            update();
+        })();
+    </script>
+}

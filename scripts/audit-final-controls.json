@@ -1,0 +1,164 @@
+[
+  {
+    "Status": 200,
+    "Method": "GET",
+    "Endpoint": "/Home",
+    "Pass": true
+  },
+  {
+    "Status": 200,
+    "Method": "GET",
+    "Endpoint": "/uploads/pets/24_428cad3facb743c39ea9a16b8b3c928d.png",
+    "Pass": true
+  },
+  {
+    "Status": 200,
+    "Method": "GET",
+    "Endpoint": "/Medications?petID=24",
+    "Pass": true
+  },
+  {
+    "Status": 302,
+    "Method": "POST",
+    "Endpoint": "/Medications?handler=SelectPet",
+    "Pass": true
+  },
+  {
+    "Status": 302,
+    "Method": "POST",
+    "Endpoint": "/Medications?handler=SetScheduleView",
+    "Pass": true
+  },
+  {
+    "Status": 302,
+    "Method": "POST",
+    "Endpoint": "/Home?handler=SetTaskView",
+    "Pass": true
+  },
+  {
+    "Status": 302,
+    "Method": "POST",
+    "Endpoint": "/Home?handler=ShowMoreTasks",
+    "Pass": true
+  },
+  {
+    "Status": 302,
+    "Method": "POST",
+    "Endpoint": "/Home?handler=EditPet",
+    "Pass": true
+  },
+  {
+    "Status": 302,
+    "Method": "POST",
+    "Endpoint": "/Home?handler=QuickLog",
+    "Pass": true
+  },
+  {
+    "Status": 302,
+    "Method": "POST",
+    "Endpoint": "/Home?handler=UpdateTask",
+    "Pass": true
+  },
+  {
+    "Status": 302,
+    "Method": "POST",
+    "Endpoint": "/Home?handler=DeleteTask",
+    "Pass": true
+  },
+  {
+    "Status": 302,
+    "Method": "POST",
+    "Endpoint": "/Medications?handler=EditMedication",
+    "Pass": true
+  },
+  {
+    "Status": 302,
+    "Method": "POST",
+    "Endpoint": "/Medications?handler=ConfirmSchedule",
+    "Pass": true
+  },
+  {
+    "Status": 302,
+    "Method": "POST",
+    "Endpoint": "/Medications?handler=UnconfirmSchedule",
+    "Pass": true
+  },
+  {
+    "Status": 302,
+    "Method": "POST",
+    "Endpoint": "/Medications?handler=DeleteMedication",
+    "Pass": true
+  },
+  {
+    "Status": 302,
+    "Method": "POST",
+    "Endpoint": "/VetVisits",
+    "Pass": true
+  },
+  {
+    "Status": 302,
+    "Method": "POST",
+    "Endpoint": "/VetVisits?handler=EditVisit",
+    "Pass": true
+  },
+  {
+    "Status": 200,
+    "Method": "GET",
+    "Endpoint": "/VetVisits?handler=PreviewDocument&documentID=22",
+    "Pass": true
+  },
+  {
+    "Status": 200,
+    "Method": "POST",
+    "Endpoint": "/VetVisits?handler=DownloadDocument",
+    "Pass": true
+  },
+  {
+    "Status": 302,
+    "Method": "POST",
+    "Endpoint": "/VetVisits?handler=UpdateDocument",
+    "Pass": true
+  },
+  {
+    "Status": 302,
+    "Method": "POST",
+    "Endpoint": "/VetVisits?handler=DeleteDocument",
+    "Pass": true
+  },
+  {
+    "Status": 302,
+    "Method": "POST",
+    "Endpoint": "/VetVisits?handler=DismissReminder",
+    "Pass": true
+  },
+  {
+    "Status": 302,
+    "Method": "POST",
+    "Endpoint": "/VetVisits?handler=ChangeStatus",
+    "Pass": true
+  },
+  {
+    "Status": 302,
+    "Method": "POST",
+    "Endpoint": "/VetVisits?handler=CompleteVisit",
+    "Pass": true
+  },
+  {
+    "Status": 302,
+    "Method": "POST",
+    "Endpoint": "/VetVisits?handler=DeleteVisit",
+    "Pass": true
+  },
+  {
+    "Status": 302,
+    "Method": "POST",
+    "Endpoint": "/Home?handler=ResetPetImage",
+    "Pass": true
+  },
+  {
+    "Status": 302,
+    "Method": "POST",
+    "Endpoint": "/Home?handler=DeletePet",
+    "Pass": true
+  }
+]

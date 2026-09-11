@@ -1,0 +1,32 @@
+[
+  {
+    "Method": "POST",
+    "Endpoint": "/Home?handler=DeleteTask",
+    "Variant": "forged userID cookie and body",
+    "Fields": {
+      "userID": 25,
+      "taskID": 40
+    },
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  },
+  {
+    "Method": "POST",
+    "Endpoint": "/Medications?handler=ConfirmSchedule",
+    "Variant": "forged userID cookie and body",
+    "Fields": {
+      "logDate": "2026-09-06T00:00:00",
+      "medID": 1024,
+      "confirmedAt": "2026-09-06T03:14:32",
+      "userID": 25
+    },
+    "Status": 404,
+    "Location": "",
+    "Unchanged": true,
+    "Leak": false,
+    "Pass": true
+  }
+]

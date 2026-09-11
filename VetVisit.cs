@@ -30,6 +30,8 @@ namespace PetPotty.Models
         public string FollowUpInstructions { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
+        public int? CreatedByUserID { get; set; }
+        public string CreatedByName { get; set; } = string.Empty;
         public int? ReminderID { get; set; }
         public DateTime? ReminderAt { get; set; }
         public string? ReminderStatus { get; set; }

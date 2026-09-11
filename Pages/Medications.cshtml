@@ -1,5 +1,6 @@
 @page
 @model PetPotty.Pages.MedicationsModel
+@using PetPotty.Models
 @{
     ViewData["Title"] = "Medications";
 }
@@ -300,8 +301,8 @@
                         <tr>
                             <th scope="col" class="schedule-medication">Medication</th>
                             <th scope="col" class="schedule-scheduled">Scheduled</th>
-                            <th scope="col" class="schedule-status">Dosage Given?</th>
-                            <th scope="col" class="schedule-confirmed-at">Dosage At</th>
+                            <th scope="col" class="schedule-status">Status</th>
+                            <th scope="col" class="schedule-confirmed-at">Recorded</th>
                             <th scope="col" class="schedule-action">Action</th>
                         </tr>
                     </thead>
@@ -312,9 +313,10 @@
                             var scheduleDisplay = s.TimingDoesNotMatter
                                 ? s.ScheduleDate.ToString("MMM d, yyyy")
                                 : s.ScheduleDate.ToString("MMM d, yyyy 'at' h:mm tt");
-                            var isPastDue = !s.IsConfirmed && (s.TimingDoesNotMatter
-                                ? s.ScheduleDate.Date < DateTime.Today
-                                : s.ScheduleDate < DateTime.Now);
+                            var isPastDue = s.EffectiveStatus == MedicationDoseStatuses.Missed
+                                || s.DoseStatus == MedicationDoseStatuses.Due && (s.TimingDoesNotMatter
+                                    ? s.ScheduleDate.Date < Model.UserNowLocal.Date
+                                    : s.ScheduleDate < Model.UserNowLocal);
                             <tr class="@(isPastDue ? "med-schedule-overdue" : null)">
                                 <td class="schedule-medication fw-semibold">@s.MedicationName</td>
                                 <td class="schedule-scheduled">
@@ -325,32 +327,34 @@
                                     }
                                 </td>
                                 <td class="schedule-status">
-                                    @if (s.IsConfirmed)
-                                    {
-                                        <span class="fw-semibold" style="color: var(--pet-success);">✓ Yes</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="fw-semibold" style="color: #dc3545;">✕ No</span>
-                                    }
+                                    <span class="fw-semibold" style="color: @(s.EffectiveStatus is MedicationDoseStatuses.Taken or MedicationDoseStatuses.TakenLate ? "var(--pet-success)" : s.EffectiveStatus == MedicationDoseStatuses.Due ? "var(--pet-info)" : "#dc3545")">@s.EffectiveStatus</span>
                                 </td>
                                 <td class="schedule-confirmed-at" style="color: #666; font-size: 0.9rem;">
-                                    @(s.ConfirmedAt.HasValue ? s.ConfirmedAt.Value.ToString("MMM d, h:mm tt") : "—")
+                                    <span class="d-block">@(s.ConfirmedAt.HasValue ? s.ConfirmedAt.Value.ToString("MMM d, h:mm tt") : "—")</span>
+                                    @if (!string.IsNullOrWhiteSpace(s.RecordedByName)) { <small>by @s.RecordedByName</small> }
+                                    @if (!string.IsNullOrWhiteSpace(s.StatusReason)) { <small class="d-block">@s.StatusReason</small> }
                                 </td>
                                 <td class="schedule-action">
-                                    @if (!s.IsConfirmed)
+                                    @if (s.DoseStatus == MedicationDoseStatuses.Due)
                                     {
-                                        <button type="button"
+                                        <div class="d-flex flex-wrap gap-1 justify-content-center">
+                                            <button type="button"
                                                 class="btn btn-sm btn-success confirm-dose-btn"
-                                                style="border-radius: 20px; padding: 4px 14px; font-size: 0.82rem;"
+                                                style="border-radius: 20px; padding: 4px 12px; font-size: 0.82rem;"
                                                 data-bs-toggle="modal"
                                                 data-bs-target="#confirmDoseModal"
                                                 data-med-id="@s.MedID"
                                                 data-med-name="@s.MedicationName"
                                                 data-log-date="@logDateStr"
                                                 data-scheduled-display="@scheduleDisplay">
-                                            ✔ Confirm Dose
-                                        </button>
+                                                ✔ Taken
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary record-dose-btn"
+                                                    style="border-radius:20px; padding:4px 12px; font-size:.82rem;"
+                                                    data-bs-toggle="modal" data-bs-target="#recordDoseModal"
+                                                    data-med-id="@s.MedID" data-med-name="@s.MedicationName"
+                                                    data-log-date="@logDateStr" data-scheduled-display="@scheduleDisplay">Skip / miss</button>
+                                        </div>
                                     }
                                     else
                                     {
@@ -609,6 +613,7 @@ else
                 <form method="post" asp-page-handler="ConfirmSchedule">
                     <input type="hidden" name="medID" id="confirmDoseMedID" />
                     <input type="hidden" name="logDate" id="confirmDoseLogDate" />
+                    <input type="hidden" name="utcOffsetMinutes" data-utc-offset />
                     <div class="modal-body">
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Medication</label>
@@ -625,6 +630,7 @@ else
                             <input type="datetime-local" name="confirmedAt" id="confirmDoseConfirmedAt"
                                    class="form-control" required />
                         </div>
+                        <div class="mt-3"><label for="confirmDoseNotes" class="form-label fw-semibold">Notes (optional)</label><textarea name="notes" id="confirmDoseNotes" class="form-control" rows="2" maxlength="1000"></textarea></div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -632,6 +638,25 @@ else
                     </div>
                 </form>
             </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="recordDoseModal" tabindex="-1" aria-labelledby="recordDoseModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <form method="post" asp-page-handler="RecordDose" class="modal-content">
+                <input type="hidden" name="medID" id="recordDoseMedID" />
+                <input type="hidden" name="logDate" id="recordDoseLogDate" />
+                <input type="hidden" name="utcOffsetMinutes" data-utc-offset />
+                <div class="modal-header"><h5 class="modal-title" id="recordDoseModalLabel">Record dose outcome</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <div class="mb-3"><label class="form-label fw-semibold">Medication</label><input id="recordDoseMedName" class="form-control" readonly /></div>
+                    <div class="mb-3"><label class="form-label fw-semibold">Scheduled dose</label><input id="recordDoseScheduledDisplay" class="form-control" readonly /></div>
+                    <div class="mb-3"><label for="recordDoseStatus" class="form-label fw-semibold">Outcome</label><select name="status" id="recordDoseStatus" class="form-select" required><option value="Skipped">Skipped</option><option value="Missed">Missed</option></select></div>
+                    <div class="mb-3"><label for="recordDoseReason" class="form-label fw-semibold">Reason <span class="required-marker">*</span></label><input name="reason" id="recordDoseReason" class="form-control" maxlength="500" required placeholder="For example: pet refused it" /></div>
+                    <div><label for="recordDoseNotes" class="form-label fw-semibold">Notes (optional)</label><textarea name="notes" id="recordDoseNotes" class="form-control" rows="2" maxlength="1000"></textarea></div>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Save outcome</button></div>
+            </form>
         </div>
     </div>
 
@@ -694,6 +719,15 @@ else
                 document.getElementById('confirmDoseMedName').value = this.dataset.medName;
                 document.getElementById('confirmDoseScheduledDisplay').value = this.dataset.scheduledDisplay;
                 document.getElementById('confirmDoseConfirmedAt').value = formatDateTimeLocal(new Date());
+            });
+        });
+
+        document.querySelectorAll('.record-dose-btn').forEach(button => {
+            button.addEventListener('click', function () {
+                document.getElementById('recordDoseMedID').value = this.dataset.medId;
+                document.getElementById('recordDoseLogDate').value = this.dataset.logDate;
+                document.getElementById('recordDoseMedName').value = this.dataset.medName;
+                document.getElementById('recordDoseScheduledDisplay').value = this.dataset.scheduledDisplay;
             });
         });
 

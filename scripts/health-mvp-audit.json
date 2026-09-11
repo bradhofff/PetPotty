@@ -1,0 +1,192 @@
+[
+  {
+    "Name": "create HEALTH_A_TODAY",
+    "Passed": true,
+    "Detail": "status=302 validation="
+  },
+  {
+    "Name": "create HEALTH_B_PRIVATE",
+    "Passed": true,
+    "Detail": "status=302 validation="
+  },
+  {
+    "Name": "create HEALTH_A_DAY_29",
+    "Passed": true,
+    "Detail": "status=302 validation="
+  },
+  {
+    "Name": "create HEALTH_A_DAY_30",
+    "Passed": true,
+    "Detail": "status=302 validation="
+  },
+  {
+    "Name": "create HEALTH_A_DAY_89",
+    "Passed": true,
+    "Detail": "status=302 validation="
+  },
+  {
+    "Name": "create HEALTH_A_DAY_90",
+    "Passed": true,
+    "Detail": "status=302 validation="
+  },
+  {
+    "Name": "health event stored as UTC",
+    "Passed": true,
+    "Detail": "2026-09-11T10:00:00"
+  },
+  {
+    "Name": "nonzero browser offset converted to UTC",
+    "Passed": true,
+    "Detail": "2026-09-11T11:00:00"
+  },
+  {
+    "Name": "multiple-pet empty timeline",
+    "Passed": true,
+    "Detail": ""
+  },
+  {
+    "Name": "primary navigation omits Reports",
+    "Passed": true,
+    "Detail": ""
+  },
+  {
+    "Name": "dashboard offers in-place health logging",
+    "Passed": true,
+    "Detail": ""
+  },
+  {
+    "Name": "dashboard and Health share creation handler",
+    "Passed": true,
+    "Detail": "status=302 location=/Home"
+  },
+  {
+    "Name": "timeline contains owned symptom",
+    "Passed": true,
+    "Detail": ""
+  },
+  {
+    "Name": "health overview includes medical summaries",
+    "Passed": true,
+    "Detail": ""
+  },
+  {
+    "Name": "routine Tasks stay out of Health",
+    "Passed": true,
+    "Detail": ""
+  },
+  {
+    "Name": "new care record attributed to recorder",
+    "Passed": true,
+    "Detail": ""
+  },
+  {
+    "Name": "timeline excludes another pet",
+    "Passed": true,
+    "Detail": ""
+  },
+  {
+    "Name": "Health owns vet-report generation UX",
+    "Passed": true,
+    "Detail": ""
+  },
+  {
+    "Name": "event-type filter",
+    "Passed": true,
+    "Detail": ""
+  },
+  {
+    "Name": "foreign timeline denied",
+    "Passed": true,
+    "Detail": "status=404"
+  },
+  {
+    "Name": "foreign symptom create denied",
+    "Passed": true,
+    "Detail": ""
+  },
+  {
+    "Name": "foreign health event delete denied",
+    "Passed": true,
+    "Detail": ""
+  },
+  {
+    "Name": "invalid severity rejected",
+    "Passed": true,
+    "Detail": ""
+  },
+  {
+    "Name": "foreign related medication rejected",
+    "Passed": true,
+    "Detail": ""
+  },
+  {
+    "Name": "taken-late status, UTC time, attribution and notes",
+    "Passed": true,
+    "Detail": "Taken late|56|2026-09-11T08:00:00|admin note"
+  },
+  {
+    "Name": "existing exact-time schedule shift preserved",
+    "Passed": true,
+    "Detail": "09/12/2026 06:00:00 -> 09/12/2026 08:00:00"
+  },
+  {
+    "Name": "skipped dose distinct and attributed",
+    "Passed": true,
+    "Detail": "Skipped|Pet refused|56|0"
+  },
+  {
+    "Name": "skip/miss reason required",
+    "Passed": true,
+    "Detail": ""
+  },
+  {
+    "Name": "manual missed dose distinct and attributed",
+    "Passed": true,
+    "Detail": "Missed|Not noticed until next day|56"
+  },
+  {
+    "Name": "undo restores due state",
+    "Passed": true,
+    "Detail": "Due|0"
+  },
+  {
+    "Name": "timing-does-not-matter remains taken, never late",
+    "Passed": true,
+    "Detail": "Taken"
+  },
+  {
+    "Name": "foreign dose outcome denied",
+    "Passed": true,
+    "Detail": ""
+  },
+  {
+    "Name": "new vet visit attributed to recorder",
+    "Passed": true,
+    "Detail": ""
+  },
+  {
+    "Name": "30-day report boundaries",
+    "Passed": true,
+    "Detail": ""
+  },
+  {
+    "Name": "report includes questions and adherence without routine tasks",
+    "Passed": true,
+    "Detail": ""
+  },
+  {
+    "Name": "90-day report boundaries",
+    "Passed": true,
+    "Detail": ""
+  },
+  {
+    "Name": "90-day report includes health, medication and vet sources",
+    "Passed": true,
+    "Detail": ""
+  },
+  {
+    "Name": "foreign report denied",
+    "Passed": true,
+    "Detail": "status=404"
+  }
+]
