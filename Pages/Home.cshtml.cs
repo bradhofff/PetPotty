@@ -40,7 +40,6 @@ namespace PetPotty.Pages
         // View data: pet cards, visible history, latest potty activity, and care reminders.
         // Despite its name, PetAllTasks holds only the latest matching Pee/Poop records.
         public List<Pet> Pets { get; set; } = new();
-        public List<Medication> MedicationOptions { get; set; } = new();
         public Dictionary<int, List<TaskItem>> PetTasks { get; set; } = new();
         public Dictionary<int, List<TaskItem>> PetAllTasks { get; set; } = new();
         public Dictionary<int, List<DashboardCareItem>> PetCareItems { get; set; } = new();
@@ -138,30 +137,37 @@ namespace PetPotty.Pages
             if (validationError != null)
                 return ShowPetModalError("addPetModal", validationError);
 
-            var petID = 0;
-            string? savedImagePath = null;
+            // Split from the image-save step below so a failure here is never reported to
+            // the user as a photo problem — no photo has been touched yet at this point.
+            int petID;
             try
             {
                 petID = _petService.AddPet(UserID, NewPetName, NewPetType, NewPetBreed,
                                            NewPetAge, NewPetBirthdate, NewPetGender);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Could not add pet for user {UserID}", UserID);
+                return ShowPetModalError("addPetModal", "The pet could not be added. Please check the details and try again.");
+            }
 
-                if (NewPetImage != null && NewPetImage.Length > 0)
+            if (NewPetImage != null && NewPetImage.Length > 0)
+            {
+                string? savedImagePath = null;
+                try
                 {
                     savedImagePath = await _petImageStorage.SaveAsync(petID, NewPetImage, HttpContext.RequestAborted);
                     _petService.UpdatePetProfileImagePath(UserID, petID, savedImagePath);
                 }
-            }
-            catch (Exception ex)
-            {
-                _petImageStorage.Delete(savedImagePath);
-                if (petID != 0)
+                catch (Exception ex)
                 {
+                    _petImageStorage.Delete(savedImagePath);
                     try { _petService.DeletePet(UserID, petID); }
                     catch (Exception cleanupEx) { _logger.LogWarning(cleanupEx, "Could not roll back pet {PetID} after image upload failed", petID); }
-                }
 
-                _logger.LogError(ex, "Could not add pet and profile image for user {UserID}", UserID);
-                return ShowPetModalError("addPetModal", "The pet photo could not be saved. Please try again.");
+                    _logger.LogError(ex, "Could not save profile image for pet {PetID} (user {UserID})", petID, UserID);
+                    return ShowPetModalError("addPetModal", "The pet photo could not be saved. Please try again.");
+                }
             }
 
             TempData["StatusMessage"] = $"{NewPetName} has been added!";
@@ -509,10 +515,6 @@ namespace PetPotty.Pages
         private void LoadData()
         {
             Pets = _petService.GetPetsByUser(UserID);
-            MedicationOptions = Pets
-                .SelectMany(pet => _medicationService.GetMedicationsByPetID(pet.PetID))
-                .OrderBy(medication => medication.MedicationName)
-                .ToList();
             var utcOffsetMinutes = _timeZone.GetUtcOffsetMinutes(Request);
             UserNowLocal = _timeZone.ToLocal(DateTime.UtcNow, utcOffsetMinutes);
             TaskHistoryStage = GetTaskHistoryStage();

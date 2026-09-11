@@ -961,6 +961,14 @@
 
         const modalToOpen = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ModalToOpen));
         const openAddModal = @Model.OpenAddModal.ToString().ToLowerInvariant();
+        if (modalToOpen === 'editVisitModal') {
+            // Reopening from a deep link (not a row's Update click), so the UI-only derived
+            // state (all-day hides the time field, reminder choice shows/hides its date, the
+            // searchable clinic select) needs the same re-sync the click handler normally does.
+            syncAllDay(document.getElementById('editAllDay'));
+            syncReminderFields(document.getElementById('editReminderChoice'));
+            initializeClinicSelector(document.getElementById('editClinicSelector'));
+        }
         if (modalToOpen) {
             bootstrap.Modal.getOrCreateInstance(document.getElementById(modalToOpen)).show();
         } else if (openAddModal) {

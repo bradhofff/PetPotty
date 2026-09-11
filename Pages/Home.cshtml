@@ -340,6 +340,10 @@
         background: white;
         border: 2px solid #d96420;
         color: #a8430a;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
     }
     .log-health-card-btn:hover {
         background: rgba(244,164,96,0.18);
@@ -777,7 +781,9 @@ else
                         </form>
                     </div>
 
-                    @* Compact pet-specific quick actions *@
+                    @* Compact pet-specific quick actions. Health logging lives on /Health now —
+                       "Pet Details" links there instead of opening a dashboard quick-add modal,
+                       so all of a pet's medications, history, and vet care are one click away. *@
                     <div class="pet-quick-actions">
                         <button type="button"
                                 class="add-task-card-btn add-task-btn"
@@ -787,14 +793,9 @@ else
                                 data-pet-name="@pet.Name">
                             + Add Task
                         </button>
-                        <button type="button"
-                                class="log-health-card-btn dashboard-health-btn"
-                                data-bs-toggle="modal"
-                                data-bs-target="#dashboardHealthEventModal"
-                                data-pet-id="@pet.PetID"
-                                data-pet-name="@pet.Name">
-                            + Log Health Event
-                        </button>
+                        <a asp-page="/Health" asp-route-petID="@pet.PetID" class="log-health-card-btn">
+                            🩺 Pet Details
+                        </a>
                     </div>
 
                     @{
@@ -1002,134 +1003,6 @@ else
 @* _Layout renders dialogs outside the main wrapper. Each asp-page-handler connects
    a form to HomeModel.OnPost[Handler][Async]; asp-for connects inputs to bound properties. *@
 @section Modals {
-
-    @* Dashboard health logging posts to the Health page handler so both entry
-       points share the same validation, ownership checks, UTC conversion, and service. *@
-    <div class="modal fade" id="dashboardHealthEventModal" tabindex="-1"
-         aria-labelledby="dashboardHealthEventModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <form method="post" asp-page="/Health" asp-page-handler="LogEvent" class="modal-content">
-                <input type="hidden" name="ReturnToDashboard" value="true" />
-                <input type="hidden" name="NewEvent.PetID" id="dashboardHealthPetID" />
-                <input type="hidden" name="NewEvent.UtcOffsetMinutes" data-utc-offset />
-                <div class="modal-header">
-                    <div>
-                        <div class="app-eyebrow mb-1">FAST HEALTH LOG</div>
-                        <h2 class="modal-title fs-5" id="dashboardHealthEventModalLabel">
-                            Log a health event for <span id="dashboardHealthPetName"></span>
-                        </h2>
-                    </div>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <fieldset class="mb-3">
-                        <legend class="form-label mb-2">What are you recording? <span class="required-marker" aria-hidden="true">*</span></legend>
-                        <div class="d-flex flex-wrap gap-2">
-                            <input class="btn-check dashboard-health-kind" type="radio" name="NewEvent.EventKind"
-                                   id="dashboardHealthSymptom" value="Symptom" required />
-                            <label class="btn btn-outline-primary" for="dashboardHealthSymptom">🩺 Symptom</label>
-                            <input class="btn-check dashboard-health-kind" type="radio" name="NewEvent.EventKind"
-                                   id="dashboardHealthIncident" value="Incident" required />
-                            <label class="btn btn-outline-primary" for="dashboardHealthIncident">⚠️ Incident</label>
-                        </div>
-                    </fieldset>
-                    <div class="row g-3">
-                        <div class="col-md-5">
-                            <label class="form-label" for="dashboardHealthType">What happened? <span class="required-marker" aria-hidden="true">*</span></label>
-                            <input class="form-control" id="dashboardHealthType" name="NewEvent.EventType"
-                                   list="dashboardHealthTypes" maxlength="100" required />
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label" for="dashboardHealthOccurred">When <span class="required-marker" aria-hidden="true">*</span></label>
-                            <input class="form-control" id="dashboardHealthOccurred" name="NewEvent.OccurredAtLocal"
-                                   type="datetime-local" required />
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label" for="dashboardHealthSeverity">Severity</label>
-                            <select class="form-select" id="dashboardHealthSeverity" name="NewEvent.Severity">
-                                <option value="">Not rated</option>
-                                <option value="1">1 — Mild</option>
-                                <option value="2">2</option>
-                                <option value="3">3 — Moderate</option>
-                                <option value="4">4</option>
-                                <option value="5">5 — Severe</option>
-                            </select>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label" for="dashboardHealthDescription">Quick note</label>
-                            <textarea class="form-control" id="dashboardHealthDescription" name="NewEvent.Description"
-                                      rows="3" maxlength="2000" placeholder="Optional details that may help later"></textarea>
-                        </div>
-                    </div>
-
-                    <details class="event-advanced">
-                        <summary>More details</summary>
-                        <div class="row g-3 mt-1">
-                            <div class="col-md-6">
-                                <label class="form-label" for="dashboardHealthEnded">Ended at</label>
-                                <input class="form-control" id="dashboardHealthEnded" name="NewEvent.EndedAtLocal" type="datetime-local" />
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label" for="dashboardHealthTrigger">Possible trigger</label>
-                                <input class="form-control" id="dashboardHealthTrigger" name="NewEvent.PossibleTrigger" maxlength="500" />
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label" for="dashboardHealthAppetite">Appetite</label>
-                                <select class="form-select" id="dashboardHealthAppetite" name="NewEvent.AppetiteStatus">
-                                    <option value="">Not recorded</option><option>Normal</option><option>Reduced</option><option>None</option><option>Increased</option>
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label" for="dashboardHealthDrinking">Drinking</label>
-                                <select class="form-select" id="dashboardHealthDrinking" name="NewEvent.DrinkingStatus">
-                                    <option value="">Not recorded</option><option>Normal</option><option>Reduced</option><option>None</option><option>Increased</option>
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label" for="dashboardHealthMedication">Relevant medication</label>
-                                <select class="form-select" id="dashboardHealthMedication" name="NewEvent.RelatedMedicationID">
-                                    <option value="">None selected</option>
-                                    @foreach (var med in Model.MedicationOptions) { <option value="@med.MedID" data-pet-id="@med.PetID">@med.MedicationName</option> }
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label" for="dashboardHealthRecovery">Recovery</label>
-                                <select class="form-select" id="dashboardHealthRecovery" name="NewEvent.RecoveryStatus">
-                                    <option value="">Not recorded</option><option>Ongoing</option><option>Improving</option><option>Recovered</option><option>Worsening</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label" for="dashboardHealthRecoveredAt">Recovered at</label>
-                                <input class="form-control" id="dashboardHealthRecoveredAt" name="NewEvent.RecoveredAtLocal" type="datetime-local" />
-                            </div>
-                            <div class="col-12">
-                                <div class="form-check">
-                                    <input class="form-check-input" id="dashboardHealthVetContacted" name="NewEvent.VeterinarianContacted" type="checkbox" value="true" />
-                                    <label class="form-check-label" for="dashboardHealthVetContacted">Veterinarian contacted</label>
-                                </div>
-                            </div>
-                        </div>
-                    </details>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary" id="dashboardHealthSubmit">Save health event</button>
-                </div>
-            </form>
-        </div>
-    </div>
-    <datalist id="dashboardHealthTypes">
-        @foreach (var type in PetPotty.Pages.HealthModel.SymptomTypes.Concat(PetPotty.Pages.HealthModel.IncidentTypes).Distinct())
-        {
-            <option value="@type"></option>
-        }
-    </datalist>
-    <datalist id="dashboardSymptomTypes">
-        @foreach (var type in PetPotty.Pages.HealthModel.SymptomTypes) { <option value="@type"></option> }
-    </datalist>
-    <datalist id="dashboardIncidentTypes">
-        @foreach (var type in PetPotty.Pages.HealthModel.IncidentTypes) { <option value="@type"></option> }
-    </datalist>
 
     @* ADD PET MODAL *@
     <div class="modal fade" id="addPetModal" tabindex="-1" aria-labelledby="addPetModalLabel" aria-hidden="true">
@@ -1930,42 +1803,5 @@ else
             });
         });
 
-        // ── Health quick action — keep the dashboard in context while using the
-        // same /Health creation handler as the full Health page. ──
-        const dashboardHealthType = document.getElementById('dashboardHealthType');
-        const dashboardHealthOccurred = document.getElementById('dashboardHealthOccurred');
-        const dashboardHealthSubmit = document.getElementById('dashboardHealthSubmit');
-        const dashboardHealthMedication = document.getElementById('dashboardHealthMedication');
-
-        function filterDashboardMedications(petId) {
-            dashboardHealthMedication.querySelectorAll('option[data-pet-id]').forEach(option => {
-                option.hidden = option.dataset.petId !== petId;
-                if (option.hidden && option.selected) dashboardHealthMedication.value = '';
-            });
-        }
-
-        document.querySelectorAll('.dashboard-health-btn').forEach(button => {
-            button.addEventListener('click', function () {
-                document.getElementById('dashboardHealthPetID').value = this.dataset.petId;
-                document.getElementById('dashboardHealthPetName').textContent = this.dataset.petName;
-                document.querySelectorAll('.dashboard-health-kind').forEach(input => { input.checked = false; });
-                dashboardHealthType.value = '';
-                dashboardHealthType.setAttribute('list', 'dashboardHealthTypes');
-                dashboardHealthOccurred.value = formatLocalDateTime(new Date());
-                document.getElementById('dashboardHealthSeverity').value = '';
-                document.getElementById('dashboardHealthDescription').value = '';
-                dashboardHealthSubmit.textContent = 'Save health event';
-                filterDashboardMedications(this.dataset.petId);
-            });
-        });
-        document.querySelectorAll('.dashboard-health-kind').forEach(input => {
-            input.addEventListener('change', function () {
-                dashboardHealthType.setAttribute(
-                    'list',
-                    this.value === 'Incident' ? 'dashboardIncidentTypes' : 'dashboardSymptomTypes');
-                dashboardHealthSubmit.textContent = `Save ${this.value}`;
-                dashboardHealthType.focus();
-            });
-        });
     </script>
 }

@@ -71,7 +71,7 @@ try {
 
     $dashboardPage = Request $a.Client GET '/Home'
     Check 'primary navigation omits Reports' ($dashboardPage.Status -eq 200 -and !$dashboardPage.Text.Contains('📄 Reports'))
-    Check 'dashboard offers in-place health logging' ($dashboardPage.Text.Contains('Log Health Event') -and $dashboardPage.Text.Contains('dashboardHealthEventModal'))
+    Check 'dashboard links to Health for full pet details' ($dashboardPage.Text.Contains('🩺 Pet Details') -and $dashboardPage.Text.Contains("/Health?petID=$($a.Pet)"))
     $dashboardHealthFields = HealthFields $a.Pet Symptom 'HEALTH_FROM_DASHBOARD' $today.AddHours(12)
     $dashboardHealthFields.ReturnToDashboard = 'true'
     $dashboardHealth = Request $a.Client POST '/Health?handler=LogEvent' $dashboardHealthFields

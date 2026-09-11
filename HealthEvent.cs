@@ -12,6 +12,9 @@ public static class HealthEventKinds
 
 public sealed class HealthEventInput
 {
+    // 0 for a new event; set to the existing HealthEventID when editing one in place.
+    public int HealthEventID { get; set; }
+
     [Range(1, int.MaxValue, ErrorMessage = "Choose a pet.")]
     public int PetID { get; set; }
 

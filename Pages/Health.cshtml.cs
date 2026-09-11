@@ -12,17 +12,29 @@ public sealed class HealthModel(
     IHealthService healthService,
     IUserTimeZoneService timeZone) : PageModel
 {
-    [BindProperty(SupportsGet = true)] public int? PetID { get; set; }
+    // Not query-bound: kept out of the URL (like /Medications). Set once from an incoming
+    // ?petID= deep link or an explicit pet switch, then remembered in session from there.
+    public int? PetID { get; set; }
     [BindProperty(SupportsGet = true)] public DateTime? From { get; set; }
     [BindProperty(SupportsGet = true)] public DateTime? To { get; set; }
     [BindProperty(SupportsGet = true)] public string? EventType { get; set; } = "All";
     [BindProperty(SupportsGet = true)] public string? Sort { get; set; } = "Newest";
     [BindProperty] public HealthEventInput NewEvent { get; set; } = new();
+    [BindProperty] public HealthEventInput EditEvent { get; set; } = new();
     [BindProperty] public bool ReturnToDashboard { get; set; }
+
+    private const string SelectedPetSessionKey = "healthSelectedPetID";
 
     public List<Pet> Pets { get; set; } = [];
     public List<Medication> MedicationOptions { get; set; } = [];
     public List<HealthTimelineItem> Timeline { get; set; } = [];
+    // Health history grouped by category so symptoms, incidents, medication activity,
+    // and vet visits each get their own labeled, collapsible cluster instead of one
+    // interleaved chronological feed. Each still follows the page's date-range/sort settings.
+    public List<HealthTimelineItem> SymptomTimeline { get; set; } = [];
+    public List<HealthTimelineItem> IncidentTimeline { get; set; } = [];
+    public List<HealthTimelineItem> MedicationTimeline { get; set; } = [];
+    public List<HealthTimelineItem> VetVisitTimeline { get; set; } = [];
     public List<HealthMedicationSummary> CurrentMedications { get; set; } = [];
     public List<HealthEvent> RecentHealthEvents { get; set; } = [];
     public int RecentHealthEventCount { get; set; }
@@ -32,6 +44,7 @@ public sealed class HealthModel(
     public int UtcOffsetMinutes { get; set; }
     public string? HealthError { get; set; }
     public bool OpenEventModal { get; set; }
+    public bool OpenEditEventModal { get; set; }
 
     public static readonly string[] SourceTypes =
         ["All", HealthEventKinds.Symptom, HealthEventKinds.Incident, "Medication", "VetVisit"];
@@ -42,20 +55,47 @@ public sealed class HealthModel(
     public static readonly string[] IncidentTypes =
         ["Seizure", "Vomiting", "Diarrhea", "Fall", "Injury", "Pain episode", "Breathing problem", "Allergic reaction", "Accident", "Behavioral change", "Other"];
 
-    public IActionResult OnGet()
+    public IActionResult OnGet(int? petID, int? editHealthEventID)
     {
         if (!TryGetUserID(out var userID))
             return RedirectToPage("/Login");
 
+        if (petID.HasValue && petService.GetPetByID(userID, petID.Value) == null)
+            return NotFound();
+        PetID = petID ?? GetSelectedPetIDFromSession();
+        if (petID.HasValue)
+            SetSelectedPetID(petID.Value);
+
         var result = LoadPage(userID);
         if (result != null)
             return result;
+
+        if (editHealthEventID.HasValue)
+        {
+            var existing = healthService.GetHealthEventByID(userID, editHealthEventID.Value);
+            if (existing != null)
+            {
+                EditEvent = ToInput(existing);
+                OpenEditEventModal = true;
+            }
+        }
 
         NewEvent.PetID = PetID ?? (Pets.Count == 1 ? Pets[0].PetID : 0);
         NewEvent.EventKind = HealthEventKinds.Symptom;
         NewEvent.OccurredAtLocal = timeZone.ToLocal(DateTime.UtcNow, UtcOffsetMinutes);
         NewEvent.UtcOffsetMinutes = UtcOffsetMinutes;
         return Page();
+    }
+
+    public IActionResult OnPostSelectPet(int selectedPetID)
+    {
+        if (!TryGetUserID(out var userID))
+            return RedirectToPage("/Login");
+        if (selectedPetID != 0 && petService.GetPetByID(userID, selectedPetID) == null)
+            return NotFound();
+
+        SetSelectedPetID(selectedPetID == 0 ? (int?)null : selectedPetID);
+        return RedirectToPage();
     }
 
     public IActionResult OnPostLogEvent()
@@ -67,6 +107,15 @@ public sealed class HealthModel(
         NewEvent.EventKind = NormalizeKind(NewEvent.EventKind);
         if (petService.GetPetByID(userID, NewEvent.PetID) == null)
             return NotFound();
+
+        // NewEvent and EditEvent are both [BindProperty] HealthEventInput on this page.
+        // EditEvent never receives any posted fields here, and ASP.NET Core's automatic
+        // validation of that untouched, still-default nested object records its failures
+        // under bare keys ("PetID", "EventType") rather than an "EditEvent." prefix — so
+        // ClearValidationState(nameof(EditEvent)) can't reach them. Clear everything and
+        // revalidate just NewEvent from scratch, which produces only "NewEvent."-prefixed keys.
+        ModelState.Clear();
+        TryValidateModel(NewEvent, nameof(NewEvent));
 
         if (!HealthEventKinds.All.Contains(NewEvent.EventKind, StringComparer.Ordinal))
             ModelState.AddModelError("NewEvent.EventKind", "Choose symptom or incident.");
@@ -95,11 +144,57 @@ public sealed class HealthModel(
         if (eventID == 0)
             return NotFound();
 
+        SetSelectedPetID(NewEvent.PetID);
         TempData["StatusMessage"] = $"{NewEvent.EventKind} recorded for {PetsName(userID, NewEvent.PetID)}.";
         if (ReturnToDashboard)
             return RedirectToPage("/Home");
 
-        return RedirectToPage(new { petID = NewEvent.PetID });
+        return RedirectToPage();
+    }
+
+    public IActionResult OnPostEditEvent()
+    {
+        if (!TryGetUserID(out var userID))
+            return RedirectToPage("/Login");
+
+        PetID = EditEvent.PetID;
+        EditEvent.EventKind = NormalizeKind(EditEvent.EventKind);
+        if (petService.GetPetByID(userID, EditEvent.PetID) == null)
+            return NotFound();
+
+        // See OnPostLogEvent for why this is a full Clear() rather than ClearValidationState.
+        ModelState.Clear();
+        TryValidateModel(EditEvent, nameof(EditEvent));
+
+        if (!HealthEventKinds.All.Contains(EditEvent.EventKind, StringComparer.Ordinal))
+            ModelState.AddModelError("EditEvent.EventKind", "Choose symptom or incident.");
+        if (EditEvent.EndedAtLocal.HasValue && EditEvent.EndedAtLocal < EditEvent.OccurredAtLocal)
+            ModelState.AddModelError("EditEvent.EndedAtLocal", "End time cannot be before the event started.");
+        if (EditEvent.RecoveredAtLocal.HasValue && EditEvent.RecoveredAtLocal < EditEvent.OccurredAtLocal)
+            ModelState.AddModelError("EditEvent.RecoveredAtLocal", "Recovery time cannot be before the event started.");
+
+        if (!ModelState.IsValid)
+        {
+            var messages = ModelState.Values
+                .SelectMany(value => value.Errors)
+                .Select(error => error.ErrorMessage)
+                .Where(message => !string.IsNullOrWhiteSpace(message))
+                .Distinct()
+                .ToList();
+            HealthError = messages.Count == 0
+                ? "Check the highlighted fields and try again."
+                : string.Join(" ", messages);
+            OpenEditEventModal = true;
+            var invalidResult = LoadPage(userID);
+            return invalidResult ?? Page();
+        }
+
+        if (!healthService.UpdateHealthEvent(userID, EditEvent))
+            return NotFound();
+
+        SetSelectedPetID(EditEvent.PetID);
+        TempData["StatusMessage"] = $"{EditEvent.EventKind} updated for {PetsName(userID, EditEvent.PetID)}.";
+        return RedirectToPage();
     }
 
     public IActionResult OnPostDeleteEvent(int healthEventID, int petID)
@@ -111,8 +206,9 @@ public sealed class HealthModel(
         if (!healthService.DeleteHealthEvent(userID, healthEventID))
             return NotFound();
 
+        SetSelectedPetID(petID);
         TempData["StatusMessage"] = "Health event removed.";
-        return RedirectToPage(new { petID });
+        return RedirectToPage();
     }
 
     private IActionResult? LoadPage(int userID)
@@ -122,8 +218,10 @@ public sealed class HealthModel(
                 type.Equals(EventType, StringComparison.OrdinalIgnoreCase)) ?? "All";
         Sort = string.Equals(Sort, "Oldest", StringComparison.OrdinalIgnoreCase) ? "Oldest" : "Newest";
         Pets = petService.GetPetsByUser(userID);
-        if (PetID.HasValue && petService.GetPetByID(userID, PetID.Value) == null)
-            return NotFound();
+        // A pet remembered from an earlier session can be gone by now (deleted, or this is a
+        // different account) — fall back to "All pets" instead of 404ing the whole page.
+        if (PetID.HasValue && Pets.All(pet => pet.PetID != PetID.Value))
+            SetSelectedPetID(null);
 
         var userToday = timeZone.ToLocal(DateTime.UtcNow, UtcOffsetMinutes).Date;
         From ??= userToday.AddDays(-29);
@@ -147,6 +245,11 @@ public sealed class HealthModel(
                 string.Equals(Sort, "Oldest", StringComparison.OrdinalIgnoreCase));
         }
 
+        SymptomTimeline = Timeline.Where(item => item.SourceType == HealthEventKinds.Symptom).ToList();
+        IncidentTimeline = Timeline.Where(item => item.SourceType == HealthEventKinds.Incident).ToList();
+        MedicationTimeline = Timeline.Where(item => item.SourceType == "Medication").ToList();
+        VetVisitTimeline = Timeline.Where(item => item.SourceType == "VetVisit").ToList();
+
         MedicationOptions = Pets
             .SelectMany(pet => medicationService.GetMedicationsByPetID(pet.PetID))
             .OrderBy(medication => medication.MedicationName)
@@ -154,6 +257,38 @@ public sealed class HealthModel(
         LoadOverview(userID, userToday);
         return null;
     }
+
+    private int? GetSelectedPetIDFromSession() =>
+        int.TryParse(HttpContext.Session.GetString(SelectedPetSessionKey), out var id) ? id : null;
+
+    private void SetSelectedPetID(int? petID)
+    {
+        PetID = petID;
+        if (petID.HasValue)
+            HttpContext.Session.SetString(SelectedPetSessionKey, petID.Value.ToString());
+        else
+            HttpContext.Session.Remove(SelectedPetSessionKey);
+    }
+
+    private HealthEventInput ToInput(HealthEvent existing) => new()
+    {
+        HealthEventID = existing.HealthEventID,
+        PetID = existing.PetID,
+        EventKind = existing.EventKind,
+        EventType = existing.EventType,
+        OccurredAtLocal = timeZone.ToLocal(existing.OccurredAtUtc, UtcOffsetMinutes),
+        EndedAtLocal = existing.EndedAtUtc.HasValue ? timeZone.ToLocal(existing.EndedAtUtc.Value, UtcOffsetMinutes) : null,
+        Severity = existing.Severity,
+        Description = existing.Description,
+        PossibleTrigger = existing.PossibleTrigger,
+        AppetiteStatus = existing.AppetiteStatus,
+        DrinkingStatus = existing.DrinkingStatus,
+        RelatedMedicationID = existing.RelatedMedicationID,
+        RecoveryStatus = existing.RecoveryStatus,
+        RecoveredAtLocal = existing.RecoveredAtUtc.HasValue ? timeZone.ToLocal(existing.RecoveredAtUtc.Value, UtcOffsetMinutes) : null,
+        VeterinarianContacted = existing.VeterinarianContacted,
+        UtcOffsetMinutes = UtcOffsetMinutes
+    };
 
     public DateTime Local(DateTime utc) => timeZone.ToLocal(utc, UtcOffsetMinutes);
 

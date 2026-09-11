@@ -149,12 +149,20 @@ namespace PetPotty.Services
                 CommandType = CommandType.StoredProcedure
             };
             cmd.Parameters.AddWithValue("@userID", userID);
-            cmd.Parameters.AddWithValue("@name", name);
-            cmd.Parameters.AddWithValue("@type", type);
-            cmd.Parameters.AddWithValue("@breed", breed);
-            cmd.Parameters.AddWithValue("@age", age);
+            // Breed and Age (and, defensively, the other free-text fields) are optional in
+            // the Add Pet form. When that form field is submitted empty, ASP.NET Core's model
+            // binder converts it to a C# null rather than "" (ConvertEmptyStringToNull). Handing
+            // AddWithValue a null reference (as opposed to DBNull.Value) leaves SqlClient unable
+            // to infer a type for the parameter, and it silently drops it from the RPC call
+            // entirely — producing "Procedure 'AddPet' expects parameter '@breed', which was not
+            // supplied" instead of inserting an empty string. Explicit typed parameters plus a
+            // null-coalesce keep every one of these fields a real (possibly empty) NVARCHAR.
+            cmd.Parameters.Add("@name", SqlDbType.NVarChar, 255).Value = name ?? string.Empty;
+            cmd.Parameters.Add("@type", SqlDbType.NVarChar, 255).Value = type ?? string.Empty;
+            cmd.Parameters.Add("@breed", SqlDbType.NVarChar, 255).Value = breed ?? string.Empty;
+            cmd.Parameters.Add("@age", SqlDbType.NVarChar, 50).Value = age ?? string.Empty;
             cmd.Parameters.AddWithValue("@birthdate", birthdate);
-            cmd.Parameters.AddWithValue("@gender", gender);
+            cmd.Parameters.Add("@gender", SqlDbType.NVarChar, 50).Value = gender ?? string.Empty;
             cmd.Parameters.AddWithValue("@createdAt", DateTime.Now);
             conn.Open();
             var result = cmd.ExecuteScalar();
@@ -172,12 +180,15 @@ namespace PetPotty.Services
                 CommandType = CommandType.StoredProcedure
             };
             cmd.Parameters.AddWithValue("@petID", petID);
-            cmd.Parameters.AddWithValue("@name", name);
-            cmd.Parameters.AddWithValue("@type", type);
-            cmd.Parameters.AddWithValue("@breed", breed);
-            cmd.Parameters.AddWithValue("@age", age);
+            // Same AddWithValue(null) pitfall as AddPet (see the comment there) — clearing
+            // Breed or Age while editing a pet would hit the identical "parameter not
+            // supplied" failure without this.
+            cmd.Parameters.Add("@name", SqlDbType.NVarChar, 255).Value = name ?? string.Empty;
+            cmd.Parameters.Add("@type", SqlDbType.NVarChar, 255).Value = type ?? string.Empty;
+            cmd.Parameters.Add("@breed", SqlDbType.NVarChar, 255).Value = breed ?? string.Empty;
+            cmd.Parameters.Add("@age", SqlDbType.NVarChar, 50).Value = age ?? string.Empty;
             cmd.Parameters.AddWithValue("@birthdate", birthdate);
-            cmd.Parameters.AddWithValue("@gender", gender);
+            cmd.Parameters.Add("@gender", SqlDbType.NVarChar, 50).Value = gender ?? string.Empty;
             conn.Open();
             return OwnedRecordCommand.Execute(cmd, userID, petID, OwnedRecordCommand.Pet);
         }

@@ -77,6 +77,95 @@ public sealed class HealthService : IHealthService
         return result == null || result == DBNull.Value ? 0 : Convert.ToInt32(result);
     }
 
+    public bool UpdateHealthEvent(int userID, HealthEventInput input)
+    {
+        if (!HealthEventKinds.All.Contains(input.EventKind, StringComparer.OrdinalIgnoreCase))
+            return false;
+
+        var occurredAtUtc = _timeZone.ToUtc(input.OccurredAtLocal, input.UtcOffsetMinutes);
+        var endedAtUtc = input.EndedAtLocal.HasValue
+            ? _timeZone.ToUtc(input.EndedAtLocal.Value, input.UtcOffsetMinutes)
+            : (DateTime?)null;
+        var recoveredAtUtc = input.RecoveredAtLocal.HasValue
+            ? _timeZone.ToUtc(input.RecoveredAtLocal.Value, input.UtcOffsetMinutes)
+            : (DateTime?)null;
+
+        using var connection = OpenConnection();
+        // The pet may be changing as part of this edit, so ownership is checked twice:
+        // the row's CURRENT pet (via the join) and the NEW target pet (via the EXISTS clause).
+        const string sql = """
+            UPDATE h
+            SET PetID = @PetID,
+                EventKind = @EventKind,
+                EventType = @EventType,
+                OccurredAtUtc = @OccurredAtUtc,
+                EndedAtUtc = @EndedAtUtc,
+                Severity = @Severity,
+                Description = @Description,
+                PossibleTrigger = @PossibleTrigger,
+                AppetiteStatus = @AppetiteStatus,
+                DrinkingStatus = @DrinkingStatus,
+                RelatedMedicationID = @RelatedMedicationID,
+                RecoveryStatus = @RecoveryStatus,
+                RecoveredAtUtc = @RecoveredAtUtc,
+                VeterinarianContacted = @VeterinarianContacted,
+                UpdatedAtUtc = SYSUTCDATETIME()
+            FROM dbo.HealthEvents h
+            INNER JOIN dbo.Pets currentPet ON currentPet.petID = h.PetID AND currentPet.userID = @UserID
+            WHERE h.HealthEventID = @HealthEventID
+              AND h.IsDeleted = 0
+              AND EXISTS (SELECT 1 FROM dbo.Pets WHERE petID = @PetID AND userID = @UserID)
+              AND (@RelatedMedicationID IS NULL OR EXISTS
+                  (SELECT 1 FROM dbo.Medications WHERE medID = @RelatedMedicationID AND petID = @PetID));
+            """;
+        using var command = new SqlCommand(sql, connection);
+        command.Parameters.Add("@HealthEventID", SqlDbType.Int).Value = input.HealthEventID;
+        command.Parameters.Add("@PetID", SqlDbType.Int).Value = input.PetID;
+        command.Parameters.Add("@EventKind", SqlDbType.NVarChar, 20).Value = input.EventKind.Trim();
+        command.Parameters.Add("@EventType", SqlDbType.NVarChar, 100).Value = input.EventType.Trim();
+        command.Parameters.Add("@OccurredAtUtc", SqlDbType.DateTime2).Value = occurredAtUtc;
+        command.Parameters.Add("@EndedAtUtc", SqlDbType.DateTime2).Value = (object?)endedAtUtc ?? DBNull.Value;
+        command.Parameters.Add("@Severity", SqlDbType.TinyInt).Value = (object?)input.Severity ?? DBNull.Value;
+        command.Parameters.Add("@Description", SqlDbType.NVarChar, 2000).Value = Clean(input.Description);
+        command.Parameters.Add("@PossibleTrigger", SqlDbType.NVarChar, 500).Value = Clean(input.PossibleTrigger);
+        command.Parameters.Add("@AppetiteStatus", SqlDbType.NVarChar, 30).Value = Clean(input.AppetiteStatus);
+        command.Parameters.Add("@DrinkingStatus", SqlDbType.NVarChar, 30).Value = Clean(input.DrinkingStatus);
+        command.Parameters.Add("@RelatedMedicationID", SqlDbType.Int).Value =
+            (object?)input.RelatedMedicationID ?? DBNull.Value;
+        command.Parameters.Add("@RecoveryStatus", SqlDbType.NVarChar, 30).Value = Clean(input.RecoveryStatus);
+        command.Parameters.Add("@RecoveredAtUtc", SqlDbType.DateTime2).Value =
+            (object?)recoveredAtUtc ?? DBNull.Value;
+        command.Parameters.Add("@VeterinarianContacted", SqlDbType.Bit).Value = input.VeterinarianContacted;
+        command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+        return command.ExecuteNonQuery() == 1;
+    }
+
+    public HealthEvent? GetHealthEventByID(int userID, int healthEventID)
+    {
+        using var connection = OpenConnection();
+        const string sql = """
+            SELECT h.HealthEventID, h.PetID, p.name AS PetName, h.EventKind,
+                   h.EventType, h.OccurredAtUtc, h.EndedAtUtc, h.Severity,
+                   h.Description, h.PossibleTrigger, h.AppetiteStatus,
+                   h.DrinkingStatus, h.RelatedMedicationID,
+                   ISNULL(m.medicationName, N'') AS RelatedMedicationName,
+                   h.RecoveryStatus, h.RecoveredAtUtc, h.VeterinarianContacted,
+                   h.CreatedByUserID, u.name AS CreatedByName, h.CreatedAtUtc
+            FROM dbo.HealthEvents h
+            INNER JOIN dbo.Pets p ON p.petID = h.PetID
+            INNER JOIN dbo.Users u ON u.userID = h.CreatedByUserID
+            LEFT JOIN dbo.Medications m ON m.medID = h.RelatedMedicationID
+            WHERE h.HealthEventID = @HealthEventID
+              AND p.userID = @UserID
+              AND h.IsDeleted = 0;
+            """;
+        using var command = new SqlCommand(sql, connection);
+        command.Parameters.Add("@HealthEventID", SqlDbType.Int).Value = healthEventID;
+        command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+        using var reader = command.ExecuteReader();
+        return reader.Read() ? MapHealthEvent(reader) : null;
+    }
+
     public bool DeleteHealthEvent(int userID, int healthEventID)
     {
         using var connection = OpenConnection();
@@ -185,7 +274,7 @@ public sealed class HealthService : IHealthService
                            ELSE N'Due'
                        END,
                        NULL,
-                       CONCAT(N'/Medications?petID=', m.petID)
+                       CONCAT(N'/Medications?petID=', m.petID, N'&editMedID=', m.medID)
                 FROM dbo.MedicationSchedule ms
                 INNER JOIN dbo.Medications m ON m.medID = ms.medID
                 INNER JOIN dbo.Pets p ON p.petID = m.petID

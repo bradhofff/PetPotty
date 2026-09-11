@@ -61,7 +61,7 @@ namespace PetPotty.Pages
         [BindProperty] public string EditMedNotes { get; set; } = string.Empty;
 
         // ── GET ──────────────────────────────────────────────────────
-        public IActionResult OnGet(int? petID)
+        public IActionResult OnGet(int? petID, int? editMedID)
         {
             if (!int.TryParse(HttpContext.Session.GetString("userID"), out int userID))
                 return RedirectToPage("/Login");
@@ -77,6 +77,18 @@ namespace PetPotty.Pages
                 SetSelectedPetID(petID.Value);
             if (NewMedPetID == 0 && SelectedPetID > 0)
                 NewMedPetID = SelectedPetID;
+
+            // Deep link from /Health's "Edit medication" — opens straight into the real
+            // edit form instead of duplicating it there.
+            if (editMedID.HasValue)
+            {
+                var medication = Medications.FirstOrDefault(med => med.MedID == editMedID.Value);
+                if (medication != null)
+                {
+                    PopulateEditMedFields(medication);
+                    ModalToOpen = "editMedModal";
+                }
+            }
             return Page();
         }
 
@@ -412,6 +424,21 @@ namespace PetPotty.Pages
         {
             SelectedPetID = selectedPetID;
             HttpContext.Session.SetString("medicationsSelectedPetID", selectedPetID.ToString());
+        }
+
+        private void PopulateEditMedFields(Medication medication)
+        {
+            EditMedID = medication.MedID;
+            EditMedName = medication.MedicationName;
+            EditMedDosage = medication.Dosage;
+            EditMedFrequencyType = medication.FrequencyType;
+            EditMedFrequencyInterval = medication.FrequencyInterval;
+            EditMedTimingDoesNotMatter = medication.TimingDoesNotMatter;
+            EditMedStartDate = medication.StartDate.Date;
+            EditMedStartTime = medication.StartDate.TimeOfDay;
+            EditMedEndDate = medication.EndDate;
+            EditMedForever = !medication.EndDate.HasValue;
+            EditMedNotes = medication.Notes;
         }
     }
 }

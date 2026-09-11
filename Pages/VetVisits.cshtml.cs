@@ -10,6 +10,7 @@ namespace PetPotty.Pages
         private const string SelectedPetSessionKey = "vet-visits-selected-pet";
         private const string FocusVisitSessionKey = "vet-visits-focus-visit";
         private const string OpenAddSessionKey = "vet-visits-open-add";
+        private const string OpenEditVisitSessionKey = "vet-visits-open-edit";
         private const string SortSessionKey = "vet-visits-sort";
 
         public static readonly string[] VisitTypes =
@@ -88,7 +89,12 @@ namespace PetPotty.Pages
             if (vetVisitID.HasValue && _vetVisitService.GetVisit(userID, vetVisitID.Value) == null)
                 return NotFound();
             if (Request.QueryString.HasValue)
-                return RedirectToPage();
+            {
+                // Relay the deep link through session before dropping the query string, so a
+                // link like /Health's "Edit visit" still lands on the right pet/visit — and
+                // opens it for editing, the same way /Medications' ?editMedID= deep link does.
+                return RedirectToVetVisits(petID, vetVisitID, openEdit: vetVisitID.HasValue);
+            }
 
             UserID = userID;
             var requestedPetID = HttpContext.Session.GetInt32(SelectedPetSessionKey);
@@ -105,7 +111,43 @@ namespace PetPotty.Pages
             HttpContext.Session.Remove(OpenAddSessionKey);
             if (OpenAddModal)
                 NewVisit.PetID = SelectedPetID!.Value;
+
+            var openEditVisit = HttpContext.Session.GetString(OpenEditVisitSessionKey) == "true";
+            HttpContext.Session.Remove(OpenEditVisitSessionKey);
+            if (openEditVisit && FocusVisitID.HasValue)
+            {
+                var visit = Visits.FirstOrDefault(v => v.VetVisitID == FocusVisitID.Value);
+                if (visit != null)
+                {
+                    PopulateEditVisit(visit);
+                    ModalToOpen = "editVisitModal";
+                }
+            }
             return Page();
+        }
+
+        private void PopulateEditVisit(VetVisit visit)
+        {
+            EditVisit = new VetVisitInput
+            {
+                VetVisitID = visit.VetVisitID,
+                PetID = visit.PetID,
+                VisitDate = visit.VisitDate.Date,
+                VisitTime = visit.VisitTime,
+                IsAllDay = visit.IsAllDay,
+                ClinicName = visit.ClinicName,
+                VeterinarianName = visit.VeterinarianName,
+                VisitReason = visit.VisitReason,
+                VisitType = visit.VisitType,
+                Status = visit.Status,
+                Notes = visit.Notes,
+                FollowUpDate = visit.FollowUpDate,
+                Cost = visit.Cost,
+                IsEmergency = visit.IsEmergency,
+                ReminderChoice = visit.ReminderAt.HasValue ? "Custom" : "None",
+                CustomReminderAt = visit.ReminderAt
+            };
+            EditClinicChoice = string.Empty;
         }
 
         public IActionResult OnPost(int? selectedPetID, string sort = "Soonest", bool add = false)
@@ -639,12 +681,14 @@ namespace PetPotty.Pages
             return RedirectToVetVisits(visit?.PetID, visitID);
         }
 
-        private RedirectToPageResult RedirectToVetVisits(int? petID, int? visitID = null)
+        private RedirectToPageResult RedirectToVetVisits(int? petID, int? visitID = null, bool openEdit = false)
         {
             if (petID.HasValue)
                 HttpContext.Session.SetInt32(SelectedPetSessionKey, petID.Value);
             if (visitID.HasValue)
                 HttpContext.Session.SetInt32(FocusVisitSessionKey, visitID.Value);
+            if (openEdit)
+                HttpContext.Session.SetString(OpenEditVisitSessionKey, "true");
             return RedirectToPage();
         }
 
