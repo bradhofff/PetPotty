@@ -31,17 +31,20 @@ namespace PetPotty.Pages
         private readonly IPetService _petService;
         private readonly IVetVisitService _vetVisitService;
         private readonly IVetVisitDocumentStorage _documentStorage;
+        private readonly IHouseholdContextService _householdContext;
         private readonly ILogger<VetVisitsModel> _logger;
 
         public VetVisitsModel(
             IPetService petService,
             IVetVisitService vetVisitService,
             IVetVisitDocumentStorage documentStorage,
+            IHouseholdContextService householdContext,
             ILogger<VetVisitsModel> logger)
         {
             _petService = petService;
             _vetVisitService = vetVisitService;
             _documentStorage = documentStorage;
+            _householdContext = householdContext;
             _logger = logger;
         }
 
@@ -53,6 +56,7 @@ namespace PetPotty.Pages
         public string? ModalToOpen { get; set; }
         public string? PageError { get; set; }
         public string AddSubmissionToken { get; set; } = Guid.NewGuid().ToString("N");
+        public bool CanManageCarePlans { get; set; }
 
         public List<Pet> Pets { get; set; } = [];
         public List<VetVisit> Visits { get; set; } = [];
@@ -106,7 +110,8 @@ namespace PetPotty.Pages
             FocusVisitID = Visits.Any(visit => visit.VetVisitID == requestedVisitID) ? requestedVisitID : null;
             HttpContext.Session.Remove(FocusVisitSessionKey);
 
-            OpenAddModal = HttpContext.Session.GetString(OpenAddSessionKey) == "true"
+            OpenAddModal = CanManageCarePlans
+                && HttpContext.Session.GetString(OpenAddSessionKey) == "true"
                 && SelectedPetID.HasValue;
             HttpContext.Session.Remove(OpenAddSessionKey);
             if (OpenAddModal)
@@ -114,7 +119,7 @@ namespace PetPotty.Pages
 
             var openEditVisit = HttpContext.Session.GetString(OpenEditVisitSessionKey) == "true";
             HttpContext.Session.Remove(OpenEditVisitSessionKey);
-            if (openEditVisit && FocusVisitID.HasValue)
+            if (CanManageCarePlans && openEditVisit && FocusVisitID.HasValue)
             {
                 var visit = Visits.FirstOrDefault(v => v.VetVisitID == FocusVisitID.Value);
                 if (visit != null)
@@ -568,6 +573,9 @@ namespace PetPotty.Pages
 
         private void LoadPageData(int? requestedPetID)
         {
+            var household = _householdContext.GetActiveHousehold(UserID);
+            CanManageCarePlans = household != null
+                && HouseholdAccessRules.HasPermission(household.Role, HouseholdPermission.ManageCarePlans);
             LoadPets();
             SelectedPetID = requestedPetID.HasValue && Pets.Any(pet => pet.PetID == requestedPetID.Value)
                 ? requestedPetID

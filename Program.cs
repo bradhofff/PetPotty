@@ -17,6 +17,7 @@ var builder = WebApplication.CreateBuilder(args);
 // --------------------
 
 builder.Services.AddRazorPages();
+builder.Services.AddHttpContextAccessor();
 
 // REQUIRED for session to work — stores session data in memory.
 // In production you'd swap this for Redis or SQL-backed sessions.
@@ -56,6 +57,11 @@ builder.Services.AddScoped<IPetService, PetService>();
 builder.Services.AddScoped<IMedicationService, MedicationService>();
 builder.Services.AddScoped<IVetVisitService, VetVisitService>();
 builder.Services.AddScoped<IHealthService, HealthService>();
+builder.Services.AddScoped<IHouseholdContextService, HouseholdContextService>();
+builder.Services.AddScoped<IHouseholdAuthorizationService, HouseholdAuthorizationService>();
+builder.Services.AddScoped<IHouseholdService, HouseholdService>();
+builder.Services.AddScoped<IHouseholdInvitationService, HouseholdInvitationService>();
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddSingleton<IUserTimeZoneService, BrowserTimeZoneService>();
 // One instance for the app lifetime: storage holds paths/loggers, not per-user state.
 // Home uses image storage for photos and document storage when deleting a pet's attachments.

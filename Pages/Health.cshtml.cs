@@ -10,7 +10,8 @@ public sealed class HealthModel(
     IMedicationService medicationService,
     IVetVisitService vetVisitService,
     IHealthService healthService,
-    IUserTimeZoneService timeZone) : PageModel
+    IUserTimeZoneService timeZone,
+    IHouseholdContextService householdContext) : PageModel
 {
     // Not query-bound: kept out of the URL (like /Medications). Set once from an incoming
     // ?petID= deep link or an explicit pet switch, then remembered in session from there.
@@ -45,6 +46,7 @@ public sealed class HealthModel(
     public string? HealthError { get; set; }
     public bool OpenEventModal { get; set; }
     public bool OpenEditEventModal { get; set; }
+    public bool CanManageCarePlans { get; set; }
 
     public static readonly string[] SourceTypes =
         ["All", HealthEventKinds.Symptom, HealthEventKinds.Incident, "Medication", "VetVisit"];
@@ -214,6 +216,9 @@ public sealed class HealthModel(
     private IActionResult? LoadPage(int userID)
     {
         UtcOffsetMinutes = timeZone.GetUtcOffsetMinutes(Request);
+        var household = householdContext.GetActiveHousehold(userID);
+        CanManageCarePlans = household != null
+            && HouseholdAccessRules.HasPermission(household.Role, HouseholdPermission.ManageCarePlans);
         EventType = SourceTypes.FirstOrDefault(type =>
                 type.Equals(EventType, StringComparison.OrdinalIgnoreCase)) ?? "All";
         Sort = string.Equals(Sort, "Oldest", StringComparison.OrdinalIgnoreCase) ? "Oldest" : "Newest";
@@ -251,7 +256,7 @@ public sealed class HealthModel(
         VetVisitTimeline = Timeline.Where(item => item.SourceType == "VetVisit").ToList();
 
         MedicationOptions = Pets
-            .SelectMany(pet => medicationService.GetMedicationsByPetID(pet.PetID))
+            .SelectMany(pet => medicationService.GetMedicationsByPetID(userID, pet.PetID))
             .OrderBy(medication => medication.MedicationName)
             .ToList();
         LoadOverview(userID, userToday);
@@ -302,7 +307,7 @@ public sealed class HealthModel(
 
         foreach (var pet in scopedPets)
         {
-            var schedules = medicationService.GetScheduleByPetID(pet.PetID, true, UtcOffsetMinutes);
+            var schedules = medicationService.GetScheduleByPetID(userID, pet.PetID, true, UtcOffsetMinutes);
             adherenceRows.AddRange(schedules.Where(schedule =>
                 schedule.ScheduleDate >= userToday.AddDays(-29)
                 && schedule.ScheduleDate < userToday.AddDays(1)

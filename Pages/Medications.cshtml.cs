@@ -10,15 +10,18 @@ namespace PetPotty.Pages
         private readonly IPetService _petService;
         private readonly IMedicationService _medService;
         private readonly IUserTimeZoneService _timeZone;
+        private readonly IHouseholdContextService _householdContext;
 
         public MedicationsModel(
             IPetService petService,
             IMedicationService medService,
-            IUserTimeZoneService timeZone)
+            IUserTimeZoneService timeZone,
+            IHouseholdContextService householdContext)
         {
             _petService = petService;
             _medService = medService;
             _timeZone = timeZone;
+            _householdContext = householdContext;
         }
 
         // ── Page state ──────────────────────────────────────────────
@@ -28,6 +31,7 @@ namespace PetPotty.Pages
         public List<MedSchedule> Schedule { get; set; } = new();
         public int UtcOffsetMinutes { get; set; }
         public DateTime UserNowLocal => _timeZone.ToLocal(DateTime.UtcNow, UtcOffsetMinutes);
+        public bool CanManageCarePlans { get; set; }
 
         [BindProperty] public int SelectedPetID { get; set; } = 0;
         [BindProperty] public bool ShowAllTime { get; set; } = false;
@@ -397,6 +401,9 @@ namespace PetPotty.Pages
         private void LoadData()
         {
             UtcOffsetMinutes = _timeZone.GetUtcOffsetMinutes(Request);
+            var household = _householdContext.GetActiveHousehold(UserID);
+            CanManageCarePlans = household != null
+                && HouseholdAccessRules.HasPermission(household.Role, HouseholdPermission.ManageCarePlans);
             Pets = _petService.GetPetsByUser(UserID);
             RestoreStateFromSession();
 
@@ -407,8 +414,8 @@ namespace PetPotty.Pages
 
             if (SelectedPetID > 0)
             {
-                Medications = _medService.GetMedicationsByPetID(SelectedPetID);
-                Schedule    = _medService.GetScheduleByPetID(SelectedPetID, ShowAllTime, UtcOffsetMinutes);
+                Medications = _medService.GetMedicationsByPetID(UserID, SelectedPetID);
+                Schedule    = _medService.GetScheduleByPetID(UserID, SelectedPetID, ShowAllTime, UtcOffsetMinutes);
             }
         }
 

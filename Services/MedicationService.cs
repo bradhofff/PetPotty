@@ -8,14 +8,22 @@ namespace PetPotty.Services
     {
         private readonly string _connStr;
         private readonly IUserTimeZoneService _timeZone;
+        private readonly IHouseholdContextService _householdContext;
+        private readonly IHouseholdAuthorizationService _authorization;
         private readonly int _lateAfterMinutes;
         private readonly int _missedAfterMinutes;
 
-        public MedicationService(IConfiguration configuration, IUserTimeZoneService timeZone)
+        public MedicationService(
+            IConfiguration configuration,
+            IUserTimeZoneService timeZone,
+            IHouseholdContextService householdContext,
+            IHouseholdAuthorizationService authorization)
         {
             _connStr = configuration.GetConnectionString("DefaultConnection")
                 ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
             _timeZone = timeZone;
+            _householdContext = householdContext;
+            _authorization = authorization;
             _lateAfterMinutes = Math.Clamp(
                 configuration.GetValue<int?>("MedicationAdherence:LateAfterMinutes") ?? 60,
                 1,
@@ -28,27 +36,43 @@ namespace PetPotty.Services
 
         public bool OwnsMedication(int userID, int medID)
         {
+            var household = GetAuthorizedHousehold(userID, HouseholdPermission.ViewPets);
+            if (household == null)
+                return false;
             using var conn = new SqlConnection(_connStr);
             using var cmd = new SqlCommand("""
                 SELECT 1 FROM dbo.Medications m
                 INNER JOIN dbo.Pets p ON p.petID = m.petID
-                WHERE m.medID = @MedID AND p.userID = @UserID;
+                INNER JOIN dbo.HouseholdMembers hm
+                  ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
+                WHERE m.medID = @MedID AND p.HouseholdID = @HouseholdID;
                 """, conn);
             cmd.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
             cmd.Parameters.Add("@MedID", SqlDbType.Int).Value = medID;
+            cmd.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = household.HouseholdID;
             conn.Open();
             return cmd.ExecuteScalar() != null;
         }
 
-        public List<Medication> GetMedicationsByPetID(int petID)
+        public List<Medication> GetMedicationsByPetID(int userID, int petID)
         {
+            var household = GetAuthorizedHousehold(userID, HouseholdPermission.ViewPets);
+            if (household == null)
+                return [];
             var list = new List<Medication>();
             using var conn = new SqlConnection(_connStr);
-            using var cmd = new SqlCommand("GetMedicationsByPetID", conn)
-            {
-                CommandType = CommandType.StoredProcedure
-            };
-            cmd.Parameters.AddWithValue("@petID", petID);
+            using var cmd = new SqlCommand("""
+                SELECT m.medID, m.petID, m.medicationName, m.dosage, m.frequencyType,
+                       m.frequencyInterval, m.TimingDoesNotMatter, m.startDate, m.endDate, m.notes
+                FROM dbo.Medications m
+                INNER JOIN dbo.Pets p ON p.petID = m.petID
+                INNER JOIN dbo.HouseholdMembers hm
+                  ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
+                WHERE m.petID = @PetID AND p.HouseholdID = @HouseholdID
+                ORDER BY m.medicationName, m.medID;
+                """, conn);
+            AddScopeParameters(cmd, userID, household.HouseholdID);
+            cmd.Parameters.Add("@PetID", SqlDbType.Int).Value = petID;
             conn.Open();
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
@@ -74,23 +98,33 @@ namespace PetPotty.Services
             return list;
         }
 
-        public List<MedSchedule> GetScheduleByPetID(int petID, bool showAllTime, int utcOffsetMinutes = 0)
+        public List<MedSchedule> GetScheduleByPetID(int userID, int petID, bool showAllTime, int utcOffsetMinutes = 0)
         {
+            var household = GetAuthorizedHousehold(userID, HouseholdPermission.ViewPets);
+            if (household == null)
+                return [];
             var list = new List<MedSchedule>();
-            string sp = showAllTime
-                ? "GetScheduledMedsByPetID_AllTime"
-                : "GetScheduledMedsByPetID_Next2Months";
             using var conn = new SqlConnection(_connStr);
-            using var cmd = new SqlCommand(sp, conn)
-            {
-                CommandType = CommandType.StoredProcedure
-            };
-            cmd.Parameters.AddWithValue("@petID", petID);
+            using var cmd = new SqlCommand($"""
+                SELECT ms.scheduleID, m.medID, m.medicationName, m.dosage, m.frequencyType,
+                       m.TimingDoesNotMatter, ms.scheduleDate, ms.isConfirmed, ms.confirmedAt,
+                       ms.DoseStatus, ms.AdministeredAtUtc, ms.RecordedAtUtc,
+                       ms.RecordedByUserID, u.name AS RecordedByName,
+                       ms.StatusReason, ms.AdministrationNotes
+                FROM dbo.MedicationSchedule ms
+                INNER JOIN dbo.Medications m ON m.medID = ms.medID
+                INNER JOIN dbo.Pets p ON p.petID = m.petID
+                INNER JOIN dbo.HouseholdMembers hm
+                  ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
+                LEFT JOIN dbo.Users u ON u.userID = ms.RecordedByUserID
+                WHERE m.petID = @PetID AND p.HouseholdID = @HouseholdID
+                {(showAllTime ? string.Empty : "AND ms.scheduleDate < DATEADD(MONTH, 2, @Today) AND (ms.DoseStatus = N'Due' OR ms.scheduleDate >= @Today)")}
+                ORDER BY ms.scheduleDate;
+                """, conn);
+            AddScopeParameters(cmd, userID, household.HouseholdID);
+            cmd.Parameters.Add("@PetID", SqlDbType.Int).Value = petID;
             if (!showAllTime)
-            {
-                cmd.Parameters.Add("@Today", SqlDbType.Date).Value =
-                    _timeZone.ToLocal(DateTime.UtcNow, utcOffsetMinutes).Date;
-            }
+                cmd.Parameters.Add("@Today", SqlDbType.Date).Value = _timeZone.ToLocal(DateTime.UtcNow, utcOffsetMinutes).Date;
             conn.Open();
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
@@ -129,6 +163,9 @@ namespace PetPotty.Services
                                   string frequencyType, int? frequencyInterval, bool timingDoesNotMatter,
                                   DateTime startDate, DateTime? endDate, string notes)
         {
+            var household = GetAuthorizedHousehold(userID, HouseholdPermission.ManageCarePlans);
+            if (household == null)
+                return false;
             using var conn = new SqlConnection(_connStr);
             using var cmd = new SqlCommand("AddMedication", conn)
             {
@@ -144,13 +181,16 @@ namespace PetPotty.Services
             cmd.Parameters.AddWithValue("@endDate",           (object?)endDate ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@notes",             string.IsNullOrEmpty(notes) ? string.Empty : notes);
             conn.Open();
-            return OwnedRecordCommand.Execute(cmd, userID, petID, OwnedRecordCommand.Pet);
+            return OwnedRecordCommand.Execute(cmd, userID, household.HouseholdID, petID, OwnedRecordCommand.Pet);
         }
 
         public bool UpdateMedication(int userID, int medID, string medicationName, string dosage,
                                      string frequencyType, int? frequencyInterval, bool timingDoesNotMatter,
                                      DateTime startDate, DateTime? endDate, string notes)
         {
+            var household = GetAuthorizedHousehold(userID, HouseholdPermission.ManageCarePlans);
+            if (household == null)
+                return false;
             using var conn = new SqlConnection(_connStr);
             using var cmd = new SqlCommand("UpdateMedication", conn)
             {
@@ -166,11 +206,14 @@ namespace PetPotty.Services
             cmd.Parameters.AddWithValue("@endDate",           (object?)endDate ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@notes",             string.IsNullOrEmpty(notes) ? string.Empty : notes);
             conn.Open();
-            return OwnedRecordCommand.Execute(cmd, userID, medID, OwnedRecordCommand.Medication);
+            return OwnedRecordCommand.Execute(cmd, userID, household.HouseholdID, medID, OwnedRecordCommand.Medication);
         }
 
         public bool DeleteMedication(int userID, int medID)
         {
+            var household = GetAuthorizedHousehold(userID, HouseholdPermission.ManageCarePlans);
+            if (household == null)
+                return false;
             using var conn = new SqlConnection(_connStr);
             using var cmd = new SqlCommand("DeleteMedicationByID", conn)
             {
@@ -178,7 +221,7 @@ namespace PetPotty.Services
             };
             cmd.Parameters.AddWithValue("@medID", medID);
             conn.Open();
-            return OwnedRecordCommand.Execute(cmd, userID, medID, OwnedRecordCommand.Medication);
+            return OwnedRecordCommand.Execute(cmd, userID, household.HouseholdID, medID, OwnedRecordCommand.Medication);
         }
 
         public bool ConfirmSchedule(
@@ -219,10 +262,14 @@ namespace PetPotty.Services
                 && !administeredAtLocal.HasValue)
                 return false;
 
+            var household = GetAuthorizedHousehold(userID, HouseholdPermission.RecordCare);
+            if (household == null)
+                return false;
+
             using var conn = new SqlConnection(_connStr);
             conn.Open();
             using var transaction = conn.BeginTransaction();
-            if (!OwnsMedication(conn, transaction, userID, medID))
+            if (!OwnsMedication(conn, transaction, userID, household.HouseholdID, medID))
                 return false;
 
             if (status.Equals(MedicationDoseStatuses.Taken, StringComparison.OrdinalIgnoreCase))
@@ -284,10 +331,13 @@ namespace PetPotty.Services
 
         public bool UnconfirmSchedule(int userID, int medID, DateTime logDate)
         {
+            var household = GetAuthorizedHousehold(userID, HouseholdPermission.RecordCare);
+            if (household == null)
+                return false;
             using var conn = new SqlConnection(_connStr);
             conn.Open();
             using var transaction = conn.BeginTransaction();
-            if (!OwnsMedication(conn, transaction, userID, medID))
+            if (!OwnsMedication(conn, transaction, userID, household.HouseholdID, medID))
                 return false;
 
             var target = FindSchedule(conn, transaction, medID, logDate);
@@ -331,12 +381,29 @@ namespace PetPotty.Services
             SqlConnection connection,
             SqlTransaction transaction,
             int userID,
+            int householdID,
             int medID)
         {
             using var ownership = new SqlCommand(OwnedRecordCommand.Medication, connection, transaction);
             ownership.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+            ownership.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID;
             ownership.Parameters.Add("@RecordID", SqlDbType.Int).Value = medID;
             return ownership.ExecuteScalar() != null;
+        }
+
+        private HouseholdContext? GetAuthorizedHousehold(int userID, HouseholdPermission permission)
+        {
+            var household = _householdContext.GetActiveHousehold(userID);
+            return household != null
+                && _authorization.HasPermission(userID, household.HouseholdID, permission)
+                ? household
+                : null;
+        }
+
+        private static void AddScopeParameters(SqlCommand command, int userID, int householdID)
+        {
+            command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+            command.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID;
         }
 
         private static (int ScheduleID, bool TimingDoesNotMatter) FindSchedule(

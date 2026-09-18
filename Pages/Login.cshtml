@@ -29,6 +29,7 @@
                 }
 
                 <form method="post">
+                    <input asp-for="InvitationToken" type="hidden" />
                     <div asp-validation-summary="ModelOnly" class="text-danger small mb-3" role="alert"></div>
                     @if (!string.IsNullOrEmpty(Model.ErrorMessage))
                     {
@@ -38,7 +39,7 @@
                     <div class="mb-4"><div class="d-flex justify-content-between"><label asp-for="Password" class="form-label">Password <span class="required-marker" aria-hidden="true">*</span></label></div><input asp-for="Password" type="password" class="form-control" autocomplete="current-password" placeholder="Enter your password" required /><span asp-validation-for="Password" class="text-danger small"></span></div>
                     <button type="submit" class="btn auth-primary-btn w-100">Log in <span aria-hidden="true">→</span></button>
                 </form>
-                <p class="auth-switch">New to PackTracker? <a asp-page="/Signup">Create an account</a></p>
+                <p class="auth-switch">New to PackTracker? <a asp-page="/Signup" asp-route-invitationToken="@Model.InvitationToken">Create an account</a></p>
                 <a asp-page="/Index" class="auth-back-link">← Back to home</a>
             </div>
         </div>

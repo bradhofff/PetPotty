@@ -1,0 +1,1 @@
+SELECT CheckName FROM @Failures ORDER BY CheckName;

@@ -101,17 +101,8 @@ SET DoseStatus = CASE WHEN isConfirmed = 1 THEN N'Taken' ELSE N'Due' END
 WHERE DoseStatus IS NULL
    OR DoseStatus NOT IN (N'Due', N'Taken', N'Taken late', N'Skipped', N'Missed');
 
-UPDATE t
-SET RecordedByUserID = p.userID
-FROM dbo.Tasks t
-INNER JOIN dbo.Pets p ON p.petID = t.petID
-WHERE t.RecordedByUserID IS NULL;
-
-UPDATE v
-SET CreatedByUserID = p.userID
-FROM dbo.VetVisits v
-INNER JOIN dbo.Pets p ON p.petID = v.PetID
-WHERE v.CreatedByUserID IS NULL;
+/* Historical authorship cannot be reconstructed safely. Leave these nullable
+   rather than guessing that the pet's owner created every older record. */
 
 ALTER TABLE dbo.MedicationSchedule ALTER COLUMN DoseStatus nvarchar(20) NOT NULL;
 

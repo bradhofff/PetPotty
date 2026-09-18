@@ -25,6 +25,7 @@
                 }
 
                 <form method="post">
+                    <input asp-for="InvitationToken" type="hidden" />
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Full Name <span class="required-marker" aria-hidden="true">*</span></label>
                         <input asp-for="SignupName" class="form-control" placeholder="e.g. Bradley" required />
@@ -81,7 +82,7 @@
             </div>
 
             <div class="card-footer text-center py-3 bg-light">
-                <small>Already have an account? <a asp-page="/Login" class="fw-bold" style="color: var(--pet-primary);">Log in here</a></small>
+                <small>Already have an account? <a asp-page="/Login" asp-route-invitationToken="@Model.InvitationToken" class="fw-bold" style="color: var(--pet-primary);">Log in here</a></small>
             </div>
         </div>
 

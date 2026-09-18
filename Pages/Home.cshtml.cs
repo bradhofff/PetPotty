@@ -13,6 +13,7 @@ namespace PetPotty.Pages
         private readonly IPetImageStorage _petImageStorage;
         private readonly IVetVisitDocumentStorage _vetVisitDocumentStorage;
         private readonly IUserTimeZoneService _timeZone;
+        private readonly IHouseholdContextService _householdContext;
         private readonly ILogger<HomeModel> _logger;
 
         // Razor Pages constructs this model through DI for each request. Program.cs maps
@@ -24,6 +25,7 @@ namespace PetPotty.Pages
             IPetImageStorage petImageStorage,
             IVetVisitDocumentStorage vetVisitDocumentStorage,
             IUserTimeZoneService timeZone,
+            IHouseholdContextService householdContext,
             ILogger<HomeModel> logger)
         {
             _petService = petService;
@@ -32,6 +34,7 @@ namespace PetPotty.Pages
             _petImageStorage = petImageStorage;
             _vetVisitDocumentStorage = vetVisitDocumentStorage;
             _timeZone = timeZone;
+            _householdContext = householdContext;
             _logger = logger;
         }
 
@@ -44,6 +47,7 @@ namespace PetPotty.Pages
         public Dictionary<int, List<TaskItem>> PetAllTasks { get; set; } = new();
         public Dictionary<int, List<DashboardCareItem>> PetCareItems { get; set; } = new();
         public DateTime UserNowLocal { get; set; }
+        public bool CanManagePets { get; set; }
 
         public bool ShowAllTime { get; set; } = false;
         public int TaskHistoryStage { get; set; }
@@ -514,6 +518,9 @@ namespace PetPotty.Pages
         // and the latest Pee/Poop labels are independent of the selected task-history range.
         private void LoadData()
         {
+            var household = _householdContext.GetActiveHousehold(UserID);
+            CanManagePets = household != null
+                && HouseholdAccessRules.HasPermission(household.Role, HouseholdPermission.ManagePets);
             Pets = _petService.GetPetsByUser(UserID);
             var utcOffsetMinutes = _timeZone.GetUtcOffsetMinutes(Request);
             UserNowLocal = _timeZone.ToLocal(DateTime.UtcNow, utcOffsetMinutes);
@@ -529,6 +536,7 @@ namespace PetPotty.Pages
                 if (ShowAllTime)
                 {
                     PetTasks[pet.PetID] = _petService.GetTasksByPetIDSince(
+                        UserID,
                         pet.PetID,
                         taskHistoryStartDate,
                         out var petHasOlderTasks);
@@ -536,12 +544,12 @@ namespace PetPotty.Pages
                 }
                 else
                 {
-                    PetTasks[pet.PetID] = _petService.GetTasksByPetID(pet.PetID, false);
+                    PetTasks[pet.PetID] = _petService.GetTasksByPetID(UserID, pet.PetID, false);
                 }
 
-                PetAllTasks[pet.PetID] = _petService.GetLatestActivityTasksByPetID(pet.PetID);
+                PetAllTasks[pet.PetID] = _petService.GetLatestActivityTasksByPetID(UserID, pet.PetID);
 
-                var medicationItems = _medicationService.GetScheduleByPetID(pet.PetID, false, utcOffsetMinutes)
+                var medicationItems = _medicationService.GetScheduleByPetID(UserID, pet.PetID, false, utcOffsetMinutes)
                     .Where(schedule => !schedule.IsResolved
                         && schedule.ScheduleDate < reminderWindowEnd)
                     .Select(schedule => new DashboardCareItem

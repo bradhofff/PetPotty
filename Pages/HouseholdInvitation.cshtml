@@ -1,0 +1,51 @@
+@page
+@model PetPotty.Pages.HouseholdInvitationModel
+@{
+    ViewData["Title"] = "Household Invitation";
+}
+
+<div class="household-invitation-page mx-auto">
+    <div class="card household-card shadow-sm">
+        <div class="card-body p-4 p-md-5">
+            <div class="household-invitation-icon" aria-hidden="true">🏠</div>
+            @if (Model.Invitation != null)
+            {
+                <p class="app-eyebrow mb-2">HOUSEHOLD INVITATION</p>
+                <h1 class="h3">You've been invited to join @Model.Invitation.HouseholdName on PetPotty.</h1>
+                <p class="text-muted mt-3">
+                    @Model.Invitation.InvitedByName invited <strong>@Model.Invitation.Email</strong>
+                    to help care for the household pets as a <strong>@Model.Invitation.Role</strong>.
+                </p>
+            }
+            else
+            {
+                <h1 class="h3">We couldn't find that invitation.</h1>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(Model.Message))
+            {
+                <div class="alert alert-warning mt-4" role="alert">@Model.Message</div>
+            }
+
+            @if (Model.CanAccept)
+            {
+                <p class="small text-muted">This invitation expires @Model.Invitation!.ExpiresAtUtc.ToString("MMM d, yyyy 'at' h:mm tt 'UTC'").</p>
+                @if (Model.IsAuthenticated)
+                {
+                    <form method="post" asp-page-handler="Accept">
+                        <input asp-for="Token" type="hidden" />
+                        <button type="submit" class="btn btn-primary">Accept invitation</button>
+                    </form>
+                    <p class="small text-muted mt-3 mb-0">The email on your signed-in account must match the invited email.</p>
+                }
+                else
+                {
+                    <div class="d-flex gap-2 flex-wrap mt-4">
+                        <a asp-page="/Login" asp-route-invitationToken="@Model.Token" class="btn btn-primary">Log in to accept</a>
+                        <a asp-page="/Signup" asp-route-invitationToken="@Model.Token" class="btn btn-outline-secondary">Create an account</a>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>

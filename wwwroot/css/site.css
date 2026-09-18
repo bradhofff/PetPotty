@@ -1063,3 +1063,29 @@ html[data-bs-theme="dark"] .home-dashboard .add-task-card-btn:hover {
     border-color: #af4811 !important;
     color: #fff !important;
 }
+
+/* Household settings and invitation surfaces. */
+.household-card { border: 1px solid #e6e8ee; border-radius: 14px; overflow: hidden; }
+.household-card .card-header { background: #fbfaf9; border-bottom: 1px solid #ece7e2; padding: 1rem 1.15rem; }
+.household-role-badge { background: #fff0e6; color: #b85820; }
+.household-member-list .list-group-item { border-color: #edf0f3; padding: 1rem 1.15rem; }
+.household-member-role { border: 1px solid #dce1e8; color: #586273 !important; }
+.household-switcher { min-width: min(100%, 280px); }
+.household-invitation-page { max-width: 720px; padding: 4rem 0; }
+.household-invitation-icon { align-items: center; background: #fff0e6; border-radius: 50%; display: flex; font-size: 2rem; height: 64px; justify-content: center; margin-bottom: 1.2rem; width: 64px; }
+
+@media(max-width:767.98px) {
+    .profile-sidebar { border-bottom: 2px solid var(--pet-secondary,#f4a460); border-right: 0 !important; flex-direction: row !important; margin-bottom: 1.25rem; width: 100%; }
+    .profile-content { padding-left: 0 !important; width: 100%; }
+    .profile-sidebar .nav-link { border-radius: 8px 8px 0 0 !important; }
+    .profile-sidebar + .profile-content { flex-basis: 100%; }
+    body:has(.profile-content) .d-flex.align-items-start { flex-wrap: wrap; }
+    .household-member-list .form-select { min-width: 125px; }
+}
+
+html[data-bs-theme="dark"] :is(.household-card, .household-card .card-header, .household-card .list-group-item, .household-invitation-icon, .household-role-badge, .household-member-role) {
+    background: #111820 !important;
+    border-color: #fff !important;
+    color: #fff !important;
+    box-shadow: none !important;
+}

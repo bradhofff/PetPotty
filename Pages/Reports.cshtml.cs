@@ -101,11 +101,11 @@ public sealed class ReportsModel(
         var startUtc = timeZone.ToUtc(RangeStartLocal, UtcOffsetMinutes);
         var endUtc = timeZone.ToUtc(rangeEndExclusive, UtcOffsetMinutes);
 
-        CurrentMedications = medicationService.GetMedicationsByPetID(SelectedPetID)
+        CurrentMedications = medicationService.GetMedicationsByPetID(userID, SelectedPetID)
             .Where(medication => !medication.EndDate.HasValue || medication.EndDate.Value.Date >= today)
             .OrderBy(medication => medication.MedicationName)
             .ToList();
-        DoseRecords = medicationService.GetScheduleByPetID(SelectedPetID, true, UtcOffsetMinutes)
+        DoseRecords = medicationService.GetScheduleByPetID(userID, SelectedPetID, true, UtcOffsetMinutes)
             .Where(dose => dose.ScheduleDate >= RangeStartLocal
                 && dose.ScheduleDate < rangeEndExclusive
                 && dose.EffectiveStatus != MedicationDoseStatuses.Due)

@@ -8,15 +8,21 @@ public sealed class HealthService : IHealthService
 {
     private readonly string _connectionString;
     private readonly IUserTimeZoneService _timeZone;
+    private readonly IHouseholdContextService _householdContext;
+    private readonly IHouseholdAuthorizationService _authorization;
     private readonly int _missedAfterMinutes;
 
     public HealthService(
         IConfiguration configuration,
-        IUserTimeZoneService timeZone)
+        IUserTimeZoneService timeZone,
+        IHouseholdContextService householdContext,
+        IHouseholdAuthorizationService authorization)
     {
         _connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
         _timeZone = timeZone;
+        _householdContext = householdContext;
+        _authorization = authorization;
         _missedAfterMinutes = Math.Clamp(
             configuration.GetValue<int?>("MedicationAdherence:MissedAfterMinutes") ?? 720,
             1,
@@ -26,6 +32,9 @@ public sealed class HealthService : IHealthService
     public int AddHealthEvent(int userID, HealthEventInput input)
     {
         if (!HealthEventKinds.All.Contains(input.EventKind, StringComparer.OrdinalIgnoreCase))
+            return 0;
+        var householdID = GetAuthorizedHouseholdID(userID, HouseholdPermission.RecordCare);
+        if (!householdID.HasValue)
             return 0;
 
         var occurredAtUtc = _timeZone.ToUtc(input.OccurredAtLocal, input.UtcOffsetMinutes);
@@ -49,7 +58,10 @@ public sealed class HealthService : IHealthService
                    @RelatedMedicationID, @RecoveryStatus, @RecoveredAtUtc,
                    @VeterinarianContacted, @UserID, SYSUTCDATETIME(), SYSUTCDATETIME()
             WHERE EXISTS
-                (SELECT 1 FROM dbo.Pets WHERE petID = @PetID AND userID = @UserID)
+                (SELECT 1 FROM dbo.Pets p
+                 INNER JOIN dbo.HouseholdMembers hm
+                   ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
+                 WHERE p.petID = @PetID AND p.HouseholdID = @HouseholdID)
               AND
                 (@RelatedMedicationID IS NULL OR EXISTS
                     (SELECT 1 FROM dbo.Medications
@@ -73,6 +85,7 @@ public sealed class HealthService : IHealthService
             (object?)recoveredAtUtc ?? DBNull.Value;
         command.Parameters.Add("@VeterinarianContacted", SqlDbType.Bit).Value = input.VeterinarianContacted;
         command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+        command.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID.Value;
         var result = command.ExecuteScalar();
         return result == null || result == DBNull.Value ? 0 : Convert.ToInt32(result);
     }
@@ -80,6 +93,9 @@ public sealed class HealthService : IHealthService
     public bool UpdateHealthEvent(int userID, HealthEventInput input)
     {
         if (!HealthEventKinds.All.Contains(input.EventKind, StringComparer.OrdinalIgnoreCase))
+            return false;
+        var householdID = GetAuthorizedHouseholdID(userID, HouseholdPermission.RecordCare);
+        if (!householdID.HasValue)
             return false;
 
         var occurredAtUtc = _timeZone.ToUtc(input.OccurredAtLocal, input.UtcOffsetMinutes);
@@ -111,10 +127,13 @@ public sealed class HealthService : IHealthService
                 VeterinarianContacted = @VeterinarianContacted,
                 UpdatedAtUtc = SYSUTCDATETIME()
             FROM dbo.HealthEvents h
-            INNER JOIN dbo.Pets currentPet ON currentPet.petID = h.PetID AND currentPet.userID = @UserID
+            INNER JOIN dbo.Pets currentPet ON currentPet.petID = h.PetID
+            INNER JOIN dbo.HouseholdMembers hm
+              ON hm.HouseholdID = currentPet.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
             WHERE h.HealthEventID = @HealthEventID
               AND h.IsDeleted = 0
-              AND EXISTS (SELECT 1 FROM dbo.Pets WHERE petID = @PetID AND userID = @UserID)
+              AND currentPet.HouseholdID = @HouseholdID
+              AND EXISTS (SELECT 1 FROM dbo.Pets WHERE petID = @PetID AND HouseholdID = @HouseholdID)
               AND (@RelatedMedicationID IS NULL OR EXISTS
                   (SELECT 1 FROM dbo.Medications WHERE medID = @RelatedMedicationID AND petID = @PetID));
             """;
@@ -137,11 +156,15 @@ public sealed class HealthService : IHealthService
             (object?)recoveredAtUtc ?? DBNull.Value;
         command.Parameters.Add("@VeterinarianContacted", SqlDbType.Bit).Value = input.VeterinarianContacted;
         command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+        command.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID.Value;
         return command.ExecuteNonQuery() == 1;
     }
 
     public HealthEvent? GetHealthEventByID(int userID, int healthEventID)
     {
+        var householdID = GetAuthorizedHouseholdID(userID, HouseholdPermission.ViewPets);
+        if (!householdID.HasValue)
+            return null;
         using var connection = OpenConnection();
         const string sql = """
             SELECT h.HealthEventID, h.PetID, p.name AS PetName, h.EventKind,
@@ -153,21 +176,27 @@ public sealed class HealthService : IHealthService
                    h.CreatedByUserID, u.name AS CreatedByName, h.CreatedAtUtc
             FROM dbo.HealthEvents h
             INNER JOIN dbo.Pets p ON p.petID = h.PetID
-            INNER JOIN dbo.Users u ON u.userID = h.CreatedByUserID
+            LEFT JOIN dbo.Users u ON u.userID = h.CreatedByUserID
+            INNER JOIN dbo.HouseholdMembers hm
+              ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
             LEFT JOIN dbo.Medications m ON m.medID = h.RelatedMedicationID
             WHERE h.HealthEventID = @HealthEventID
-              AND p.userID = @UserID
+              AND p.HouseholdID = @HouseholdID
               AND h.IsDeleted = 0;
             """;
         using var command = new SqlCommand(sql, connection);
         command.Parameters.Add("@HealthEventID", SqlDbType.Int).Value = healthEventID;
         command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+        command.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID.Value;
         using var reader = command.ExecuteReader();
         return reader.Read() ? MapHealthEvent(reader) : null;
     }
 
     public bool DeleteHealthEvent(int userID, int healthEventID)
     {
+        var householdID = GetAuthorizedHouseholdID(userID, HouseholdPermission.RecordCare);
+        if (!householdID.HasValue)
+            return false;
         using var connection = OpenConnection();
         const string sql = """
             UPDATE h
@@ -177,13 +206,16 @@ public sealed class HealthService : IHealthService
                 UpdatedAtUtc = SYSUTCDATETIME()
             FROM dbo.HealthEvents h
             INNER JOIN dbo.Pets p ON p.petID = h.PetID
+            INNER JOIN dbo.HouseholdMembers hm
+              ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
             WHERE h.HealthEventID = @HealthEventID
-              AND p.userID = @UserID
+              AND p.HouseholdID = @HouseholdID
               AND h.IsDeleted = 0;
             """;
         using var command = new SqlCommand(sql, connection);
         command.Parameters.Add("@HealthEventID", SqlDbType.Int).Value = healthEventID;
         command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+        command.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID.Value;
         return command.ExecuteNonQuery() == 1;
     }
 
@@ -193,6 +225,9 @@ public sealed class HealthService : IHealthService
         DateTime startUtc,
         DateTime endUtc)
     {
+        var householdID = GetAuthorizedHouseholdID(userID, HouseholdPermission.ViewPets);
+        if (!householdID.HasValue)
+            return [];
         using var connection = OpenConnection();
         const string sql = """
             SELECT h.HealthEventID, h.PetID, p.name AS PetName, h.EventKind,
@@ -204,9 +239,11 @@ public sealed class HealthService : IHealthService
                    h.CreatedByUserID, u.name AS CreatedByName, h.CreatedAtUtc
             FROM dbo.HealthEvents h
             INNER JOIN dbo.Pets p ON p.petID = h.PetID
-            INNER JOIN dbo.Users u ON u.userID = h.CreatedByUserID
+            LEFT JOIN dbo.Users u ON u.userID = h.CreatedByUserID
+            INNER JOIN dbo.HouseholdMembers hm
+              ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
             LEFT JOIN dbo.Medications m ON m.medID = h.RelatedMedicationID
-            WHERE p.userID = @UserID
+            WHERE p.HouseholdID = @HouseholdID
               AND h.IsDeleted = 0
               AND (@PetID IS NULL OR h.PetID = @PetID)
               AND h.OccurredAtUtc >= @StartUtc
@@ -214,7 +251,7 @@ public sealed class HealthService : IHealthService
             ORDER BY h.OccurredAtUtc DESC, h.HealthEventID DESC;
             """;
         using var command = new SqlCommand(sql, connection);
-        AddTimelineRangeParameters(command, userID, petID, startUtc, endUtc);
+        AddTimelineRangeParameters(command, userID, householdID.Value, petID, startUtc, endUtc);
         using var reader = command.ExecuteReader();
         var events = new List<HealthEvent>();
         while (reader.Read())
@@ -231,6 +268,9 @@ public sealed class HealthService : IHealthService
         string? sourceType,
         bool oldestFirst)
     {
+        var householdID = GetAuthorizedHouseholdID(userID, HouseholdPermission.ViewPets);
+        if (!householdID.HasValue)
+            return [];
         using var connection = OpenConnection();
         const string sql = """
             SELECT SourceType, SourceID, PetID, PetName, EventAtUtc, Title, Summary,
@@ -250,8 +290,10 @@ public sealed class HealthService : IHealthService
                        CONCAT(N'/Health?petID=', h.PetID, N'#health-event-', h.HealthEventID) AS Url
                 FROM dbo.HealthEvents h
                 INNER JOIN dbo.Pets p ON p.petID = h.PetID
-                INNER JOIN dbo.Users u ON u.userID = h.CreatedByUserID
-                WHERE p.userID = @UserID AND h.IsDeleted = 0
+                LEFT JOIN dbo.Users u ON u.userID = h.CreatedByUserID
+                INNER JOIN dbo.HouseholdMembers hm
+                  ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
+                WHERE p.HouseholdID = @HouseholdID AND h.IsDeleted = 0
                   AND (@PetID IS NULL OR h.PetID = @PetID)
 
                 UNION ALL
@@ -263,7 +305,7 @@ public sealed class HealthService : IHealthService
                        CONVERT(nvarchar(2000), CONCAT(ISNULL(m.dosage, N''),
                            CASE WHEN NULLIF(ms.AdministrationNotes, N'') IS NULL THEN N''
                                 ELSE CONCAT(N' — ', ms.AdministrationNotes) END)),
-                       COALESCE(CONVERT(nvarchar(100), u.name), N'Legacy medication record'),
+                       CONVERT(nvarchar(100), u.name),
                        CASE
                            WHEN ms.DoseStatus <> N'Due' THEN ms.DoseStatus
                            WHEN m.TimingDoesNotMatter = 1 AND @NowUtc >= DATEADD(MINUTE, @MissedAfterMinutes,
@@ -279,7 +321,10 @@ public sealed class HealthService : IHealthService
                 INNER JOIN dbo.Medications m ON m.medID = ms.medID
                 INNER JOIN dbo.Pets p ON p.petID = m.petID
                 LEFT JOIN dbo.Users u ON u.userID = ms.RecordedByUserID
-                WHERE p.userID = @UserID AND (@PetID IS NULL OR m.petID = @PetID)
+                INNER JOIN dbo.HouseholdMembers medicationMember
+                  ON medicationMember.HouseholdID = p.HouseholdID
+                 AND medicationMember.UserID = @UserID AND medicationMember.Status = N'Active'
+                WHERE p.HouseholdID = @HouseholdID AND (@PetID IS NULL OR m.petID = @PetID)
 
                 UNION ALL
 
@@ -293,19 +338,22 @@ public sealed class HealthService : IHealthService
                        CONVERT(nvarchar(2000), CONCAT(v.ClinicName,
                            CASE WHEN NULLIF(v.VisitSummary, N'') IS NULL THEN N''
                                 ELSE CONCAT(N' — ', v.VisitSummary) END)),
-                       COALESCE(CONVERT(nvarchar(100), visitUser.name), N'Vet visit record'), CONVERT(nvarchar(30), v.Status), NULL,
+                       CONVERT(nvarchar(100), visitUser.name), CONVERT(nvarchar(30), v.Status), NULL,
                        CONCAT(N'/VetVisits?petID=', v.PetID, N'&vetVisitID=', v.VetVisitID)
                 FROM dbo.VetVisits v
                 INNER JOIN dbo.Pets p ON p.petID = v.PetID
                 LEFT JOIN dbo.Users visitUser ON visitUser.userID = v.CreatedByUserID
-                WHERE p.userID = @UserID AND v.IsDeleted = 0
+                INNER JOIN dbo.HouseholdMembers visitMember
+                  ON visitMember.HouseholdID = p.HouseholdID
+                 AND visitMember.UserID = @UserID AND visitMember.Status = N'Active'
+                WHERE p.HouseholdID = @HouseholdID AND v.IsDeleted = 0
                   AND (@PetID IS NULL OR v.PetID = @PetID)
             ) timeline
             WHERE EventAtUtc >= @StartUtc AND EventAtUtc < @EndUtc
             ORDER BY EventAtUtc, SourceType, SourceID;
             """;
         using var command = new SqlCommand(sql, connection);
-        AddTimelineRangeParameters(command, userID, petID, startUtc, endUtc);
+        AddTimelineRangeParameters(command, userID, householdID.Value, petID, startUtc, endUtc);
         command.Parameters.Add("@UtcOffsetMinutes", SqlDbType.Int).Value =
             Math.Clamp(utcOffsetMinutes, -840, 840);
         command.Parameters.Add("@NowUtc", SqlDbType.DateTime2).Value = DateTime.UtcNow;
@@ -360,11 +408,13 @@ public sealed class HealthService : IHealthService
     private static void AddTimelineRangeParameters(
         SqlCommand command,
         int userID,
+        int householdID,
         int? petID,
         DateTime startUtc,
         DateTime endUtc)
     {
         command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+        command.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID;
         command.Parameters.Add("@PetID", SqlDbType.Int).Value = (object?)petID ?? DBNull.Value;
         command.Parameters.Add("@StartUtc", SqlDbType.DateTime2).Value = startUtc;
         command.Parameters.Add("@EndUtc", SqlDbType.DateTime2).Value = endUtc;
@@ -408,4 +458,13 @@ public sealed class HealthService : IHealthService
         reader.IsDBNull(reader.GetOrdinal(name)) ? string.Empty : reader[name].ToString() ?? string.Empty;
 
     private static string Clean(string? value) => value?.Trim() ?? string.Empty;
+
+    private int? GetAuthorizedHouseholdID(int userID, HouseholdPermission permission)
+    {
+        var household = _householdContext.GetActiveHousehold(userID);
+        return household != null
+            && _authorization.HasPermission(userID, household.HouseholdID, permission)
+            ? household.HouseholdID
+            : null;
+    }
 }

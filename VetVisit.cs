@@ -153,6 +153,8 @@ namespace PetPotty.Models
         public string? NewStatus { get; set; }
         public string Details { get; set; } = string.Empty;
         public DateTime ChangedAt { get; set; }
+        public int? ChangedByUserID { get; set; }
+        public string ChangedByName { get; set; } = string.Empty;
     }
 
     public class DashboardCareItem

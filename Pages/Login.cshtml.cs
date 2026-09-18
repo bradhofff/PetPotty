@@ -1,34 +1,47 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Data.SqlClient;
+using PetPotty.Services;
 
 public class LoginModel : PageModel
 {
     private readonly IConfiguration _configuration;
+    private readonly IHouseholdService _households;
 
-    public LoginModel(IConfiguration configuration)
+    public LoginModel(IConfiguration configuration, IHouseholdService households)
     {
         _configuration = configuration;
+        _households = households;
     }
 
     [BindProperty]
-    public string Username { get; set; }
+    public string Username { get; set; } = string.Empty;
 
     [BindProperty]
-    public string Password { get; set; }
+    public string Password { get; set; } = string.Empty;
 
-    public string ErrorMessage { get; set; }
+    public string ErrorMessage { get; set; } = string.Empty;
 
-    public IActionResult OnGet()
+    [BindProperty]
+    public string InvitationToken { get; set; } = string.Empty;
+
+    public IActionResult OnGet(string? invitationToken)
     {
-        return IsAuthenticated() ? RedirectToPage("/Home") : Page();
+        InvitationToken = invitationToken?.Trim() ?? string.Empty;
+        if (!IsAuthenticated())
+            return Page();
+        return string.IsNullOrWhiteSpace(InvitationToken)
+            ? RedirectToPage("/Home")
+            : RedirectToPage("/HouseholdInvitation", new { token = InvitationToken });
     }
 
     public IActionResult OnPost()
     {
         if (IsAuthenticated())
         {
-            return RedirectToPage("/Home");
+            return string.IsNullOrWhiteSpace(InvitationToken)
+                ? RedirectToPage("/Home")
+                : RedirectToPage("/HouseholdInvitation", new { token = InvitationToken });
         }
 
         if (string.IsNullOrWhiteSpace(Username) || string.IsNullOrWhiteSpace(Password))
@@ -36,8 +49,9 @@ public class LoginModel : PageModel
     ErrorMessage = "Please enter your username and password.";
     return Page();
 }
-        string connectionString = 
-            _configuration.GetConnectionString("DefaultConnection");
+        string connectionString =
+            _configuration.GetConnectionString("DefaultConnection")
+            ?? throw new InvalidOperationException("Connection string not found.");
 
         string query = @"SELECT userID, name, DarkMode
                          FROM Users 
@@ -57,8 +71,8 @@ public class LoginModel : PageModel
 
                 if (reader.Read())
                 {
-                    string userID = reader["userID"].ToString();
-                    string name = reader["name"].ToString();
+                    string userID = reader.GetInt32(reader.GetOrdinal("userID")).ToString();
+                    string name = reader["name"].ToString() ?? string.Empty;
 
                     // Session
                     HttpContext.Session.SetString("userID", userID);
@@ -83,7 +97,11 @@ public class LoginModel : PageModel
                             SameSite = SameSiteMode.Lax
                         });
 
-                    return RedirectToPage("/Home");
+                    _households.EnsurePersonalHousehold(Convert.ToInt32(userID));
+
+                    return string.IsNullOrWhiteSpace(InvitationToken)
+                        ? RedirectToPage("/Home")
+                        : RedirectToPage("/HouseholdInvitation", new { token = InvitationToken });
                 }
                 else
                 {

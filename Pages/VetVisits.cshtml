@@ -183,10 +183,13 @@
             </h1>
             <p class="text-muted mb-0">Appointments, reminders, outcomes, and clinic records in one place.</p>
         </div>
-        <button type="button" class="btn btn-primary px-4" data-bs-toggle="modal" data-bs-target="#addVisitModal"
-                disabled="@(Model.Pets.Count == 0)">
-            + Add vet visit
-        </button>
+        @if (Model.CanManageCarePlans)
+        {
+            <button type="button" class="btn btn-primary px-4" data-bs-toggle="modal" data-bs-target="#addVisitModal"
+                    disabled="@(Model.Pets.Count == 0)">
+                + Add vet visit
+            </button>
+        }
     </header>
 
     @if (Model.Pets.Count == 0)
@@ -304,49 +307,52 @@
                                         <button type="button" class="btn btn-sm btn-light" id="@($"visitDetailsButton{visit.VetVisitID}")" data-bs-toggle="collapse"
                                                 data-bs-target="#@detailsID" aria-expanded="@isFocused.ToString().ToLowerInvariant()"
                                                 aria-controls="@detailsID">Details</button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary edit-visit-btn"
-                                                data-bs-toggle="modal" data-bs-target="#editVisitModal"
-                                                data-id="@visit.VetVisitID"
-                                                data-pet-id="@visit.PetID"
-                                                data-date="@visit.VisitDate.ToString("yyyy-MM-dd")"
-                                                data-time="@(visit.VisitTime?.ToString(@"hh\:mm") ?? "")"
-                                                data-all-day="@visit.IsAllDay.ToString().ToLowerInvariant()"
-                                                data-clinic="@visit.ClinicName"
-                                                data-veterinarian="@visit.VeterinarianName"
-                                                data-reason="@visit.VisitReason"
-                                                data-type="@visit.VisitType"
-                                                data-status="@visit.Status"
-                                                data-notes="@visit.Notes"
-                                                data-follow-up="@(visit.FollowUpDate?.ToString("yyyy-MM-dd") ?? "")"
-                                                data-cost="@(visit.Cost?.ToString(CultureInfo.InvariantCulture) ?? "")"
-                                                data-emergency="@visit.IsEmergency.ToString().ToLowerInvariant()"
-                                                data-reminder-at="@(visit.ReminderAt?.ToString("yyyy-MM-ddTHH:mm") ?? "")">
-                                            Update
-                                        </button>
-                                        <form method="post" asp-page-handler="DeleteVisit" class="d-inline">
-                                            <input type="hidden" name="vetVisitID" value="@visit.VetVisitID" />
-                                            <button type="submit" class="btn btn-sm btn-outline-danger"
-                                                    onclick="return confirm('Permanently delete this vet visit? This will also delete its reminders, attached documents, stored files, and audit history. This cannot be undone.');">
-                                                Delete
-                                            </button>
-                                        </form>
-                                        @if (visit.Status is "Scheduled" or "Confirmed" or "Rescheduled")
+                                        @if (Model.CanManageCarePlans)
                                         {
-                                            <button type="button" class="btn btn-sm btn-success complete-visit-btn"
-                                                    data-bs-toggle="modal" data-bs-target="#completeVisitModal"
-                                                    data-id="@visit.VetVisitID" data-pet-name="@visit.PetName"
-                                                    data-date="@visit.VisitDate.ToString("MMM d, yyyy")"
+                                            <button type="button" class="btn btn-sm btn-outline-secondary edit-visit-btn"
+                                                    data-bs-toggle="modal" data-bs-target="#editVisitModal"
+                                                    data-id="@visit.VetVisitID"
+                                                    data-pet-id="@visit.PetID"
+                                                    data-date="@visit.VisitDate.ToString("yyyy-MM-dd")"
+                                                    data-time="@(visit.VisitTime?.ToString(@"hh\:mm") ?? "")"
+                                                    data-all-day="@visit.IsAllDay.ToString().ToLowerInvariant()"
+                                                    data-clinic="@visit.ClinicName"
+                                                    data-veterinarian="@visit.VeterinarianName"
+                                                    data-reason="@visit.VisitReason"
+                                                    data-type="@visit.VisitType"
+                                                    data-status="@visit.Status"
+                                                    data-notes="@visit.Notes"
                                                     data-follow-up="@(visit.FollowUpDate?.ToString("yyyy-MM-dd") ?? "")"
-                                                    data-cost="@(visit.Cost?.ToString(CultureInfo.InvariantCulture) ?? "")">
-                                                Complete
+                                                    data-cost="@(visit.Cost?.ToString(CultureInfo.InvariantCulture) ?? "")"
+                                                    data-emergency="@visit.IsEmergency.ToString().ToLowerInvariant()"
+                                                    data-reminder-at="@(visit.ReminderAt?.ToString("yyyy-MM-ddTHH:mm") ?? "")">
+                                                Update
                                             </button>
-                                            <form method="post" asp-page-handler="ChangeStatus" class="d-inline">
+                                            <form method="post" asp-page-handler="DeleteVisit" class="d-inline">
                                                 <input type="hidden" name="vetVisitID" value="@visit.VetVisitID" />
-                                                <input type="hidden" name="status" value="Cancelled" />
-                                                <input type="hidden" name="details" value="Appointment cancelled by pet owner." />
                                                 <button type="submit" class="btn btn-sm btn-outline-danger"
-                                                        onclick="return confirm('Cancel this appointment? Its history will be preserved.');">Cancel</button>
+                                                        onclick="return confirm('Permanently delete this vet visit? This will also delete its reminders, attached documents, stored files, and audit history. This cannot be undone.');">
+                                                    Delete
+                                                </button>
                                             </form>
+                                            @if (visit.Status is "Scheduled" or "Confirmed" or "Rescheduled")
+                                            {
+                                                <button type="button" class="btn btn-sm btn-success complete-visit-btn"
+                                                        data-bs-toggle="modal" data-bs-target="#completeVisitModal"
+                                                        data-id="@visit.VetVisitID" data-pet-name="@visit.PetName"
+                                                        data-date="@visit.VisitDate.ToString("MMM d, yyyy")"
+                                                        data-follow-up="@(visit.FollowUpDate?.ToString("yyyy-MM-dd") ?? "")"
+                                                        data-cost="@(visit.Cost?.ToString(CultureInfo.InvariantCulture) ?? "")">
+                                                    Complete
+                                                </button>
+                                                <form method="post" asp-page-handler="ChangeStatus" class="d-inline">
+                                                    <input type="hidden" name="vetVisitID" value="@visit.VetVisitID" />
+                                                    <input type="hidden" name="status" value="Cancelled" />
+                                                    <input type="hidden" name="details" value="Appointment cancelled by household member." />
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger"
+                                                            onclick="return confirm('Cancel this appointment? Its history will be preserved.');">Cancel</button>
+                                                </form>
+                                            }
                                         }
                                     </div>
                                 </div>
@@ -386,18 +392,21 @@
                                         }
                                         <div class="detail-block detail-full">
                                             <small>Record dates</small>
-                                            <p>Created @visit.CreatedAt.ToString("MMM d, yyyy h:mm tt") · Updated @visit.UpdatedAt.ToString("MMM d, yyyy h:mm tt")</p>
+                                            <p>Created @visit.CreatedAt.ToString("MMM d, yyyy h:mm tt")@if (!string.IsNullOrWhiteSpace(visit.CreatedByName)) { <text> by @visit.CreatedByName</text> } · Updated @visit.UpdatedAt.ToString("MMM d, yyyy h:mm tt")</p>
                                         </div>
                                     </div>
 
                                     <hr class="my-3" style="border-width: 1px !important;" />
                                     <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
                                         <div class="fw-bold">Attachments (@documents.Count)</div>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary upload-document-btn"
-                                                data-bs-toggle="modal" data-bs-target="#documentModal"
-                                                data-visit-id="@visit.VetVisitID" data-pet-name="@visit.PetName">
-                                            + Attach receipt or document
-                                        </button>
+                                        @if (Model.CanManageCarePlans)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-secondary upload-document-btn"
+                                                    data-bs-toggle="modal" data-bs-target="#documentModal"
+                                                    data-visit-id="@visit.VetVisitID" data-pet-name="@visit.PetName">
+                                                + Attach receipt or document
+                                            </button>
+                                        }
                                     </div>
                                     @if (documents.Count == 0)
                                     {
@@ -414,14 +423,17 @@
                                                 var isPdf = extension == ".pdf";
                                                 var previewUrl = Url.Page("/VetVisits", "PreviewDocument", new { documentID = document.VetVisitDocumentID });
                                                 <div class="document-row" data-preview-id="@previewID">
-                                                    <button type="button" class="document-edit-btn edit-document-btn"
-                                                            data-bs-toggle="modal" data-bs-target="#editDocumentModal"
-                                                            data-id="@document.VetVisitDocumentID"
-                                                            data-type="@document.DocumentType"
-                                                            data-name="@document.DisplayName"
-                                                            data-description="@document.Description"
-                                                            title="Edit @document.DisplayName"
-                                                            aria-label="Edit @document.DisplayName">&#9998;&#65039;</button>
+                                                    @if (Model.CanManageCarePlans)
+                                                    {
+                                                        <button type="button" class="document-edit-btn edit-document-btn"
+                                                                data-bs-toggle="modal" data-bs-target="#editDocumentModal"
+                                                                data-id="@document.VetVisitDocumentID"
+                                                                data-type="@document.DocumentType"
+                                                                data-name="@document.DisplayName"
+                                                                data-description="@document.Description"
+                                                                title="Edit @document.DisplayName"
+                                                                aria-label="Edit @document.DisplayName">&#9998;&#65039;</button>
+                                                    }
                                                     <div class="document-row-summary">
                                                         <a class="document-title" href="#@previewID" role="button"
                                                            data-bs-toggle="collapse" aria-expanded="false"
@@ -470,7 +482,7 @@
                                         @foreach (var item in history.Take(6))
                                         {
                                             <div class="history-item">
-                                                <strong>@item.ChangeType</strong> · @item.ChangedAt.ToString("MMM d, yyyy h:mm tt")
+                                                <strong>@item.ChangeType</strong> · @item.ChangedAt.ToString("MMM d, yyyy h:mm tt")@if (!string.IsNullOrWhiteSpace(item.ChangedByName)) { <text> · @item.ChangedByName</text> }
                                                 @if (!string.IsNullOrWhiteSpace(item.Details))
                                                 {
                                                     <div>@item.Details</div>

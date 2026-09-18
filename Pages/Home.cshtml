@@ -655,18 +655,21 @@
 @* ── YOUR PETS ────────────────────────────────────────────── *@
 <div class="d-flex align-items-center justify-content-between dashboard-section-heading mb-3">
     <div><p class="dashboard-kicker mb-1">AT A GLANCE</p><h2 class="mb-0 fw-semibold">Your pets</h2></div>
-    <button type="button" class="btn btn-primary btn-sm"
-            style="border-radius: 999px; padding: 6px 18px; font-weight: 600;"
-            data-bs-toggle="modal" data-bs-target="#addPetModal">
-        + Add Pet
-    </button>
+    @if (Model.CanManagePets)
+    {
+        <button type="button" class="btn btn-primary btn-sm"
+                style="border-radius: 999px; padding: 6px 18px; font-weight: 600;"
+                data-bs-toggle="modal" data-bs-target="#addPetModal">
+            + Add Pet
+        </button>
+    }
 </div>
 
 @if (Model.Pets.Count == 0)
 {
     <div class="alert mb-4"
          style="border: 2px solid var(--pet-secondary); border-radius: 12px; color: var(--pet-dark); background: rgba(244,164,96,0.08);">
-        No pets yet — click <strong>+ Add Pet</strong> to get started!
+        @(Model.CanManagePets ? "No pets yet — add the household's first pet to get started!" : "No pets have been added to this household yet.")
     </div>
 }
 else
@@ -694,6 +697,8 @@ else
                 <div class="pet-card">
 
                     @* Hover-reveal edit pencil *@
+                    @if (Model.CanManagePets)
+                    {
                     <button class="pet-card-edit-btn edit-pet-btn"
                             data-bs-toggle="modal"
                             data-bs-target="#editPetModal"
@@ -709,6 +714,7 @@ else
                             title="Edit @pet.Name">
                         ✏️
                     </button>
+                    }
 
                     @* Avatar + info *@
                     <div class="d-flex align-items-center gap-3 mb-3">
@@ -946,6 +952,10 @@ else
                                                 <div class="d-flex align-items-center gap-2 flex-shrink-0">
                                                     <span class="text-muted" style="font-size: 0.82rem; white-space: nowrap;">
                                                         @task.CreatedAt.ToString("h:mm tt")
+                                                        @if (!string.IsNullOrWhiteSpace(task.RecordedByName))
+                                                        {
+                                                            <text> · @task.RecordedByName</text>
+                                                        }
                                                     </span>
                                                     <button class="edit-task-btn"
                                                             data-bs-toggle="modal"

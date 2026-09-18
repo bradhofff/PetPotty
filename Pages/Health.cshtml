@@ -366,7 +366,7 @@
                     <h2 class="health-section-heading" id="currentMedicationsHeading">Current medications</h2>
                 </div>
                 <div class="d-flex align-items-center gap-2">
-                    <a asp-page="/Medications" asp-route-petID="@Model.PetID" class="small">Manage medications →</a>
+                    <a asp-page="/Medications" asp-route-petID="@Model.PetID" class="small">@(Model.CanManageCarePlans ? "Manage medications" : "View medications") →</a>
                     <button type="button" class="health-section-toggle" data-bs-toggle="collapse"
                             data-bs-target="#current-medications-body" aria-expanded="true"
                             aria-controls="current-medications-body" aria-label="Collapse current medications section">
@@ -380,7 +380,7 @@
             {
                 <div class="empty-health">
                     <p class="mb-3">No active medications.</p>
-                    <a asp-page="/Medications" class="btn btn-outline-primary btn-sm">Manage medications</a>
+                    <a asp-page="/Medications" class="btn btn-outline-primary btn-sm">@(Model.CanManageCarePlans ? "Manage medications" : "View medications")</a>
                 </div>
             }
             else
@@ -422,7 +422,14 @@
                                         }
                                     </div>
                                 </div>
-                                <a asp-page="/Medications" asp-route-petID="@med.PetID" asp-route-editMedID="@med.MedID" class="btn btn-sm btn-light health-med-view">Edit medication</a>
+                                @if (Model.CanManageCarePlans)
+                                {
+                                    <a asp-page="/Medications" asp-route-petID="@med.PetID" asp-route-editMedID="@med.MedID" class="btn btn-sm btn-light health-med-view">Edit medication</a>
+                                }
+                                else
+                                {
+                                    <a asp-page="/Medications" asp-route-petID="@med.PetID" class="btn btn-sm btn-light health-med-view">View medication</a>
+                                }
                             </article>
                         </div>
                     }
@@ -556,7 +563,7 @@
             {
                 <div class="empty-health">
                     <p class="mb-3">No vet visits recorded.</p>
-                    <a asp-page="/VetVisits" class="btn btn-outline-primary btn-sm">Add vet visit</a>
+                    <a asp-page="/VetVisits" class="btn btn-outline-primary btn-sm">@(Model.CanManageCarePlans ? "Add vet visit" : "View vet visits")</a>
                 </div>
             }
             else
@@ -568,7 +575,7 @@
                             <small>Next visit</small>
                             <h3>@Model.NextVetVisit.AppointmentDateTime.ToString(Model.NextVetVisit.IsAllDay ? "MMM d, yyyy" : "MMM d 'at' h:mm tt")</h3>
                             <p>@(string.IsNullOrWhiteSpace(Model.NextVetVisit.VisitReason) ? Model.NextVetVisit.ClinicName : Model.NextVetVisit.VisitReason)</p>
-                            <a asp-page="/VetVisits" asp-route-petID="@Model.NextVetVisit.PetID" asp-route-vetVisitID="@Model.NextVetVisit.VetVisitID" asp-fragment="@($"visit-{Model.NextVetVisit.VetVisitID}")" class="btn btn-sm btn-light">Edit appointment</a>
+                            <a asp-page="/VetVisits" asp-route-petID="@Model.NextVetVisit.PetID" asp-route-vetVisitID="@Model.NextVetVisit.VetVisitID" asp-fragment="@($"visit-{Model.NextVetVisit.VetVisitID}")" class="btn btn-sm btn-light">@(Model.CanManageCarePlans ? "Edit appointment" : "View appointment")</a>
                         </article>
                     }
                     @if (Model.RecentVetVisit != null)
@@ -577,7 +584,7 @@
                             <small>Recent visit</small>
                             <h3>@Model.RecentVetVisit.AppointmentDateTime.ToString("MMM d, yyyy")</h3>
                             <p>@(string.IsNullOrWhiteSpace(Model.RecentVetVisit.VisitReason) ? Model.RecentVetVisit.ClinicName : Model.RecentVetVisit.VisitReason)</p>
-                            <a asp-page="/VetVisits" asp-route-petID="@Model.RecentVetVisit.PetID" asp-route-vetVisitID="@Model.RecentVetVisit.VetVisitID" asp-fragment="@($"visit-{Model.RecentVetVisit.VetVisitID}")" class="btn btn-sm btn-light">Edit visit</a>
+                            <a asp-page="/VetVisits" asp-route-petID="@Model.RecentVetVisit.PetID" asp-route-vetVisitID="@Model.RecentVetVisit.VetVisitID" asp-fragment="@($"visit-{Model.RecentVetVisit.VetVisitID}")" class="btn btn-sm btn-light">@(Model.CanManageCarePlans ? "Edit visit" : "View visit")</a>
                         </article>
                     }
                 </div>

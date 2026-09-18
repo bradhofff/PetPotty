@@ -7,24 +7,40 @@ namespace PetPotty.Services
     public class PetService : IPetService
     {
         private readonly string _connStr;
+        private readonly IHouseholdContextService _householdContext;
+        private readonly IHouseholdAuthorizationService _authorization;
 
         // DI supplies configuration. Each method opens/disposes its own SQL connection;
         // scoped lifetime shares the service within a request, not a connection/transaction.
-        public PetService(IConfiguration configuration)
+        public PetService(
+            IConfiguration configuration,
+            IHouseholdContextService householdContext,
+            IHouseholdAuthorizationService authorization)
         {
             _connStr = configuration.GetConnectionString("DefaultConnection")
                 ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found in appsettings.json.");
+            _householdContext = householdContext;
+            _authorization = authorization;
         }
 
         public List<Pet> GetPetsByUser(int userID)
         {
+            var household = _householdContext.GetActiveHousehold(userID);
+            if (household == null)
+                return [];
+
             var pets = new List<Pet>();
             using var conn = new SqlConnection(_connStr);
-            using var cmd = new SqlCommand("GetPetsByUserID", conn)
-            {
-                CommandType = CommandType.StoredProcedure
-            };
-            cmd.Parameters.AddWithValue("@userID", userID);
+            using var cmd = new SqlCommand("""
+                SELECT p.petID, p.name, p.type, p.breed, p.age, p.birthdate,
+                       p.gender, p.createdAt, p.ProfileImagePath
+                FROM dbo.Pets p
+                INNER JOIN dbo.HouseholdMembers hm
+                  ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
+                WHERE p.HouseholdID = @HouseholdID
+                ORDER BY p.createdAt, p.petID;
+                """, conn);
+            AddScopeParameters(cmd, userID, household.HouseholdID);
             conn.Open();
 
             using var reader = cmd.ExecuteReader();
@@ -37,7 +53,9 @@ namespace PetPotty.Services
                     Type      = reader["type"].ToString() ?? string.Empty,
                     Breed     = reader["breed"].ToString() ?? string.Empty,
                     Age       = reader["age"].ToString() ?? string.Empty,
-                    Birthdate = reader.GetDateTime(reader.GetOrdinal("birthdate")),
+                    Birthdate = reader.IsDBNull(reader.GetOrdinal("birthdate"))
+                        ? default
+                        : reader.GetDateTime(reader.GetOrdinal("birthdate")),
                     Gender    = reader["gender"].ToString() ?? string.Empty,
                     ProfileImagePath = reader.IsDBNull(reader.GetOrdinal("ProfileImagePath"))
                         ? null
@@ -47,24 +65,42 @@ namespace PetPotty.Services
             return pets;
         }
 
-        public List<TaskItem> GetTasksByPetID(int petID, bool allTime)
+        public List<TaskItem> GetTasksByPetID(int userID, int petID, bool allTime)
         {
-            string sp = allTime ? "GetTasksByPetID" : "GetTasksByPetID_Recent";
+            var household = _householdContext.GetActiveHousehold(userID);
+            if (household == null)
+                return [];
 
             using var conn = new SqlConnection(_connStr);
-            using var cmd = new SqlCommand(sp, conn)
-            {
-                CommandType = CommandType.StoredProcedure
-            };
-            cmd.Parameters.AddWithValue("@petID", petID);
+            using var cmd = new SqlCommand($"""
+                SELECT t.taskID, t.petID, p.name AS petName, t.taskType, t.notes,
+                       t.createdAt, t.RecordedByUserID, u.name AS RecordedByName
+                FROM dbo.Tasks t
+                INNER JOIN dbo.Pets p ON p.petID = t.petID
+                INNER JOIN dbo.HouseholdMembers hm
+                  ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
+                LEFT JOIN dbo.Users u ON u.userID = t.RecordedByUserID
+                WHERE t.petID = @PetID AND p.HouseholdID = @HouseholdID
+                {(allTime ? string.Empty : "AND t.createdAt >= DATEADD(DAY, -7, SYSDATETIME())")}
+                ORDER BY t.createdAt DESC, t.taskID DESC;
+                """, conn);
+            cmd.Parameters.Add("@PetID", SqlDbType.Int).Value = petID;
+            AddScopeParameters(cmd, userID, household.HouseholdID);
             conn.Open();
 
             using var reader = cmd.ExecuteReader();
             return ReadTasks(reader);
         }
 
-        public List<TaskItem> GetTasksByPetIDSince(int petID, DateTime startDate, out bool hasOlderTasks)
+        public List<TaskItem> GetTasksByPetIDSince(int userID, int petID, DateTime startDate, out bool hasOlderTasks)
         {
+            var household = _householdContext.GetActiveHousehold(userID);
+            if (household == null)
+            {
+                hasOlderTasks = false;
+                return [];
+            }
+
             using var conn = new SqlConnection(_connStr);
             using var cmd = new SqlCommand("""
                 SELECT
@@ -73,10 +109,16 @@ namespace PetPotty.Services
                     p.[name] AS petName,
                     t.taskType,
                     t.notes,
-                    t.createdAt
+                    t.createdAt,
+                    t.RecordedByUserID,
+                    u.name AS RecordedByName
                 FROM dbo.Tasks AS t
                 INNER JOIN dbo.Pets AS p ON p.petID = t.petID
+                INNER JOIN dbo.HouseholdMembers hm
+                  ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
+                LEFT JOIN dbo.Users u ON u.userID = t.RecordedByUserID
                 WHERE t.petID = @petID
+                  AND p.HouseholdID = @HouseholdID
                   AND t.createdAt >= @startDate
                 ORDER BY t.createdAt DESC;
 
@@ -84,12 +126,17 @@ namespace PetPotty.Services
                 (
                     SELECT 1
                     FROM dbo.Tasks AS older
-                    WHERE older.petID = @petID
+                    INNER JOIN dbo.Pets olderPet ON olderPet.petID = older.petID
+                    INNER JOIN dbo.HouseholdMembers olderMember
+                      ON olderMember.HouseholdID = olderPet.HouseholdID
+                     AND olderMember.UserID = @UserID AND olderMember.Status = N'Active'
+                    WHERE older.petID = @petID AND olderPet.HouseholdID = @HouseholdID
                       AND older.createdAt < @startDate
                 ) THEN 1 ELSE 0 END AS bit) AS hasOlder;
                 """, conn);
             cmd.Parameters.AddWithValue("@petID", petID);
             cmd.Parameters.Add("@startDate", SqlDbType.DateTime2).Value = startDate;
+            AddScopeParameters(cmd, userID, household.HouseholdID);
             conn.Open();
 
             using var reader = cmd.ExecuteReader();
@@ -100,8 +147,12 @@ namespace PetPotty.Services
             return tasks;
         }
 
-        public List<TaskItem> GetLatestActivityTasksByPetID(int petID)
+        public List<TaskItem> GetLatestActivityTasksByPetID(int userID, int petID)
         {
+            var household = _householdContext.GetActiveHousehold(userID);
+            if (household == null)
+                return [];
+
             using var conn = new SqlConnection(_connStr);
             using var cmd = new SqlCommand("""
                 SELECT DISTINCT
@@ -110,7 +161,9 @@ namespace PetPotty.Services
                     latest.petName,
                     latest.taskType,
                     latest.notes,
-                    latest.createdAt
+                    latest.createdAt,
+                    latest.RecordedByUserID,
+                    latest.RecordedByName
                 FROM (VALUES ('Pee'), ('Poop')) AS activity(activityType)
                 CROSS APPLY
                 (
@@ -120,16 +173,23 @@ namespace PetPotty.Services
                         p.[name] AS petName,
                         t.taskType,
                         t.notes,
-                        t.createdAt
+                        t.createdAt,
+                        t.RecordedByUserID,
+                        u.name AS RecordedByName
                     FROM dbo.Tasks AS t
                     INNER JOIN dbo.Pets AS p ON p.petID = t.petID
+                    INNER JOIN dbo.HouseholdMembers hm
+                      ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
+                    LEFT JOIN dbo.Users u ON u.userID = t.RecordedByUserID
                     WHERE t.petID = @petID
+                      AND p.HouseholdID = @HouseholdID
                       AND (t.taskType = activity.activityType OR t.taskType = 'Pee & Poop')
                     ORDER BY t.createdAt DESC
                 ) AS latest
                 ORDER BY latest.createdAt DESC;
                 """, conn);
             cmd.Parameters.AddWithValue("@petID", petID);
+            AddScopeParameters(cmd, userID, household.HouseholdID);
             conn.Open();
 
             using var reader = cmd.ExecuteReader();
@@ -143,27 +203,28 @@ namespace PetPotty.Services
 
         public int AddPet(int userID, string name, string type, string breed, string age, DateTime birthdate, string gender)
         {
+            var household = _householdContext.GetActiveHousehold(userID);
+            if (household == null
+                || !_authorization.HasPermission(userID, household.HouseholdID, HouseholdPermission.ManagePets))
+                return 0;
+
             using var conn = new SqlConnection(_connStr);
-            using var cmd = new SqlCommand("AddPet", conn)
-            {
-                CommandType = CommandType.StoredProcedure
-            };
-            cmd.Parameters.AddWithValue("@userID", userID);
-            // Breed and Age (and, defensively, the other free-text fields) are optional in
-            // the Add Pet form. When that form field is submitted empty, ASP.NET Core's model
-            // binder converts it to a C# null rather than "" (ConvertEmptyStringToNull). Handing
-            // AddWithValue a null reference (as opposed to DBNull.Value) leaves SqlClient unable
-            // to infer a type for the parameter, and it silently drops it from the RPC call
-            // entirely — producing "Procedure 'AddPet' expects parameter '@breed', which was not
-            // supplied" instead of inserting an empty string. Explicit typed parameters plus a
-            // null-coalesce keep every one of these fields a real (possibly empty) NVARCHAR.
-            cmd.Parameters.Add("@name", SqlDbType.NVarChar, 255).Value = name ?? string.Empty;
-            cmd.Parameters.Add("@type", SqlDbType.NVarChar, 255).Value = type ?? string.Empty;
-            cmd.Parameters.Add("@breed", SqlDbType.NVarChar, 255).Value = breed ?? string.Empty;
-            cmd.Parameters.Add("@age", SqlDbType.NVarChar, 50).Value = age ?? string.Empty;
-            cmd.Parameters.AddWithValue("@birthdate", birthdate);
-            cmd.Parameters.Add("@gender", SqlDbType.NVarChar, 50).Value = gender ?? string.Empty;
-            cmd.Parameters.AddWithValue("@createdAt", DateTime.Now);
+            using var cmd = new SqlCommand("""
+                INSERT dbo.Pets
+                    (userID, HouseholdID, name, type, breed, age, birthdate, gender, createdAt)
+                OUTPUT INSERTED.petID
+                VALUES
+                    (@UserID, @HouseholdID, @Name, @Type, @Breed, @Age, @Birthdate, @Gender, SYSDATETIME());
+                """, conn);
+            cmd.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+            cmd.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = household.HouseholdID;
+            cmd.Parameters.Add("@Name", SqlDbType.VarChar, 100).Value = (name ?? string.Empty).Trim();
+            cmd.Parameters.Add("@Type", SqlDbType.VarChar, 50).Value = CleanOrNull(type);
+            cmd.Parameters.Add("@Breed", SqlDbType.VarChar, 50).Value = CleanOrNull(breed);
+            cmd.Parameters.Add("@Age", SqlDbType.Int).Value =
+                int.TryParse(age, out var parsedAge) ? parsedAge : DBNull.Value;
+            cmd.Parameters.Add("@Birthdate", SqlDbType.Date).Value = birthdate == default ? DBNull.Value : birthdate.Date;
+            cmd.Parameters.Add("@Gender", SqlDbType.VarChar, 20).Value = CleanOrNull(gender);
             conn.Open();
             var result = cmd.ExecuteScalar();
             if (result == null || result == DBNull.Value)
@@ -174,6 +235,9 @@ namespace PetPotty.Services
 
         public bool EditPet(int userID, int petID, string name, string type, string breed, string age, DateTime birthdate, string gender)
         {
+            var household = GetAuthorizedHousehold(userID, HouseholdPermission.ManagePets);
+            if (household == null)
+                return false;
             using var conn = new SqlConnection(_connStr);
             using var cmd = new SqlCommand("UpdatePet", conn)
             {
@@ -190,11 +254,14 @@ namespace PetPotty.Services
             cmd.Parameters.AddWithValue("@birthdate", birthdate);
             cmd.Parameters.Add("@gender", SqlDbType.NVarChar, 50).Value = gender ?? string.Empty;
             conn.Open();
-            return OwnedRecordCommand.Execute(cmd, userID, petID, OwnedRecordCommand.Pet);
+            return OwnedRecordCommand.Execute(cmd, userID, household.HouseholdID, petID, OwnedRecordCommand.Pet);
         }
 
         public bool UpdatePetProfileImagePath(int userID, int petID, string? profileImagePath)
         {
+            var household = GetAuthorizedHousehold(userID, HouseholdPermission.ManagePets);
+            if (household == null)
+                return false;
             using var conn = new SqlConnection(_connStr);
             using var cmd = new SqlCommand("UpdatePetProfileImagePath", conn)
             {
@@ -204,11 +271,14 @@ namespace PetPotty.Services
             cmd.Parameters.Add("@ProfileImagePath", SqlDbType.NVarChar, 255).Value =
                 profileImagePath == null ? DBNull.Value : profileImagePath;
             conn.Open();
-            return OwnedRecordCommand.Execute(cmd, userID, petID, OwnedRecordCommand.Pet);
+            return OwnedRecordCommand.Execute(cmd, userID, household.HouseholdID, petID, OwnedRecordCommand.Pet);
         }
 
         public bool DeletePet(int userID, int petID)
         {
+            var household = GetAuthorizedHousehold(userID, HouseholdPermission.ManagePets);
+            if (household == null)
+                return false;
             using var conn = new SqlConnection(_connStr);
             // The legacy procedure was created with QUOTED_IDENTIFIER OFF,
             // which fails against the vet-visit filtered indexes. Execute the
@@ -218,26 +288,28 @@ namespace PetPotty.Services
                 DELETE s FROM dbo.MedicationSchedule s
                 INNER JOIN dbo.Medications m ON m.medID = s.medID
                 INNER JOIN dbo.Pets p ON p.petID = m.petID
-                WHERE p.petID = @petID AND p.userID = @UserID;
+                WHERE p.petID = @petID;
                 DELETE m FROM dbo.Medications m
                 INNER JOIN dbo.Pets p ON p.petID = m.petID
-                WHERE p.petID = @petID AND p.userID = @UserID;
+                WHERE p.petID = @petID;
                 DELETE t FROM dbo.Tasks t
                 INNER JOIN dbo.Pets p ON p.petID = t.petID
-                WHERE p.petID = @petID AND p.userID = @UserID;
+                WHERE p.petID = @petID;
                 DELETE v FROM dbo.VetVisits v
                 INNER JOIN dbo.Pets p ON p.petID = v.PetID
-                WHERE p.petID = @petID AND p.userID = @UserID;
-                DELETE FROM dbo.Pets WHERE petID = @petID AND userID = @UserID;
+                WHERE p.petID = @petID;
+                DELETE FROM dbo.Pets WHERE petID = @petID;
                 """, conn);
             cmd.Parameters.AddWithValue("@petID", petID);
-            cmd.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
             conn.Open();
-            return OwnedRecordCommand.Execute(cmd, userID, petID, OwnedRecordCommand.Pet);
+            return OwnedRecordCommand.Execute(cmd, userID, household.HouseholdID, petID, OwnedRecordCommand.Pet);
         }
 
         public bool AddTask(int userID, int petID, string taskType, string notes, DateTime createdAt)
         {
+            var household = GetAuthorizedHousehold(userID, HouseholdPermission.RecordCare);
+            if (household == null)
+                return false;
             using var conn = new SqlConnection(_connStr);
             using var cmd = new SqlCommand("""
                 INSERT dbo.Tasks (petID, taskType, notes, createdAt, RecordedByUserID)
@@ -250,11 +322,14 @@ namespace PetPotty.Services
             cmd.Parameters.Add("@createdAt", SqlDbType.DateTime).Value = createdAt;
             cmd.Parameters.Add("@RecordedByUserID", SqlDbType.Int).Value = userID;
             conn.Open();
-            return OwnedRecordCommand.Execute(cmd, userID, petID, OwnedRecordCommand.Pet);
+            return OwnedRecordCommand.Execute(cmd, userID, household.HouseholdID, petID, OwnedRecordCommand.Pet);
         }
 
         public bool UpdateTask(int userID, int taskID, string taskType, string notes, DateTime createdAt)
         {
+            var household = GetAuthorizedHousehold(userID, HouseholdPermission.RecordCare);
+            if (household == null)
+                return false;
             using var conn = new SqlConnection(_connStr);
             using var cmd = new SqlCommand("UpdateTaskByID", conn)
             {
@@ -265,11 +340,14 @@ namespace PetPotty.Services
             cmd.Parameters.AddWithValue("@notes", string.IsNullOrEmpty(notes) ? string.Empty : notes);
             cmd.Parameters.AddWithValue("@createdAt", createdAt);
             conn.Open();
-            return OwnedRecordCommand.Execute(cmd, userID, taskID, OwnedRecordCommand.Task);
+            return OwnedRecordCommand.Execute(cmd, userID, household.HouseholdID, taskID, OwnedRecordCommand.Task);
         }
 
         public bool DeleteTask(int userID, int taskID)
         {
+            var household = GetAuthorizedHousehold(userID, HouseholdPermission.RecordCare);
+            if (household == null)
+                return false;
             using var conn = new SqlConnection(_connStr);
             using var cmd = new SqlCommand("DeleteTaskByTaskID", conn)
             {
@@ -277,7 +355,7 @@ namespace PetPotty.Services
             };
             cmd.Parameters.AddWithValue("@taskID", taskID);
             conn.Open();
-            return OwnedRecordCommand.Execute(cmd, userID, taskID, OwnedRecordCommand.Task);
+            return OwnedRecordCommand.Execute(cmd, userID, household.HouseholdID, taskID, OwnedRecordCommand.Task);
         }
 
         private static List<TaskItem> ReadTasks(SqlDataReader reader)
@@ -292,11 +370,35 @@ namespace PetPotty.Services
                     PetName   = reader["petName"].ToString() ?? string.Empty,
                     TaskType  = reader["taskType"].ToString() ?? string.Empty,
                     Notes     = reader["notes"].ToString() ?? string.Empty,
-                    CreatedAt = reader.GetDateTime(reader.GetOrdinal("createdAt"))
+                    CreatedAt = reader.GetDateTime(reader.GetOrdinal("createdAt")),
+                    RecordedByUserID = reader.IsDBNull(reader.GetOrdinal("RecordedByUserID"))
+                        ? null
+                        : reader.GetInt32(reader.GetOrdinal("RecordedByUserID")),
+                    RecordedByName = reader.IsDBNull(reader.GetOrdinal("RecordedByName"))
+                        ? string.Empty
+                        : reader["RecordedByName"].ToString() ?? string.Empty
                 });
             }
 
             return tasks;
         }
+
+        private HouseholdContext? GetAuthorizedHousehold(int userID, HouseholdPermission permission)
+        {
+            var household = _householdContext.GetActiveHousehold(userID);
+            return household != null
+                && _authorization.HasPermission(userID, household.HouseholdID, permission)
+                ? household
+                : null;
+        }
+
+        private static void AddScopeParameters(SqlCommand command, int userID, int householdID)
+        {
+            command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+            command.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID;
+        }
+
+        private static object CleanOrNull(string? value) =>
+            string.IsNullOrWhiteSpace(value) ? DBNull.Value : value.Trim();
     }
 }

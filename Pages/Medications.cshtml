@@ -129,12 +129,15 @@
         <h1 class="mb-1 fw-bold" style="color: var(--pet-dark);">Medications</h1>
         <p class="text-muted mb-0" style="font-size: 1.05rem;">Keep every dose on track.</p>
     </div>
-    <button type="button"
-            class="btn btn-primary"
-            style="border-radius: 30px; padding: 8px 22px; font-weight: 600;"
-            data-bs-toggle="modal" data-bs-target="#addMedModal">
-        + Add Medication
-    </button>
+    @if (Model.CanManageCarePlans)
+    {
+        <button type="button"
+                class="btn btn-primary"
+                style="border-radius: 30px; padding: 8px 22px; font-weight: 600;"
+                data-bs-toggle="modal" data-bs-target="#addMedModal">
+            + Add Medication
+        </button>
+    }
 </div>
 
 @* ── PET SELECTOR ────────────────────────────────────────── *@
@@ -189,7 +192,14 @@
     @if (Model.Medications.Count == 0)
     {
         <div class="alert mb-4" style="border: 2px solid var(--pet-secondary); border-radius: 12px; color: var(--pet-dark); background: rgba(244,164,96,0.08);">
-            No medications found for @selectedPet?.Name. Click <strong>+ Add Medication</strong> to get started.
+            @if (Model.CanManageCarePlans)
+            {
+                <text>No medications found for @selectedPet?.Name. Click <strong>+ Add Medication</strong> to get started.</text>
+            }
+            else
+            {
+                <text>No medications have been added for @selectedPet?.Name.</text>
+            }
         </div>
     }
     else
@@ -200,22 +210,25 @@
             {
                 <div class="col-md-6 col-xxl-4">
                     <div class="card h-100 position-relative med-card">
-                        <button class="med-card-edit-btn edit-med-btn"
-                                data-bs-toggle="modal"
-                                data-bs-target="#editMedModal"
-                                data-med-id="@med.MedID"
-                                data-med-name="@med.MedicationName"
-                                data-med-dosage="@med.Dosage"
-                                data-med-frequency-type="@med.FrequencyType"
-                                data-med-frequency-interval="@med.FrequencyInterval"
-                                data-med-timing-does-not-matter="@med.TimingDoesNotMatter.ToString().ToLowerInvariant()"
-                                data-med-start-date="@med.StartDate.ToString("yyyy-MM-dd")"
-                                data-med-start-time="@med.StartDate.ToString("HH:mm")"
-                                data-med-end-date="@(med.EndDate.HasValue ? med.EndDate.Value.ToString("yyyy-MM-ddTHH:mm") : "")"
-                                data-med-notes="@med.Notes"
-                                title="Edit @med.MedicationName">
-                            ✏️
-                        </button>
+                        @if (Model.CanManageCarePlans)
+                        {
+                            <button class="med-card-edit-btn edit-med-btn"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#editMedModal"
+                                    data-med-id="@med.MedID"
+                                    data-med-name="@med.MedicationName"
+                                    data-med-dosage="@med.Dosage"
+                                    data-med-frequency-type="@med.FrequencyType"
+                                    data-med-frequency-interval="@med.FrequencyInterval"
+                                    data-med-timing-does-not-matter="@med.TimingDoesNotMatter.ToString().ToLowerInvariant()"
+                                    data-med-start-date="@med.StartDate.ToString("yyyy-MM-dd")"
+                                    data-med-start-time="@med.StartDate.ToString("HH:mm")"
+                                    data-med-end-date="@(med.EndDate.HasValue ? med.EndDate.Value.ToString("yyyy-MM-ddTHH:mm") : "")"
+                                    data-med-notes="@med.Notes"
+                                    title="Edit @med.MedicationName">
+                                ✏️
+                            </button>
+                        }
 
                         <div class="card-body pb-3 pt-3 pe-3" style="padding-left: 1.25rem;">
                             @* Medication name *@

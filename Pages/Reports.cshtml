@@ -106,7 +106,7 @@
             <section class="report-section">
                 <h2>Vet visits</h2>
                 @if (Model.VetVisits.Count == 0) { <p class="text-secondary">No vet visits recorded in this period.</p> }
-                else { <ul class="report-list">@foreach (var visit in Model.VetVisits) { <li><strong>@visit.VisitDate.ToString("MMM d") — @visit.VisitReason</strong> · @visit.Status · recorded by @(string.IsNullOrWhiteSpace(visit.CreatedByName) ? "account owner" : visit.CreatedByName)@if (!string.IsNullOrWhiteSpace(visit.VisitSummary)) { <div>@visit.VisitSummary</div> }@if (!string.IsNullOrWhiteSpace(visit.Diagnosis)) { <div>Diagnosis recorded by clinic: @visit.Diagnosis</div> }</li> }</ul> }
+                else { <ul class="report-list">@foreach (var visit in Model.VetVisits) { <li><strong>@visit.VisitDate.ToString("MMM d") — @visit.VisitReason</strong> · @visit.Status@if (!string.IsNullOrWhiteSpace(visit.CreatedByName)) { <text> · recorded by @visit.CreatedByName</text> }@if (!string.IsNullOrWhiteSpace(visit.VisitSummary)) { <div>@visit.VisitSummary</div> }@if (!string.IsNullOrWhiteSpace(visit.Diagnosis)) { <div>Diagnosis recorded by clinic: @visit.Diagnosis</div> }</li> }</ul> }
             </section>
 
             @if (!string.IsNullOrWhiteSpace(Model.QuestionsForVet))
