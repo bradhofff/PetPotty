@@ -1,0 +1,160 @@
+@page
+@model PetPotty.Pages.ReportsModel
+@{
+    Layout = null;
+    ViewData["Title"] = "Vet Health Report";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vet Health Report@(Model.Report != null ? " – " + Model.Report.PetName : "")</title>
+    <style>
+        body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; color: #2F4F4F; max-width: 820px; margin: 0 auto; padding: 32px 24px; }
+        h1 { color: #E8650A; margin-bottom: 0; }
+        h2 { border-bottom: 2px solid #F4A460; padding-bottom: 4px; margin-top: 32px; }
+        .report-meta { color: #666; margin-bottom: 24px; }
+        table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+        th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 0.92rem; }
+        th { background: #FBEEDD; }
+        .event-item { border-left: 3px solid #fd7e14; padding: 6px 12px; margin-bottom: 8px; }
+        .event-item.incident { border-left-color: #dc3545; }
+        .muted { color: #777; font-size: 0.85rem; }
+        .disclaimer { margin-top: 32px; padding: 12px; background: #f5f5f5; border-radius: 8px; font-size: 0.82rem; color: #555; }
+        .print-bar { text-align: right; margin-bottom: 16px; }
+        .print-bar button, .print-bar a {
+            background: #E8650A; color: #fff; border: none; padding: 8px 18px; border-radius: 30px;
+            font-weight: 600; cursor: pointer; text-decoration: none; margin-left: 8px; font-size: 0.9rem;
+        }
+        @@media print {
+            .print-bar { display: none; }
+            body { padding: 0; }
+        }
+    </style>
+</head>
+<body>
+
+@if (Model.ErrorMessage != null)
+{
+    <p style="color:#dc3545;">@Model.ErrorMessage</p>
+    <a href="javascript:history.back()">← Back</a>
+}
+else if (Model.Report != null)
+{
+    var r = Model.Report;
+    <div class="print-bar">
+        <a href="javascript:history.back()" style="background:#eee;color:#333;">← Back</a>
+        <button onclick="window.print()">🖨️ Print / Save as PDF</button>
+    </div>
+
+    <h1>🐾 Vet Health Report</h1>
+    <p class="report-meta">
+        <strong>@r.PetName</strong> · @r.PetType @(string.IsNullOrWhiteSpace(r.PetBreed) ? "" : $"({r.PetBreed})")<br />
+        Report range: @r.Range.Label<br />
+        Generated @r.GeneratedAtUtc.AddMinutes(-Model.UtcOffsetMinutes).ToString("MMM d, yyyy h:mm tt")
+    </p>
+
+    <h2>Current Medications</h2>
+    @if (r.CurrentMedications.Count == 0)
+    {
+        <p class="muted">No medications on file.</p>
+    }
+    else
+    {
+        <table>
+            <thead><tr><th>Medication</th><th>Dosage</th><th>Frequency</th></tr></thead>
+            <tbody>
+                @foreach (var med in r.CurrentMedications)
+                {
+                    <tr><td>@med.MedicationName</td><td>@med.Dosage</td><td>@med.FrequencyDisplay</td></tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    <h2>Medication Adherence</h2>
+    @if (r.Adherence.Total == 0)
+    {
+        <p class="muted">No scheduled doses in this range.</p>
+    }
+    else
+    {
+        <p>@r.Adherence.AdherencePercent% adherence — @r.Adherence.Taken taken, @r.Adherence.TakenLate taken late, @r.Adherence.Skipped skipped, @r.Adherence.Missed missed (of @r.Adherence.Total scheduled doses).</p>
+    }
+
+    <h2>Symptoms (@r.Symptoms.Count)</h2>
+    @if (r.Symptoms.Count == 0)
+    {
+        <p class="muted">None recorded in this range.</p>
+    }
+    else
+    {
+        foreach (var evt in r.Symptoms)
+        {
+            <div class="event-item">
+                <strong>@evt.EventType</strong> — @evt.OccurredAtUtc.AddMinutes(-Model.UtcOffsetMinutes).ToString("MMM d, yyyy h:mm tt")
+                @if (evt.Severity.HasValue) { <text> · Severity @evt.Severity/5</text> }
+                @if (!string.IsNullOrWhiteSpace(evt.RecoveryStatus)) { <text> · @evt.RecoveryStatus</text> }
+                @if (!string.IsNullOrWhiteSpace(evt.Description))
+                {
+                    <div>@evt.Description</div>
+                }
+                <div class="muted">Recorded by @(string.IsNullOrWhiteSpace(evt.CreatedByName) ? "Recorded user unavailable" : evt.CreatedByName)</div>
+            </div>
+        }
+    }
+
+    <h2>Incidents (@r.Incidents.Count)</h2>
+    @if (r.Incidents.Count == 0)
+    {
+        <p class="muted">None recorded in this range.</p>
+    }
+    else
+    {
+        foreach (var evt in r.Incidents)
+        {
+            <div class="event-item incident">
+                <strong>@evt.EventType</strong> — @evt.OccurredAtUtc.AddMinutes(-Model.UtcOffsetMinutes).ToString("MMM d, yyyy h:mm tt")
+                @if (evt.Severity.HasValue) { <text> · Severity @evt.Severity/5</text> }
+                @if (evt.VeterinarianContacted) { <text> · Vet contacted</text> }
+                @if (!string.IsNullOrWhiteSpace(evt.Description))
+                {
+                    <div>@evt.Description</div>
+                }
+                <div class="muted">Recorded by @(string.IsNullOrWhiteSpace(evt.CreatedByName) ? "Recorded user unavailable" : evt.CreatedByName)</div>
+            </div>
+        }
+    }
+
+    <h2>Vet Visits (@r.VetVisits.Count)</h2>
+    @if (r.VetVisits.Count == 0)
+    {
+        <p class="muted">None recorded in this range.</p>
+    }
+    else
+    {
+        <table>
+            <thead><tr><th>Date</th><th>Reason</th><th>Clinic</th><th>Status</th></tr></thead>
+            <tbody>
+                @foreach (var visit in r.VetVisits)
+                {
+                    <tr>
+                        <td>@visit.VisitDate.ToString("MMM d, yyyy")</td>
+                        <td>@visit.VisitReason</td>
+                        <td>@visit.ClinicName</td>
+                        <td>@visit.Status</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    <div class="disclaimer">
+        This report summarizes owner-recorded care history from Pack Tracker. It is not a diagnosis and does not
+        replace professional veterinary evaluation.
+    </div>
+}
+
+</body>
+</html>

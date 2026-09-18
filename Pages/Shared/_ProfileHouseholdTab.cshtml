@@ -1,0 +1,142 @@
+@model PetPotty.Pages.ProfileModel
+@using PetPotty.Models
+
+@if (!string.IsNullOrEmpty(Model.HouseholdErrorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @Model.HouseholdErrorMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="card mb-4" style="border: 2px solid var(--pet-secondary); border-radius: 12px; max-width: 680px;">
+    <div class="card-header d-flex justify-content-between align-items-center"
+         style="background: rgba(244,164,96,0.12); border-bottom: 1px solid rgba(244,164,96,0.4);">
+        <h5 class="mb-0">🏡 @Model.Household.Name</h5>
+        <span class="household-role-badge role-@Model.Household.Role.ToLowerInvariant()">Your role: @Model.Household.Role</span>
+    </div>
+    <div class="card-body">
+
+        @if (Model.Households.Count > 1)
+        {
+            <div class="mb-4">
+                <label class="form-label fw-semibold">Switch household</label>
+                <form method="post" asp-page-handler="SwitchHousehold" class="d-flex gap-2">
+                    <select name="householdID" class="form-select" style="max-width: 320px;" onchange="this.form.submit()">
+                        @foreach (var h in Model.Households)
+                        {
+                            <option value="@h.HouseholdID" selected="@(h.HouseholdID == Model.Household.HouseholdID)">
+                                @h.Name (@h.Role)
+                            </option>
+                        }
+                    </select>
+                </form>
+            </div>
+        }
+
+        @if (Model.Household.CanManageHousehold)
+        {
+            <form method="post" asp-page-handler="RenameHousehold" class="mb-4">
+                <label class="form-label fw-semibold">Household name</label>
+                <div class="input-group" style="max-width: 420px;">
+                    <input asp-for="HouseholdName" class="form-control" maxlength="150" required />
+                    <button type="submit" class="btn btn-outline-secondary">Rename</button>
+                </div>
+            </form>
+        }
+
+        <h6 class="fw-semibold mb-3">Members</h6>
+        <div class="d-flex flex-column gap-2 mb-4">
+            @foreach (var member in Model.Members)
+            {
+                <div class="household-member-row d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <strong>@member.Name</strong>
+                        <span class="text-muted small">@member.Email</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="household-role-badge role-@member.Role.ToLowerInvariant()">@member.Role</span>
+                        @if (Model.Household.CanManageHousehold && member.Role != HouseholdRoles.Owner)
+                        {
+                            <form method="post" asp-page-handler="ChangeRole" class="d-inline">
+                                <input type="hidden" name="targetUserID" value="@member.UserID" />
+                                <select name="newRole" class="form-select form-select-sm d-inline-block" style="width: auto;" onchange="this.form.submit()">
+                                    <option value="Member" selected="@(member.Role == "Member")">Member</option>
+                                    <option value="Caregiver" selected="@(member.Role == "Caregiver")">Caregiver</option>
+                                </select>
+                            </form>
+                            <form method="post" asp-page-handler="RemoveMember" class="d-inline"
+                                  onsubmit="return confirm('Remove @member.Name from this household?');">
+                                <input type="hidden" name="targetUserID" value="@member.UserID" />
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                            </form>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (Model.Household.CanManageHousehold)
+        {
+            <h6 class="fw-semibold mb-3">Pending invitations</h6>
+            @if (Model.PendingInvitations.Count == 0)
+            {
+                <p class="text-muted small mb-4">No pending invitations.</p>
+            }
+            else
+            {
+                <div class="d-flex flex-column gap-2 mb-4">
+                    @foreach (var invitation in Model.PendingInvitations)
+                    {
+                        <div class="household-invite-row d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div>
+                                <strong>@invitation.Email</strong>
+                                <span class="household-role-badge role-@invitation.Role.ToLowerInvariant()">@invitation.Role</span>
+                                @if (invitation.IsExpired)
+                                {
+                                    <span class="badge bg-secondary">Expired</span>
+                                }
+                                <div class="text-muted small">Invited by @invitation.InvitedByName · expires @invitation.ExpiresAtUtc.ToString("MMM d, yyyy")</div>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <form method="post" asp-page-handler="ResendInvitation">
+                                    <input type="hidden" name="invitationID" value="@invitation.HouseholdInvitationID" />
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary">Resend</button>
+                                </form>
+                                <form method="post" asp-page-handler="RevokeInvitation"
+                                      onsubmit="return confirm('Revoke the invitation to @invitation.Email?');">
+                                    <input type="hidden" name="invitationID" value="@invitation.HouseholdInvitationID" />
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Revoke</button>
+                                </form>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+
+            <h6 class="fw-semibold mb-3">Invite a household member</h6>
+            <form method="post" asp-page-handler="Invite" class="row g-2 align-items-end">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Email</label>
+                    <input asp-for="Invite.Email" type="email" class="form-control" placeholder="name@example.com" required />
+                    <span asp-validation-for="Invite.Email" class="text-danger small"></span>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Role</label>
+                    <select asp-for="Invite.Role" class="form-select">
+                        <option value="Member">Member</option>
+                        <option value="Caregiver">Caregiver</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn pt-btn-primary w-100">Invite</button>
+                </div>
+            </form>
+        }
+        else
+        {
+            <p class="text-muted small">Only the household Owner can invite people, change roles, or remove members.</p>
+        }
+
+    </div>
+</div>

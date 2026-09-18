@@ -1,0 +1,516 @@
+@page
+@model PetPotty.Pages.HealthModel
+@using PetPotty.Models
+@{
+    ViewData["Title"] = "Health";
+    ViewData["UtcOffsetMinutes"] = Model.UtcOffsetMinutes;
+}
+
+<style>
+    .health-summary-card {
+        border: 2px solid var(--pet-secondary);
+        border-radius: 14px;
+        box-shadow: 0 2px 10px rgba(139,69,19,0.07);
+        height: 100%;
+    }
+    .health-event-card {
+        border: 1px solid var(--pet-secondary);
+        border-radius: 12px;
+        padding: 12px 16px;
+        margin-bottom: 10px;
+        position: relative;
+    }
+    .health-event-card.kind-incident { border-left: 4px solid #dc3545; }
+    .health-event-card.kind-symptom { border-left: 4px solid #fd7e14; }
+    .health-severity-dot {
+        display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+        background: #dc3545; margin-right: 3px;
+    }
+    .health-attribution { font-size: 0.78rem; color: #888; }
+    .health-timeline-item {
+        display: flex; gap: 12px; padding: 10px 0;
+        border-bottom: 1px solid rgba(244,164,96,0.25);
+    }
+    .health-timeline-icon { font-size: 1.3rem; line-height: 1.6; }
+    .health-report-panel {
+        border: 2px dashed var(--pet-secondary);
+        border-radius: 14px;
+        padding: 20px;
+        background: rgba(244,164,96,0.06);
+    }
+    html[data-bs-theme="dark"] .health-attribution { color: #aaa; }
+</style>
+
+@if (TempData["StatusMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["StatusMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@* ── PAGE HEADER ─────────────────────────────────────────── *@
+<div class="app-page-heading mb-4 d-flex align-items-center justify-content-between gap-3 flex-wrap">
+    <div>
+        <p class="app-eyebrow">MEDICAL HISTORY</p>
+        <h1 class="mb-1 fw-bold" style="color: var(--pet-dark);">🩺 Health</h1>
+        <p class="text-muted mb-0" style="font-size: 1.05rem;">Symptoms, incidents, medications, and vet visits — all in one place.</p>
+    </div>
+    @if (Model.SelectedPetID > 0 && Model.Household.CanRecordCare)
+    {
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-warning js-log-health-event" data-kind="Symptom" style="border-radius: 30px; font-weight: 600;">+ Log Symptom</button>
+            <button type="button" class="btn btn-danger js-log-health-event" data-kind="Incident" style="border-radius: 30px; font-weight: 600;">+ Log Incident</button>
+        </div>
+    }
+</div>
+
+@* ── PET SELECTOR ────────────────────────────────────────── *@
+<div class="card app-panel mb-4" style="border: 2px solid var(--pet-secondary); border-radius: 14px; box-shadow: 0 2px 10px rgba(139,69,19,0.08);">
+    <div class="card-body py-3 px-4">
+        <form method="post" asp-page-handler="SelectPet">
+            <div class="row align-items-center g-3">
+                <div class="col-auto">
+                    <label class="form-label fw-semibold mb-0" style="color: var(--pet-dark); font-size: 0.95rem;">🐾 Choose a pet</label>
+                </div>
+                <div class="col-md-4">
+                    <select name="selectedPetID" class="form-select" onchange="this.form.submit()" style="border-radius: 30px; border: 2px solid var(--pet-secondary);">
+                        @foreach (var pet in Model.Pets)
+                        {
+                            string petEmoji = pet.Type?.ToLower() switch { "cat" => "🐱", "dog" => "🐕", "bird" => "🐦", "fish" => "🐟", "rabbit" => "🐰", _ => "🐾" };
+                            <option value="@pet.PetID" selected="@(Model.SelectedPetID == pet.PetID)">@petEmoji @pet.Name</option>
+                        }
+                    </select>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+@if (Model.SelectedPetID == 0)
+{
+    <div class="alert" style="border: 2px solid var(--pet-secondary); border-radius: 12px; background: rgba(244,164,96,0.08);">
+        Add a pet on the Dashboard to start tracking their health.
+    </div>
+}
+else
+{
+    var pet = Model.SelectedPet;
+
+    @* ── HEALTH OVERVIEW ─────────────────────────────────────── *@
+    <div class="app-section-heading mb-3">
+        <h2 class="mb-0 fw-semibold" style="color: var(--pet-dark); font-size: 1.35rem;">Overview</h2>
+    </div>
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card health-summary-card">
+                <div class="card-body">
+                    <h6 class="text-muted text-uppercase small fw-bold mb-2">Next Vet Visit</h6>
+                    @if (Model.NextVetVisit != null)
+                    {
+                        <p class="mb-1 fw-semibold">@Model.NextVetVisit.VisitReason</p>
+                        <p class="text-muted small mb-0">@Model.NextVetVisit.VisitDate.ToString("MMM d, yyyy") @(Model.NextVetVisit.IsAllDay ? "" : Model.NextVetVisit.VisitTime?.ToString(@"h\:mm"))</p>
+                    }
+                    else
+                    {
+                        <p class="text-muted mb-0">No upcoming visit scheduled.</p>
+                    }
+                    <a asp-page="/VetVisits" class="small">View Vet Visits →</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card health-summary-card">
+                <div class="card-body">
+                    <h6 class="text-muted text-uppercase small fw-bold mb-2">Recent Symptoms/Incidents</h6>
+                    <p class="mb-0 fw-semibold" style="font-size: 1.6rem;">@(Model.Symptoms.Count + Model.Incidents.Count)</p>
+                    <p class="text-muted small mb-0">in the last @Model.HistoryDays days</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card health-summary-card">
+                <div class="card-body">
+                    <h6 class="text-muted text-uppercase small fw-bold mb-2">Medication Adherence</h6>
+                    @if (Model.Adherence.Total > 0)
+                    {
+                        <p class="mb-0 fw-semibold" style="font-size: 1.6rem;">@Model.Adherence.AdherencePercent%</p>
+                        <p class="text-muted small mb-0">@Model.Adherence.Taken taken · @Model.Adherence.TakenLate late · @Model.Adherence.Missed missed (30 days)</p>
+                    }
+                    else
+                    {
+                        <p class="text-muted mb-0">No scheduled doses in the last 30 days.</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ── SYMPTOMS & INCIDENTS ────────────────────────────────── *@
+    <div class="app-section-heading mb-3">
+        <h2 class="mb-0 fw-semibold" style="color: var(--pet-dark); font-size: 1.35rem;">Symptoms &amp; Incidents</h2>
+    </div>
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <h6 class="fw-semibold mb-2">🩺 Symptoms</h6>
+            @if (Model.Symptoms.Count == 0)
+            {
+                <p class="text-muted small">No symptoms logged recently.</p>
+            }
+            else
+            {
+                @foreach (var evt in Model.Symptoms)
+                {
+                    <partial name="_HealthEventCard" model="evt" view-data="@ViewData" />
+                }
+            }
+        </div>
+        <div class="col-md-6">
+            <h6 class="fw-semibold mb-2">⚠️ Incidents</h6>
+            @if (Model.Incidents.Count == 0)
+            {
+                <p class="text-muted small">No incidents logged recently.</p>
+            }
+            else
+            {
+                @foreach (var evt in Model.Incidents)
+                {
+                    <partial name="_HealthEventCard" model="evt" view-data="@ViewData" />
+                }
+            }
+        </div>
+    </div>
+
+    @* ── CURRENT MEDICATIONS ─────────────────────────────────── *@
+    <div class="app-section-heading mb-3 d-flex justify-content-between align-items-center">
+        <h2 class="mb-0 fw-semibold" style="color: var(--pet-dark); font-size: 1.35rem;">Current Medications</h2>
+        <a asp-page="/Medications" asp-route-petID="@Model.SelectedPetID" class="small">Manage in Medications →</a>
+    </div>
+    @if (Model.MedicationSummaries.Count == 0)
+    {
+        <p class="text-muted small mb-4">No medications on file for @pet?.Name.</p>
+    }
+    else
+    {
+        <div class="table-responsive mb-4">
+            <table class="table align-middle">
+                <thead><tr><th>Medication</th><th>Dosage</th><th>Frequency</th><th>Last dose</th><th>Next due</th></tr></thead>
+                <tbody>
+                    @foreach (var med in Model.MedicationSummaries)
+                    {
+                        <tr>
+                            <td class="fw-semibold">@med.MedicationName</td>
+                            <td>@med.Dosage</td>
+                            <td>@med.FrequencyDisplay</td>
+                            <td>@med.LastDoseWhen <span class="text-muted small">(@med.LastDoseStatus)</span></td>
+                            <td>
+                                @med.NextDoseWhen
+                                @if (med.NextDoseIsLate)
+                                {
+                                    <span class="badge bg-danger ms-1">Missed</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    @* ── VET CARE ─────────────────────────────────────────────── *@
+    <div class="app-section-heading mb-3 d-flex justify-content-between align-items-center">
+        <h2 class="mb-0 fw-semibold" style="color: var(--pet-dark); font-size: 1.35rem;">Vet Care</h2>
+        <a asp-page="/VetVisits" class="small">Open Vet Visits →</a>
+    </div>
+    @if (Model.RecentVetVisits.Count == 0 && Model.NextVetVisit == null)
+    {
+        <p class="text-muted small mb-4">No vet visits on file yet.</p>
+    }
+    else
+    {
+        <div class="mb-4">
+            @if (Model.NextVetVisit != null)
+            {
+                <div class="health-event-card">
+                    <strong>Upcoming:</strong> @Model.NextVetVisit.VisitReason — @Model.NextVetVisit.VisitDate.ToString("MMM d, yyyy")
+                    <span class="text-muted small d-block">@Model.NextVetVisit.ClinicName</span>
+                </div>
+            }
+            @foreach (var visit in Model.RecentVetVisits.Take(3))
+            {
+                <div class="health-event-card">
+                    @visit.VisitReason — @visit.VisitDate.ToString("MMM d, yyyy")
+                    @if (!string.IsNullOrWhiteSpace(visit.CreatedByName))
+                    {
+                        <span class="health-attribution d-block">Recorded by @visit.CreatedByName</span>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    @* ── HEALTH HISTORY ───────────────────────────────────────── *@
+    <div class="app-section-heading mb-3">
+        <h2 class="mb-0 fw-semibold" style="color: var(--pet-dark); font-size: 1.35rem;">Health History</h2>
+    </div>
+    <form method="get" class="row g-2 align-items-end mb-3">
+        <input type="hidden" name="petID" value="@Model.SelectedPetID" />
+        <div class="col-auto">
+            <label class="form-label small fw-semibold mb-0">Range</label>
+            <select name="HistoryDays" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="7" selected="@(Model.HistoryDays == 7)">Last 7 days</option>
+                <option value="30" selected="@(Model.HistoryDays == 30)">Last 30 days</option>
+                <option value="90" selected="@(Model.HistoryDays == 90)">Last 90 days</option>
+                <option value="365" selected="@(Model.HistoryDays == 365)">Last year</option>
+            </select>
+        </div>
+        <div class="col-auto">
+            <label class="form-label small fw-semibold mb-0">Type</label>
+            <select name="HistoryType" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="All" selected="@(Model.HistoryType == "All")">All</option>
+                <option value="Symptom" selected="@(Model.HistoryType == "Symptom")">Symptoms</option>
+                <option value="Incident" selected="@(Model.HistoryType == "Incident")">Incidents</option>
+                <option value="Medication" selected="@(Model.HistoryType == "Medication")">Medications</option>
+                <option value="VetVisit" selected="@(Model.HistoryType == "VetVisit")">Vet Visits</option>
+            </select>
+        </div>
+        <div class="col-auto">
+            <label class="form-label small fw-semibold mb-0">Sort</label>
+            <select name="OldestFirst" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="false" selected="@(!Model.OldestFirst)">Newest first</option>
+                <option value="true" selected="@(Model.OldestFirst)">Oldest first</option>
+            </select>
+        </div>
+    </form>
+
+    @if (Model.Timeline.Count == 0)
+    {
+        <p class="text-muted small mb-4">No matching health history in this range.</p>
+    }
+    else
+    {
+        <div class="mb-4">
+            @foreach (var item in Model.Timeline)
+            {
+                var sourceLabel = item.SourceType switch
+                {
+                    "VetVisit" => "Vet visit",
+                    var s => s
+                };
+                var verb = item.SourceType == "Medication" ? "given" : "recorded";
+                <div class="health-timeline-item">
+                    <div class="health-timeline-icon">@item.Icon</div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between flex-wrap">
+                            <a href="@item.Url" class="fw-semibold text-decoration-none">@item.Title</a>
+                            <span class="text-muted small">@item.EventAtLocal.ToString("MMM d, yyyy h:mm tt")</span>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(item.Summary))
+                        {
+                            <div class="small text-muted">@item.Summary</div>
+                        }
+                        <div class="d-flex gap-2 align-items-center">
+                            @if (!string.IsNullOrWhiteSpace(item.Status))
+                            {
+                                <span class="badge bg-secondary">@item.Status</span>
+                            }
+                            @if (item.Attribution == "Recorded user unavailable")
+                            {
+                                <span class="health-attribution">@item.Attribution</span>
+                            }
+                            else if (!string.IsNullOrWhiteSpace(item.Attribution))
+                            {
+                                <span class="health-attribution">@sourceLabel @verb by @item.Attribution</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    @* ── VET HEALTH REPORT ────────────────────────────────────── *@
+    <div class="app-section-heading mb-3">
+        <h2 class="mb-0 fw-semibold" style="color: var(--pet-dark); font-size: 1.35rem;">Vet Health Report</h2>
+    </div>
+    <div class="health-report-panel mb-4">
+        <p class="mb-3">Generate a printable summary of @pet?.Name's recent medical history to share with your vet.</p>
+        <div class="d-flex gap-2 flex-wrap">
+            <a asp-page="/Reports" asp-route-petID="@Model.SelectedPetID" asp-route-days="30" class="btn pt-btn-primary" style="border-radius: 30px;">Last 30 Days</a>
+            <a asp-page="/Reports" asp-route-petID="@Model.SelectedPetID" asp-route-days="90" class="btn pt-btn-secondary" style="border-radius: 30px;">Last 90 Days</a>
+            <button type="button" class="btn btn-outline-secondary" style="border-radius: 30px;" data-bs-toggle="modal" data-bs-target="#customReportModal">Custom Range</button>
+        </div>
+    </div>
+}
+
+@* Modals render via the shared "Modals" section (see _Layout.cshtml) so they're
+   siblings of the main container rather than nested inside it — nesting a
+   position:fixed Bootstrap modal inside .container.main-content left its
+   backdrop intercepting every click/keystroke meant for the form. *@
+@section Modals {
+    <div class="modal fade" id="customReportModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="get" asp-page="/Reports">
+                    <input type="hidden" name="petID" value="@Model.SelectedPetID" />
+                    <div class="modal-header"><h5 class="modal-title">Custom Report Range</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                    <div class="modal-body">
+                        <div class="mb-3"><label class="form-label">Start date</label><input type="date" name="start" class="form-control" required /></div>
+                        <div class="mb-3"><label class="form-label">End date</label><input type="date" name="end" class="form-control" required /></div>
+                    </div>
+                    <div class="modal-footer"><button type="submit" class="btn pt-btn-primary">Generate Report</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    @* ── LOG SYMPTOM / INCIDENT MODAL (shared add + edit) ───────── *@
+    <div class="modal fade" id="logHealthEventModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="SaveHealthEvent" id="healthEventForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">Log Health Event</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrWhiteSpace(Model.HealthError))
+                    {
+                        <div class="alert alert-danger">@Model.HealthError</div>
+                    }
+                    <input type="hidden" asp-for="EventInput.HealthEventID" />
+                    <input type="hidden" asp-for="EventInput.PetID" />
+                    <input type="hidden" asp-for="EventInput.UtcOffsetMinutes" id="healthEventUtcOffset" />
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Type</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="EventInput.EventKind" id="kindSymptom" value="Symptom" checked="@(Model.EventInput.EventKind == HealthEventKinds.Symptom)" />
+                            <label class="btn btn-outline-warning" for="kindSymptom">🩺 Symptom</label>
+                            <input type="radio" class="btn-check" name="EventInput.EventKind" id="kindIncident" value="Incident" checked="@(Model.EventInput.EventKind == HealthEventKinds.Incident)" />
+                            <label class="btn btn-outline-danger" for="kindIncident">⚠️ Incident</label>
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">What happened <span class="required-marker">*</span></label>
+                            <input asp-for="EventInput.EventType" class="form-control" list="healthEventTypeOptions" required maxlength="200" />
+                            <datalist id="healthEventTypeOptions">
+                                @foreach (var t in HealthModel.SymptomTypes.Concat(HealthModel.IncidentTypes).Distinct())
+                                {
+                                    <option value="@t"></option>
+                                }
+                            </datalist>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">When <span class="required-marker">*</span></label>
+                            <input asp-for="EventInput.OccurredAtLocal" type="datetime-local" class="form-control" required />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Severity</label>
+                            <select asp-for="EventInput.Severity" class="form-select">
+                                <option value="">—</option>
+                                <option value="1">1 · Mild</option>
+                                <option value="2">2</option>
+                                <option value="3">3 · Moderate</option>
+                                <option value="4">4</option>
+                                <option value="5">5 · Severe</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3 mt-3">
+                        <label class="form-label fw-semibold">Description / Notes</label>
+                        <textarea asp-for="EventInput.Description" class="form-control" rows="3" maxlength="4000"></textarea>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Possible trigger</label>
+                            <input asp-for="EventInput.PossibleTrigger" class="form-control" maxlength="1000" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Appetite</label>
+                            <select asp-for="EventInput.AppetiteStatus" class="form-select">
+                                <option value="">—</option>
+                                <option value="Normal">Normal</option>
+                                <option value="Decreased">Decreased</option>
+                                <option value="None">None</option>
+                                <option value="Increased">Increased</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Drinking</label>
+                            <select asp-for="EventInput.DrinkingStatus" class="form-select">
+                                <option value="">—</option>
+                                <option value="Normal">Normal</option>
+                                <option value="Decreased">Decreased</option>
+                                <option value="None">None</option>
+                                <option value="Increased">Increased</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mt-1">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Recovery status</label>
+                            <select asp-for="EventInput.RecoveryStatus" class="form-select">
+                                <option value="">—</option>
+                                <option value="Ongoing">Ongoing</option>
+                                <option value="Improving">Improving</option>
+                                <option value="Recovered">Recovered</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Recovered at</label>
+                            <input asp-for="EventInput.RecoveredAtLocal" type="datetime-local" class="form-control" />
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <div class="form-check">
+                                <input asp-for="EventInput.VeterinarianContacted" class="form-check-input" />
+                                <label class="form-check-label" asp-for="EventInput.VeterinarianContacted">Vet was contacted</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn pt-btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+} @* end @section Modals *@
+
+@section Scripts {
+    <script>
+        const healthModalToOpen = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ModalToOpen));
+        const healthSelectedPetID = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.SelectedPetID));
+        document.getElementById('healthEventUtcOffset').value = new Date().getTimezoneOffset();
+
+        // "+ Log Symptom" / "+ Log Incident" never navigate — we're already on
+        // this page, so just reset the shared form for a brand-new event and
+        // show the modal client-side (keeps the address bar on plain /Health).
+        document.querySelectorAll('.js-log-health-event').forEach(function (button) {
+            button.addEventListener('click', function () {
+                const form = document.getElementById('healthEventForm');
+                form.reset();
+                document.getElementById('EventInput_HealthEventID').value = '0';
+                document.getElementById('EventInput_PetID').value = healthSelectedPetID;
+                document.getElementById(button.dataset.kind === 'Incident' ? 'kindIncident' : 'kindSymptom').checked = true;
+
+                const now = new Date();
+                document.getElementById('EventInput_OccurredAtLocal').value =
+                    new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('logHealthEventModal')).show();
+            });
+        });
+
+        if (healthModalToOpen) {
+            bootstrap.Modal.getOrCreateInstance(document.getElementById(healthModalToOpen)).show();
+        }
+    </script>
+}

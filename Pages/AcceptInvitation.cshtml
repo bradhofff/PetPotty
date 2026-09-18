@@ -1,0 +1,81 @@
+@page
+@model PetPotty.Pages.AcceptInvitationModel
+@using PetPotty.Models
+@{
+    ViewData["Title"] = "Accept Invitation";
+    Layout = "_Layout";
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-7 col-lg-6">
+        <div class="card border-0 shadow-sm" style="border-radius: 15px; overflow: hidden;">
+            <div class="card-header text-white text-center py-4"
+                 style="background: linear-gradient(135deg, var(--pet-primary), var(--pet-secondary));">
+                <h3 class="mb-0">🐾 Household Invitation</h3>
+            </div>
+            <div class="card-body p-4">
+
+                @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+                {
+                    <div class="alert alert-danger border-2 rounded-3" role="alert">
+                        <strong>⚠️ @Model.ErrorMessage</strong>
+                    </div>
+                }
+
+                @if (Model.Invitation != null)
+                {
+                    var invite = Model.Invitation;
+                    <p class="fs-5 mb-1">
+                        <strong>@invite.InvitedByName</strong> invited you to help care for the pets in
+                        <strong>@invite.HouseholdName</strong>.
+                    </p>
+                    <p class="text-muted mb-4">
+                        Role: <span class="badge" style="background: var(--pet-secondary); color: var(--pet-dark);">@invite.Role</span>
+                        &nbsp;·&nbsp; Sent to @invite.Email
+                    </p>
+
+                    @if (invite.Status == InvitationStatus.Accepted && !Model.Accepted)
+                    {
+                        <div class="alert alert-info">This invitation has already been accepted.</div>
+                        <a asp-page="/Login" class="btn pt-btn-primary">Log in</a>
+                    }
+                    else if (invite.Status == InvitationStatus.Revoked)
+                    {
+                        <div class="alert alert-warning">This invitation was revoked by the household owner.</div>
+                    }
+                    else if (invite.Status == InvitationStatus.Expired)
+                    {
+                        <div class="alert alert-warning">
+                            This invitation expired on @invite.ExpiresAtUtc.ToString("MMMM d, yyyy 'at' h:mm tt") UTC.
+                            Ask @invite.InvitedByName to send a new one.
+                        </div>
+                    }
+                    else if (!Model.IsLoggedIn)
+                    {
+                        <p>Log in if you already have a Pack Tracker account, or create one with the email above.</p>
+                        <div class="d-grid gap-2">
+                            <a asp-page="/Login" asp-route-invite="@Model.Token" class="btn pt-btn-primary">Log In to Accept</a>
+                            <a asp-page="/Signup" asp-route-invite="@Model.Token" class="btn pt-btn-secondary">Create an Account</a>
+                        </div>
+                    }
+                    else if (!Model.LoggedInEmailMatches)
+                    {
+                        <div class="alert alert-warning">
+                            You're logged in as an account with a different email (@Model.LoggedInEmail). This invitation was
+                            sent to <strong>@invite.Email</strong>. Log out and log back in with that account to accept it.
+                        </div>
+                        <a asp-page="/Logout" class="btn pt-btn-secondary">Log out</a>
+                    }
+                    else
+                    {
+                        <form method="post" asp-page-handler="Accept">
+                            <input type="hidden" asp-for="Token" />
+                            <button type="submit" class="btn pt-btn-primary btn-lg w-100">Accept Invitation</button>
+                        </form>
+                    }
+                }
+
+            </div>
+        </div>
+    </div>
+</div>
