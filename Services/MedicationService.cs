@@ -171,6 +171,8 @@ namespace PetPotty.Services
             {
                 CommandType = CommandType.StoredProcedure
             };
+            cmd.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+            cmd.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = household.HouseholdID;
             cmd.Parameters.AddWithValue("@petID",             petID);
             cmd.Parameters.AddWithValue("@medicationName",    medicationName);
             cmd.Parameters.AddWithValue("@dosage",            dosage);
@@ -196,6 +198,8 @@ namespace PetPotty.Services
             {
                 CommandType = CommandType.StoredProcedure
             };
+            cmd.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+            cmd.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = household.HouseholdID;
             cmd.Parameters.AddWithValue("@medID",             medID);
             cmd.Parameters.AddWithValue("@medicationName",    medicationName);
             cmd.Parameters.AddWithValue("@dosage",            dosage);
@@ -219,6 +223,8 @@ namespace PetPotty.Services
             {
                 CommandType = CommandType.StoredProcedure
             };
+            cmd.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+            cmd.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = household.HouseholdID;
             cmd.Parameters.AddWithValue("@medID", medID);
             conn.Open();
             return OwnedRecordCommand.Execute(cmd, userID, household.HouseholdID, medID, OwnedRecordCommand.Medication);
@@ -278,9 +284,16 @@ namespace PetPotty.Services
                 {
                     CommandType = CommandType.StoredProcedure
                 };
+                confirm.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+                confirm.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = household.HouseholdID;
                 confirm.Parameters.Add("@medID", SqlDbType.Int).Value = medID;
                 confirm.Parameters.Add("@logDate", SqlDbType.DateTime2).Value = logDate;
                 confirm.Parameters.Add("@confirmedAt", SqlDbType.DateTime2).Value = administeredAtLocal!.Value;
+                confirm.Parameters.Add("@RecordedByUserID", SqlDbType.Int).Value = userID;
+                confirm.Parameters.Add("@AdministeredAtUtc", SqlDbType.DateTime2).Value =
+                    _timeZone.ToUtc(administeredAtLocal.Value, utcOffsetMinutes);
+                confirm.Parameters.Add("@DoseStatus", SqlDbType.NVarChar, 40).Value = MedicationDoseStatuses.Taken;
+                confirm.Parameters.Add("@AdministrationNotes", SqlDbType.NVarChar, 2000).Value = Clean(notes);
                 confirm.ExecuteNonQuery();
             }
 

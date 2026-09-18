@@ -216,7 +216,7 @@
     .quick-log-form {
         align-items: center;
         display: grid;
-        grid-template-rows: 1.2em 44px;
+        grid-template-rows: minmax(2.4em, auto) 44px;
         min-width: 0;
         width: 100%;
     }
@@ -241,17 +241,16 @@
         font-size: 0.8rem;
         font-weight: 400;
         line-height: 1.2;
-        align-items: center;
-        display: flex;
-        justify-content: center;
+        align-self: end;
+        display: block;
         margin-bottom: 5px;
         max-width: none;
-        min-height: 1.2em;
+        min-height: 2.4em;
         overflow: hidden;
-        overflow-wrap: normal;
+        overflow-wrap: anywhere;
         text-align: center;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        text-overflow: clip;
+        white-space: normal;
         width: 100%;
     }
 
@@ -337,17 +336,18 @@
         transform: translateY(-1px);
     }
     .log-health-card-btn {
-        background: white;
-        border: 2px solid #d96420;
-        color: #a8430a;
+        background: #d96420;
+        border: 1px solid #d96420;
+        color: #fff;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         text-decoration: none;
     }
     .log-health-card-btn:hover {
-        background: rgba(244,164,96,0.18);
-        color: #7d3107;
+        background: #af4811;
+        border-color: #af4811;
+        color: #fff;
         transform: translateY(-1px);
     }
     .add-task-card-btn:active,
@@ -800,7 +800,7 @@ else
                             + Add Task
                         </button>
                         <a asp-page="/Health" asp-route-petID="@pet.PetID" class="log-health-card-btn">
-                            🩺 Pet Details
+                            🩺 View health
                         </a>
                     </div>
 

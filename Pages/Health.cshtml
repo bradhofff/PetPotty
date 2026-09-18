@@ -41,7 +41,11 @@
             }
             var isHealthEvent = item.SourceType is HealthEventKinds.Symptom or HealthEventKinds.Incident;
             var eventID = isHealthEvent ? $"health-event-{item.SourceID}" : null;
-            var editUrl = isHealthEvent ? $"/Health?petID={item.PetID}&editHealthEventID={item.SourceID}" : item.Url;
+            var editUrl = isHealthEvent
+                ? Model.PetID.HasValue
+                    ? $"/Health?petID={Model.PetID}&editHealthEventID={item.SourceID}"
+                    : $"/Health?editHealthEventID={item.SourceID}"
+                : item.Url;
             <li class="health-timeline-row" id="@eventID">
                 <span class="health-timeline-icon health-timeline-icon-@item.SourceType.ToLowerInvariant()" aria-hidden="true">@item.Icon</span>
                 <div class="health-timeline-body">
@@ -70,6 +74,7 @@
                         <form method="post" asp-page-handler="DeleteEvent" onsubmit="return confirm('Remove this health event?');">
                             <input type="hidden" name="healthEventID" value="@item.SourceID" />
                             <input type="hidden" name="petID" value="@item.PetID" />
+                            <input type="hidden" name="returnPetID" value="@Model.PetID" />
                             <button type="submit" class="health-timeline-action-btn health-timeline-delete" title="Delete" aria-label="Delete @item.Title">✕</button>
                         </form>
                     }
@@ -80,29 +85,46 @@
 }
 
 <style>
-    .health-page { max-width: 1080px; margin: 0 auto; }
+    .health-page { max-width: 1180px; margin: 0 auto; }
 
     /* Header — compact application workspace heading, not a marketing hero. */
     .health-heading { padding: .3rem 0 1.1rem; border-bottom: 1px solid var(--app-line); }
     .health-heading h1 { font-size: clamp(1.7rem, 3vw, 2.3rem); letter-spacing: -.04em; color: var(--app-ink); margin-bottom: .2rem; }
     .health-actions { display: flex; flex-wrap: wrap; gap: .6rem; }
-    .health-actions .btn { border-radius: 999px; font-weight: 650; padding: .5rem 1.1rem; white-space: nowrap; }
-    .health-pet-switch { min-width: 170px; }
-    .health-pet-switch .form-select { font-weight: 650; }
+    .health-actions .btn { border-radius: 10px; font-weight: 700; padding: .7rem 1.1rem; white-space: nowrap; }
+    .health-pet-switch { min-width: 200px; }
+    .health-pet-switch .form-select { font-weight: 650; min-height: 43px; }
     .health-section-heading { font-size: 1.2rem; letter-spacing: -.02em; color: var(--app-ink); margin: 0; }
+    .health-page .form-select, .health-page .form-control,
+    #healthEventModal .form-select, #healthEventModal .form-control,
+    #editHealthEventModal .form-select, #editHealthEventModal .form-control { border: 1px solid #dce1e8; border-radius: 9px; }
+    .health-page .form-select:focus, .health-page .form-control:focus,
+    #healthEventModal .form-select:focus, #healthEventModal .form-control:focus,
+    #editHealthEventModal .form-select:focus, #editHealthEventModal .form-control:focus { border-color: #8193aa !important; box-shadow: 0 0 0 .2rem rgba(85,111,145,.13) !important; }
+    .health-log-button { background: var(--app-accent); border: 1px solid var(--app-accent); color: #fff; box-shadow: 0 5px 12px rgba(217,100,32,.15); }
+    .health-log-button:hover, .health-log-button:focus-visible { background: var(--app-accent-dark); border-color: var(--app-accent-dark); color: #fff; }
+
+    .health-section-tabs { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: 1.2rem; }
+    .health-section-tab { border: 1px solid transparent; border-radius: 9px; color: var(--app-muted); font-size: .86rem; font-weight: 650; padding: .5rem .85rem; text-decoration: none; transition: background .18s ease, color .18s ease, transform .18s ease; }
+    .health-section-tab:hover { background: #edf1f5; color: var(--app-ink); }
+    .health-section-tab.is-active { background: #fff; border-color: var(--app-line); box-shadow: 0 3px 9px rgba(30,41,57,.06); color: var(--app-ink); }
+    .health-section-tab.is-jumping, .health-stat-card.is-jumping { animation: health-active-hop .34s ease; }
+    @@keyframes health-active-hop { 0%, 100% { transform: translateY(0); } 45% { transform: translateY(-5px); } }
+    .health-page section[id] { scroll-margin-top: 1.3rem; }
+    @@media (prefers-reduced-motion: reduce) { .health-section-tab.is-jumping, .health-stat-card.is-jumping { animation: none; } }
 
     /* Section collapse toggle — a small round caret next to each section's heading/actions.
        Only the body below the header collapses, so the #current-medications / #health-history /
        #vet-care anchor links above still scroll to a visible heading even when collapsed. */
     .health-section-toggle { align-items: center; background: #fff; border: 1px solid var(--app-line); border-radius: 50%; color: #768193; cursor: pointer; display: inline-flex; flex-shrink: 0; font-size: .8rem; height: 30px; justify-content: center; line-height: 1; padding: 0; width: 30px; }
-    .health-section-toggle:hover { background: var(--app-accent-soft); border-color: #eca273; color: var(--app-accent); }
+    .health-section-toggle:hover { background: #eef1f5; border-color: #b9c6d6; color: var(--app-ink); }
     .health-section-caret { display: inline-block; transition: transform .18s ease; }
     .health-section-toggle.collapsed .health-section-caret { transform: rotate(180deg); }
 
     /* Overview — compact, clickable stat tiles. No embedded detail lists here. */
     .health-overview { margin-top: 1.4rem; }
     .health-stat-card { align-items: center; background: #fff; border: 1px solid var(--app-line); border-radius: 13px; box-shadow: 0 5px 18px rgba(30,41,57,.05); display: flex; gap: .8rem; height: 100%; padding: 1rem; text-decoration: none; transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
-    .health-stat-card:hover { border-color: #f0c2a4; box-shadow: 0 12px 26px rgba(30,41,57,.09); transform: translateY(-2px); }
+    .health-stat-card:hover, .health-stat-card:focus-visible { border-color: #b9c6d6; box-shadow: 0 12px 26px rgba(30,41,57,.09); transform: translateY(-2px); }
     .health-stat-icon { align-items: center; background: var(--app-accent-soft); border-radius: 9px; display: inline-flex; font-size: 1.05rem; height: 38px; justify-content: center; width: 38px; flex-shrink: 0; }
     .health-stat-body { display: flex; flex-direction: column; min-width: 0; }
     .health-stat-body small { color: var(--app-muted); font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
@@ -130,16 +152,16 @@
        incidents, medication activity, vet visits) instead of one interleaved feed. */
     .health-history-groups { display: flex; flex-direction: column; gap: 1rem; }
     .health-history-group { border: 1px solid var(--app-line); border-radius: 13px; overflow: hidden; }
-    .health-history-group-toggle { align-items: center; background: var(--app-accent-soft); border: 0; color: var(--app-ink); cursor: pointer; display: flex; font-size: .92rem; font-weight: 700; gap: .6rem; justify-content: space-between; padding: .7rem 1rem; text-align: left; width: 100%; }
-    .health-history-group-toggle:hover { background: #ffedde; }
-    .health-history-group-toggle .health-section-caret { color: var(--app-accent); flex-shrink: 0; }
+    .health-history-group-toggle { align-items: center; background: #f7f8fa; border: 0; color: var(--app-ink); cursor: pointer; display: flex; font-size: .92rem; font-weight: 700; gap: .6rem; justify-content: space-between; padding: .7rem 1rem; text-align: left; width: 100%; }
+    .health-history-group-toggle:hover { background: #eef1f5; }
+    .health-history-group-toggle .health-section-caret { color: var(--app-muted); flex-shrink: 0; }
     .health-history-group-count { background: #fff; border: 1px solid var(--app-line); border-radius: 999px; color: var(--app-muted); font-size: .72rem; font-weight: 700; margin-left: .3rem; padding: 1px 8px; }
     .health-history-group-body-inner { padding: .2rem 1rem 0; }
 
     /* Health history — a compact list, not a card-per-row timeline. */
     .health-timeline { list-style: none; margin: 0; padding: 0; }
-    .health-date-pill { display: inline-block; background: var(--app-accent-soft); color: var(--app-accent); border: 1px solid #f4d2b7; border-radius: 999px; font-size: .72rem; font-weight: 700; padding: 3px 12px; margin: 18px 0 6px; text-transform: uppercase; letter-spacing: .04em; }
-    .health-timeline-row { display: flex; gap: .7rem; align-items: flex-start; padding: .65rem 0; border-bottom: 1px solid rgba(217,100,32,.12); }
+    .health-date-pill { display: inline-block; background: #f4f6f9; color: #586273; border: 1px solid var(--app-line); border-radius: 999px; font-size: .72rem; font-weight: 700; padding: 3px 12px; margin: 18px 0 6px; text-transform: uppercase; letter-spacing: .04em; }
+    .health-timeline-row { display: flex; gap: .7rem; align-items: flex-start; padding: .65rem 0; border-bottom: 1px solid var(--app-line); }
     .health-timeline-row:last-child { border-bottom: 0; }
     .health-timeline-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: .95rem; flex-shrink: 0; margin-top: 1px; background: var(--app-accent-soft); }
     .health-timeline-icon-symptom { background: #fff1e8; }
@@ -155,14 +177,14 @@
     .health-timeline-row:hover .health-timeline-actions,
     .health-timeline-actions:focus-within { opacity: 1; }
     .health-timeline-action-btn { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--app-line); background: #fff; color: #768193; display: inline-flex; align-items: center; justify-content: center; font-size: .78rem; text-decoration: none; padding: 0; cursor: pointer; }
-    .health-timeline-action-btn:hover { background: var(--app-accent-soft); border-color: #eca273; color: var(--app-accent); }
+    .health-timeline-action-btn:hover { background: #eef1f5; border-color: #b9c6d6; color: var(--app-ink); }
     .health-timeline-delete:hover { background: #fdecec; border-color: #f0b4b4; color: #c23b3b; }
     @@media (hover: none), (pointer: coarse) { .health-timeline-actions { opacity: 1; } }
 
     /* Filters — one preset dropdown instead of raw date pickers; auto-applies on change. */
     .health-filter { background: #fff; border: 1px solid var(--app-line); border-radius: 13px; padding: 1rem; margin-top: 1rem; }
     .health-filter .form-label { font-size: .74rem; font-weight: 700; color: #505a6b; margin-bottom: .3rem; }
-    .health-filter-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)) auto; gap: .75rem; align-items: end; }
+    .health-filter-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)) minmax(100px,.8fr); gap: .75rem; align-items: end; }
 
     /* Vet care — a light pointer to /VetVisits, not a duplicate of it. */
     .health-vet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
@@ -189,6 +211,7 @@
     @@media (max-width: 575.98px) {
         .health-heading { padding-bottom: .9rem; }
         .health-actions .btn { flex: 1; }
+        .health-pet-switch { width: 100%; }
         .health-med-doses { grid-template-columns: 1fr; }
         .health-timeline-actions { opacity: 1; }
     }
@@ -248,6 +271,13 @@
         border-color: #fff !important;
         color: #aeb8c6 !important;
     }
+    html[data-bs-theme="dark"] .health-page .health-section-tab.is-active {
+        background: #111820 !important;
+        border-color: #fff !important;
+        color: #fff !important;
+    }
+    html[data-bs-theme="dark"] .health-page .health-section-tab:hover { background: #202832 !important; color: #fff !important; }
+    html[data-bs-theme="dark"] .health-page .health-history-group { border-color: #fff !important; }
 </style>
 
 <div class="health-page pb-5">
@@ -257,25 +287,21 @@
             <h1 class="mb-1">Health</h1>
             <p class="text-secondary mb-0">
                 Medical history, medications, symptoms, and vet care
-                @(selectedPet != null ? $"for {selectedPet.Name}." : Model.Pets.Count == 1 ? $"for {Model.Pets[0].Name}." : "for your pets.")
+                @(selectedPet != null ? $"for {selectedPet.Name}." : "for your pets.")
             </p>
         </div>
         @if (Model.Pets.Count > 0)
         {
             <div class="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 gap-sm-3">
-                @if (Model.Pets.Count > 1)
-                {
-                    <form method="post" asp-page-handler="SelectPet" class="health-pet-switch">
-                        <label class="visually-hidden" for="healthPetSwitch">Pet</label>
-                        <select name="selectedPetID" id="healthPetSwitch" class="form-select form-select-sm" onchange="this.form.submit()">
-                            <option value="0" selected="@(!Model.PetID.HasValue)">All pets</option>
-                            @foreach (var pet in Model.Pets) { <option value="@pet.PetID" selected="@(Model.PetID == pet.PetID)">@pet.Name</option> }
-                        </select>
-                    </form>
-                }
+                <form method="get" class="health-pet-switch">
+                    <label class="visually-hidden" for="healthPetSwitch">Pet</label>
+                    <select name="petID" id="healthPetSwitch" class="form-select" onchange="this.form.submit()" aria-label="Filter health records by pet">
+                        <option value="" selected="@(!Model.PetID.HasValue)">All pets</option>
+                        @foreach (var pet in Model.Pets) { <option value="@pet.PetID" selected="@(Model.PetID == pet.PetID)">@pet.Name</option> }
+                    </select>
+                </form>
                 <div class="health-actions">
-                    <button class="btn btn-outline-primary log-health-event" type="button" data-kind="Symptom" data-bs-toggle="modal" data-bs-target="#healthEventModal">🩺 Log Symptom</button>
-                    <button class="btn btn-primary log-health-event" type="button" data-kind="Incident" data-bs-toggle="modal" data-bs-target="#healthEventModal">⚠️ Log Incident</button>
+                    <button class="btn health-log-button" type="button" data-bs-toggle="modal" data-bs-target="#healthEventModal">🩺 Log health event</button>
                 </div>
             </div>
         }
@@ -300,8 +326,15 @@
     }
     else
     {
+        <nav class="health-section-tabs" aria-label="Health sections">
+            <a class="health-section-tab is-active" href="#health-overview" aria-current="location">Overview</a>
+            <a class="health-section-tab" href="#current-medications">Medications</a>
+            <a class="health-section-tab" href="#health-history">History</a>
+            <a class="health-section-tab" href="#vet-care">Vet care</a>
+            <a class="health-section-tab" href="#vet-report">Vet report</a>
+        </nav>
         @* ── HEALTH OVERVIEW — a handful of clickable stats, not a dashboard. ───── *@
-        <section class="health-overview" aria-label="Health overview">
+        <section class="health-overview" id="health-overview" aria-label="Health overview">
             <div class="row row-cols-2 row-cols-md-4 g-3">
                 <div class="col">
                     <a class="health-stat-card" href="#current-medications">
@@ -350,7 +383,7 @@
                             else
                             {
                                 <strong>@Model.NextVetVisit.AppointmentDateTime.ToString("MMM d")</strong>
-                                <em>@(Model.NextVetVisit.IsAllDay ? "All day" : Model.NextVetVisit.AppointmentDateTime.ToString("h:mm tt"))</em>
+                                <em>@(selectedPet == null ? $"{Model.Pets.FirstOrDefault(p => p.PetID == Model.NextVetVisit.PetID)?.Name} · " : "")@(Model.NextVetVisit.IsAllDay ? "All day" : Model.NextVetVisit.AppointmentDateTime.ToString("h:mm tt"))</em>
                             }
                         </span>
                     </a>
@@ -456,6 +489,7 @@
             <div id="health-history-body" class="collapse show">
 
             <form method="get" class="health-filter" aria-label="Health history filters">
+                <input type="hidden" name="petID" value="@Model.PetID" />
                 <div class="health-filter-grid">
                     <div>
                         <label class="form-label" for="healthRangePreset">Date range</label>
@@ -499,11 +533,7 @@
                 <div class="empty-health mt-3">
                     <div class="display-6" aria-hidden="true">🩺</div>
                     <h3 class="h5 mt-2 mb-1">No health concerns recorded yet</h3>
-                    <p class="mb-3">When something unusual happens, log a symptom or incident so you can track it over time.</p>
-                    <div class="d-flex gap-2 justify-content-center flex-wrap">
-                        <button class="btn btn-outline-primary log-health-event" type="button" data-kind="Symptom" data-bs-toggle="modal" data-bs-target="#healthEventModal">Log Symptom</button>
-                        <button class="btn btn-primary log-health-event" type="button" data-kind="Incident" data-bs-toggle="modal" data-bs-target="#healthEventModal">Log Incident</button>
-                    </div>
+                    <p class="mb-0">When something unusual happens, log a symptom or incident so you can track it over time.</p>
                 </div>
             }
             else
@@ -574,7 +604,7 @@
                         <article class="health-vet-card">
                             <small>Next visit</small>
                             <h3>@Model.NextVetVisit.AppointmentDateTime.ToString(Model.NextVetVisit.IsAllDay ? "MMM d, yyyy" : "MMM d 'at' h:mm tt")</h3>
-                            <p>@(string.IsNullOrWhiteSpace(Model.NextVetVisit.VisitReason) ? Model.NextVetVisit.ClinicName : Model.NextVetVisit.VisitReason)</p>
+                            <p>@(selectedPet == null ? $"{Model.Pets.FirstOrDefault(p => p.PetID == Model.NextVetVisit.PetID)?.Name} · " : "")@(string.IsNullOrWhiteSpace(Model.NextVetVisit.VisitReason) ? Model.NextVetVisit.ClinicName : Model.NextVetVisit.VisitReason)</p>
                             <a asp-page="/VetVisits" asp-route-petID="@Model.NextVetVisit.PetID" asp-route-vetVisitID="@Model.NextVetVisit.VetVisitID" asp-fragment="@($"visit-{Model.NextVetVisit.VetVisitID}")" class="btn btn-sm btn-light">@(Model.CanManageCarePlans ? "Edit appointment" : "View appointment")</a>
                         </article>
                     }
@@ -583,7 +613,7 @@
                         <article class="health-vet-card">
                             <small>Recent visit</small>
                             <h3>@Model.RecentVetVisit.AppointmentDateTime.ToString("MMM d, yyyy")</h3>
-                            <p>@(string.IsNullOrWhiteSpace(Model.RecentVetVisit.VisitReason) ? Model.RecentVetVisit.ClinicName : Model.RecentVetVisit.VisitReason)</p>
+                            <p>@(selectedPet == null ? $"{Model.Pets.FirstOrDefault(p => p.PetID == Model.RecentVetVisit.PetID)?.Name} · " : "")@(string.IsNullOrWhiteSpace(Model.RecentVetVisit.VisitReason) ? Model.RecentVetVisit.ClinicName : Model.RecentVetVisit.VisitReason)</p>
                             <a asp-page="/VetVisits" asp-route-petID="@Model.RecentVetVisit.PetID" asp-route-vetVisitID="@Model.RecentVetVisit.VetVisitID" asp-fragment="@($"visit-{Model.RecentVetVisit.VetVisitID}")" class="btn btn-sm btn-light">@(Model.CanManageCarePlans ? "Edit visit" : "View visit")</a>
                         </article>
                     }
@@ -659,16 +689,17 @@
     <div class="modal fade" id="healthEventModal" tabindex="-1" aria-labelledby="healthEventModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-scrollable modal-lg">
             <form method="post" asp-page-handler="LogEvent" class="modal-content">
-                <input asp-for="NewEvent.EventKind" type="hidden" id="healthEventKind" />
+                <input type="hidden" name="returnPetID" value="@Model.PetID" />
                 <input asp-for="NewEvent.UtcOffsetMinutes" type="hidden" data-utc-offset />
                 <div class="modal-header">
-                    <div><p class="app-eyebrow mb-1">FAST HEALTH LOG</p><h2 class="modal-title fs-5" id="healthEventModalLabel">Log symptom</h2></div>
+                    <div><p class="app-eyebrow mb-1">HEALTH LOG</p><h2 class="modal-title fs-5" id="healthEventModalLabel">Log health event</h2></div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
                     <div class="row g-3">
                         <div class="col-md-4"><label asp-for="NewEvent.PetID" class="form-label">Pet <span class="required-marker">*</span></label><select asp-for="NewEvent.PetID" id="healthEventPet" class="form-select" required><option value="">Choose pet</option>@foreach (var pet in Model.Pets) { <option value="@pet.PetID">@pet.Name</option> }</select><span asp-validation-for="NewEvent.PetID" class="text-danger small"></span></div>
+                        <div class="col-md-4"><label asp-for="NewEvent.EventKind" class="form-label">Event type <span class="required-marker">*</span></label><select asp-for="NewEvent.EventKind" id="healthEventKind" class="form-select" required><option value="@HealthEventKinds.Symptom">🩺 Symptom</option><option value="@HealthEventKinds.Incident">⚠️ Incident</option></select><span asp-validation-for="NewEvent.EventKind" class="text-danger small"></span></div>
                         <div class="col-md-4"><label asp-for="NewEvent.EventType" class="form-label">What happened? <span class="required-marker">*</span></label><input asp-for="NewEvent.EventType" id="healthEventType" class="form-control" list="symptomTypes" maxlength="100" required /><span asp-validation-for="NewEvent.EventType" class="text-danger small"></span></div>
                         <div class="col-md-4"><label asp-for="NewEvent.OccurredAtLocal" class="form-label">When <span class="required-marker">*</span></label><input asp-for="NewEvent.OccurredAtLocal" id="healthEventOccurred" type="datetime-local" class="form-control" required /><span asp-validation-for="NewEvent.OccurredAtLocal" class="text-danger small"></span></div>
                         <div class="col-md-4"><label asp-for="NewEvent.Severity" class="form-label">Severity (optional)</label><select asp-for="NewEvent.Severity" class="form-select"><option value="">Not rated</option><option value="1">1 — Mild</option><option value="2">2</option><option value="3">3 — Moderate</option><option value="4">4</option><option value="5">5 — Severe</option></select><span asp-validation-for="NewEvent.Severity" class="text-danger small"></span></div>
@@ -702,6 +733,7 @@
     <div class="modal fade" id="editHealthEventModal" tabindex="-1" aria-labelledby="editHealthEventModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-scrollable modal-lg">
             <form method="post" asp-page-handler="EditEvent" class="modal-content">
+                <input type="hidden" name="returnPetID" value="@Model.PetID" />
                 <input asp-for="EditEvent.HealthEventID" type="hidden" />
                 <input asp-for="EditEvent.UtcOffsetMinutes" type="hidden" data-utc-offset />
                 <div class="modal-header">
@@ -749,6 +781,7 @@
             <form method="post" asp-page-handler="DeleteEvent" id="deleteEditedEventForm">
                 <input type="hidden" name="healthEventID" value="@Model.EditEvent.HealthEventID" />
                 <input type="hidden" name="petID" value="@Model.EditEvent.PetID" />
+                <input type="hidden" name="returnPetID" value="@Model.PetID" />
             </form>
         </div>
     </div>
@@ -762,8 +795,6 @@
             const modal = document.getElementById('healthEventModal');
             const kindInput = document.getElementById('healthEventKind');
             const typeInput = document.getElementById('healthEventType');
-            const title = document.getElementById('healthEventModalLabel');
-            const submitBtn = document.getElementById('healthEventSubmit');
             const petSelect = document.getElementById('healthEventPet');
             const medication = document.getElementById('healthEventMedication');
             const occurred = document.getElementById('healthEventOccurred');
@@ -778,19 +809,58 @@
                 });
             };
 
-            document.querySelectorAll('.log-health-event').forEach(button => {
-                button.addEventListener('click', () => {
-                    const kind = button.dataset.kind;
-                    kindInput.value = kind;
-                    title.textContent = `Log ${kind.toLowerCase()}`;
-                    submitBtn.textContent = `Save ${kind}`;
-                    typeInput.setAttribute('list', kind === 'Incident' ? 'incidentTypes' : 'symptomTypes');
-                    if (!occurred.value) occurred.value = localValue(new Date());
-                    filterMedications();
-                });
+            const syncNewKind = () => {
+                typeInput.setAttribute('list', kindInput.value === 'Incident' ? 'incidentTypes' : 'symptomTypes');
+            };
+            kindInput.addEventListener('change', syncNewKind);
+            modal.addEventListener('show.bs.modal', () => {
+                if (!occurred.value) occurred.value = localValue(new Date());
+                syncNewKind();
+                filterMedications();
             });
             petSelect.addEventListener('change', filterMedications);
+            syncNewKind();
             filterMedications();
+
+            const sectionTabs = [...document.querySelectorAll('.health-section-tab')];
+            const sectionLinks = [...document.querySelectorAll('.health-section-tab, .health-stat-card')];
+            const setActiveSection = id => {
+                sectionTabs.forEach(tab => {
+                    const active = tab.getAttribute('href') === `#${id}`;
+                    tab.classList.toggle('is-active', active);
+                    if (active) tab.setAttribute('aria-current', 'location');
+                    else tab.removeAttribute('aria-current');
+                });
+            };
+            const hop = element => {
+                element.classList.remove('is-jumping');
+                void element.offsetWidth;
+                element.classList.add('is-jumping');
+            };
+            sectionLinks.forEach(link => link.addEventListener('click', event => {
+                const id = link.getAttribute('href')?.slice(1);
+                const target = id && document.getElementById(id);
+                if (!target) return;
+                event.preventDefault();
+                const collapsedBody = target.querySelector(':scope > .collapse:not(.show)');
+                if (collapsedBody) bootstrap.Collapse.getOrCreateInstance(collapsedBody).show();
+                target.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+                history.replaceState(null, '', `#${id}`);
+                setActiveSection(id);
+                hop(link);
+                const matchingTab = sectionTabs.find(tab => tab.getAttribute('href') === `#${id}`);
+                if (matchingTab && matchingTab !== link) hop(matchingTab);
+            }));
+            if (sectionTabs.length) {
+                const sections = sectionTabs.map(tab => document.getElementById(tab.hash.slice(1))).filter(Boolean);
+                const observer = new IntersectionObserver(entries => {
+                    const visible = entries.filter(entry => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+                    if (visible) setActiveSection(visible.target.id);
+                }, { rootMargin: '-15% 0px -60% 0px', threshold: [0, .1, .5] });
+                sections.forEach(section => observer.observe(section));
+                if (location.hash && document.getElementById(location.hash.slice(1))) setActiveSection(location.hash.slice(1));
+                else requestAnimationFrame(() => hop(sectionTabs[0]));
+            }
 
             const reportPeriod = document.getElementById('vetReportPeriod');
             const reportCustomFields = document.querySelectorAll('.health-report-custom');
@@ -832,9 +902,7 @@
             @if (Model.OpenEventModal)
             {
                 <text>
-                typeInput.setAttribute('list', kindInput.value === 'Incident' ? 'incidentTypes' : 'symptomTypes');
-                title.textContent = `Log ${kindInput.value.toLowerCase()}`;
-                submitBtn.textContent = `Save ${kindInput.value}`;
+                syncNewKind();
                 bootstrap.Modal.getOrCreateInstance(modal).show();
                 </text>
             }

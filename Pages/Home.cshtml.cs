@@ -408,7 +408,7 @@ namespace PetPotty.Pages
                 elapsed = TimeSpan.Zero;
 
             if (elapsed.TotalDays > 7)
-                return $"Last {taskType.ToLower()}: More than a week ago...";
+                return $"Last {taskType.ToLower()}: > 1 week ago";
 
             var timeText = lastTask.CreatedAt.ToString("h:mm tt");
             if (lastTask.CreatedAt.Date != userNowLocal.Date)

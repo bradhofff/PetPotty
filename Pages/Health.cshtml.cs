@@ -13,8 +13,7 @@ public sealed class HealthModel(
     IUserTimeZoneService timeZone,
     IHouseholdContextService householdContext) : PageModel
 {
-    // Not query-bound: kept out of the URL (like /Medications). Set once from an incoming
-    // ?petID= deep link or an explicit pet switch, then remembered in session from there.
+    // An omitted petID shows every pet; a petID query scopes the page to one pet.
     public int? PetID { get; set; }
     [BindProperty(SupportsGet = true)] public DateTime? From { get; set; }
     [BindProperty(SupportsGet = true)] public DateTime? To { get; set; }
@@ -23,8 +22,6 @@ public sealed class HealthModel(
     [BindProperty] public HealthEventInput NewEvent { get; set; } = new();
     [BindProperty] public HealthEventInput EditEvent { get; set; } = new();
     [BindProperty] public bool ReturnToDashboard { get; set; }
-
-    private const string SelectedPetSessionKey = "healthSelectedPetID";
 
     public List<Pet> Pets { get; set; } = [];
     public List<Medication> MedicationOptions { get; set; } = [];
@@ -62,11 +59,9 @@ public sealed class HealthModel(
         if (!TryGetUserID(out var userID))
             return RedirectToPage("/Login");
 
-        if (petID.HasValue && petService.GetPetByID(userID, petID.Value) == null)
+        if (petID is > 0 && petService.GetPetByID(userID, petID.Value) == null)
             return NotFound();
-        PetID = petID ?? GetSelectedPetIDFromSession();
-        if (petID.HasValue)
-            SetSelectedPetID(petID.Value);
+        PetID = petID is > 0 ? petID : null;
 
         var result = LoadPage(userID);
         if (result != null)
@@ -89,23 +84,12 @@ public sealed class HealthModel(
         return Page();
     }
 
-    public IActionResult OnPostSelectPet(int selectedPetID)
-    {
-        if (!TryGetUserID(out var userID))
-            return RedirectToPage("/Login");
-        if (selectedPetID != 0 && petService.GetPetByID(userID, selectedPetID) == null)
-            return NotFound();
-
-        SetSelectedPetID(selectedPetID == 0 ? (int?)null : selectedPetID);
-        return RedirectToPage();
-    }
-
-    public IActionResult OnPostLogEvent()
+    public IActionResult OnPostLogEvent(int? returnPetID)
     {
         if (!TryGetUserID(out var userID))
             return RedirectToPage("/Login");
 
-        PetID = NewEvent.PetID;
+        PetID = returnPetID;
         NewEvent.EventKind = NormalizeKind(NewEvent.EventKind);
         if (petService.GetPetByID(userID, NewEvent.PetID) == null)
             return NotFound();
@@ -146,20 +130,19 @@ public sealed class HealthModel(
         if (eventID == 0)
             return NotFound();
 
-        SetSelectedPetID(NewEvent.PetID);
         TempData["StatusMessage"] = $"{NewEvent.EventKind} recorded for {PetsName(userID, NewEvent.PetID)}.";
         if (ReturnToDashboard)
             return RedirectToPage("/Home");
 
-        return RedirectToPage();
+        return returnPetID.HasValue ? RedirectToPage(new { petID = returnPetID.Value }) : RedirectToPage();
     }
 
-    public IActionResult OnPostEditEvent()
+    public IActionResult OnPostEditEvent(int? returnPetID)
     {
         if (!TryGetUserID(out var userID))
             return RedirectToPage("/Login");
 
-        PetID = EditEvent.PetID;
+        PetID = returnPetID;
         EditEvent.EventKind = NormalizeKind(EditEvent.EventKind);
         if (petService.GetPetByID(userID, EditEvent.PetID) == null)
             return NotFound();
@@ -194,12 +177,11 @@ public sealed class HealthModel(
         if (!healthService.UpdateHealthEvent(userID, EditEvent))
             return NotFound();
 
-        SetSelectedPetID(EditEvent.PetID);
         TempData["StatusMessage"] = $"{EditEvent.EventKind} updated for {PetsName(userID, EditEvent.PetID)}.";
-        return RedirectToPage();
+        return returnPetID.HasValue ? RedirectToPage(new { petID = returnPetID.Value }) : RedirectToPage();
     }
 
-    public IActionResult OnPostDeleteEvent(int healthEventID, int petID)
+    public IActionResult OnPostDeleteEvent(int healthEventID, int petID, int? returnPetID)
     {
         if (!TryGetUserID(out var userID))
             return RedirectToPage("/Login");
@@ -208,9 +190,8 @@ public sealed class HealthModel(
         if (!healthService.DeleteHealthEvent(userID, healthEventID))
             return NotFound();
 
-        SetSelectedPetID(petID);
         TempData["StatusMessage"] = "Health event removed.";
-        return RedirectToPage();
+        return returnPetID.HasValue ? RedirectToPage(new { petID = returnPetID.Value }) : RedirectToPage();
     }
 
     private IActionResult? LoadPage(int userID)
@@ -223,10 +204,9 @@ public sealed class HealthModel(
                 type.Equals(EventType, StringComparison.OrdinalIgnoreCase)) ?? "All";
         Sort = string.Equals(Sort, "Oldest", StringComparison.OrdinalIgnoreCase) ? "Oldest" : "Newest";
         Pets = petService.GetPetsByUser(userID);
-        // A pet remembered from an earlier session can be gone by now (deleted, or this is a
-        // different account) — fall back to "All pets" instead of 404ing the whole page.
+        // A posted pet can be removed before an invalid form is redisplayed.
         if (PetID.HasValue && Pets.All(pet => pet.PetID != PetID.Value))
-            SetSelectedPetID(null);
+            PetID = null;
 
         var userToday = timeZone.ToLocal(DateTime.UtcNow, UtcOffsetMinutes).Date;
         From ??= userToday.AddDays(-29);
@@ -261,18 +241,6 @@ public sealed class HealthModel(
             .ToList();
         LoadOverview(userID, userToday);
         return null;
-    }
-
-    private int? GetSelectedPetIDFromSession() =>
-        int.TryParse(HttpContext.Session.GetString(SelectedPetSessionKey), out var id) ? id : null;
-
-    private void SetSelectedPetID(int? petID)
-    {
-        PetID = petID;
-        if (petID.HasValue)
-            HttpContext.Session.SetString(SelectedPetSessionKey, petID.Value.ToString());
-        else
-            HttpContext.Session.Remove(SelectedPetSessionKey);
     }
 
     private HealthEventInput ToInput(HealthEvent existing) => new()

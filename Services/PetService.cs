@@ -243,6 +243,8 @@ namespace PetPotty.Services
             {
                 CommandType = CommandType.StoredProcedure
             };
+            cmd.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+            cmd.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = household.HouseholdID;
             cmd.Parameters.AddWithValue("@petID", petID);
             // Same AddWithValue(null) pitfall as AddPet (see the comment there) — clearing
             // Breed or Age while editing a pet would hit the identical "parameter not
@@ -335,6 +337,8 @@ namespace PetPotty.Services
             {
                 CommandType = CommandType.StoredProcedure
             };
+            cmd.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+            cmd.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = household.HouseholdID;
             cmd.Parameters.AddWithValue("@taskID", taskID);
             cmd.Parameters.AddWithValue("@taskType", taskType);
             cmd.Parameters.AddWithValue("@notes", string.IsNullOrEmpty(notes) ? string.Empty : notes);
@@ -353,6 +357,8 @@ namespace PetPotty.Services
             {
                 CommandType = CommandType.StoredProcedure
             };
+            cmd.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+            cmd.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = household.HouseholdID;
             cmd.Parameters.AddWithValue("@taskID", taskID);
             conn.Open();
             return OwnedRecordCommand.Execute(cmd, userID, household.HouseholdID, taskID, OwnedRecordCommand.Task);
