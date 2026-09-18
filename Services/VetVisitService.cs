@@ -14,10 +14,10 @@ namespace PetPotty.Services
                 ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
         }
 
-        public List<VetVisit> GetVisits(int userID, int? petID = null)
+        public List<VetVisit> GetVisits(int userID, int householdID, int? petID = null)
         {
             using var connection = OpenConnection();
-            RefreshReminderStatuses(connection, userID);
+            RefreshReminderStatuses(connection, householdID);
 
             const string sql = """
                 SELECT v.VetVisitID, v.PetID, p.name AS PetName, v.VisitDate, v.VisitTime,
@@ -27,11 +27,15 @@ namespace PetPotty.Services
                        v.VisitSummary, v.Diagnosis, v.TreatmentProvided,
                        v.VaccinationsReceived, v.Prescriptions, v.FollowUpInstructions,
                        v.CreatedAt, v.UpdatedAt, r.VetVisitReminderID AS ReminderID,
-                       r.ReminderAt, r.Status AS ReminderStatus
+                       r.ReminderAt, r.Status AS ReminderStatus, v.CreatedByUserID,
+                       creator.name AS CreatedByName
                 FROM dbo.VetVisits v
                 INNER JOIN dbo.Pets p ON p.petID = v.PetID
+                INNER JOIN dbo.HouseholdMembers hm
+                    ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
                 LEFT JOIN dbo.VetVisitReminders r ON r.VetVisitID = v.VetVisitID
-                WHERE p.userID = @UserID
+                LEFT JOIN dbo.Users creator ON creator.userID = v.CreatedByUserID
+                WHERE p.HouseholdID = @HouseholdID
                   AND v.IsDeleted = 0
                   AND (@PetID IS NULL OR v.PetID = @PetID)
                 ORDER BY v.VisitDate DESC,
@@ -41,6 +45,7 @@ namespace PetPotty.Services
 
             using var command = new SqlCommand(sql, connection);
             command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+            command.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID;
             command.Parameters.Add("@PetID", SqlDbType.Int).Value = (object?)petID ?? DBNull.Value;
             using var reader = command.ExecuteReader();
 
@@ -50,7 +55,7 @@ namespace PetPotty.Services
             return visits;
         }
 
-        public VetVisit? GetVisit(int userID, int vetVisitID)
+        public VetVisit? GetVisit(int userID, int householdID, int vetVisitID)
         {
             using var connection = OpenConnection();
             const string sql = """
@@ -61,21 +66,26 @@ namespace PetPotty.Services
                        v.VisitSummary, v.Diagnosis, v.TreatmentProvided,
                        v.VaccinationsReceived, v.Prescriptions, v.FollowUpInstructions,
                        v.CreatedAt, v.UpdatedAt, r.VetVisitReminderID AS ReminderID,
-                       r.ReminderAt, r.Status AS ReminderStatus
+                       r.ReminderAt, r.Status AS ReminderStatus, v.CreatedByUserID,
+                       creator.name AS CreatedByName
                 FROM dbo.VetVisits v
                 INNER JOIN dbo.Pets p ON p.petID = v.PetID
+                INNER JOIN dbo.HouseholdMembers hm
+                    ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
                 LEFT JOIN dbo.VetVisitReminders r ON r.VetVisitID = v.VetVisitID
-                WHERE p.userID = @UserID AND v.VetVisitID = @VetVisitID AND v.IsDeleted = 0;
+                LEFT JOIN dbo.Users creator ON creator.userID = v.CreatedByUserID
+                WHERE p.HouseholdID = @HouseholdID AND v.VetVisitID = @VetVisitID AND v.IsDeleted = 0;
                 """;
 
             using var command = new SqlCommand(sql, connection);
             command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+            command.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID;
             command.Parameters.Add("@VetVisitID", SqlDbType.Int).Value = vetVisitID;
             using var reader = command.ExecuteReader();
             return reader.Read() ? MapVisit(reader) : null;
         }
 
-        public int AddVisit(int userID, VetVisitInput input, DateTime? reminderAt)
+        public int AddVisit(int userID, int householdID, VetVisitInput input, DateTime? reminderAt)
         {
             using var connection = OpenConnection();
             using var command = new SqlCommand("AddVetVisit", connection)
@@ -84,13 +94,14 @@ namespace PetPotty.Services
             };
             AddVisitParameters(command, input);
             command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+            command.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID;
             command.Parameters.Add("@ReminderAt", SqlDbType.DateTime2).Value =
                 (object?)reminderAt ?? DBNull.Value;
             var result = command.ExecuteScalar();
             return result == null || result == DBNull.Value ? 0 : Convert.ToInt32(result);
         }
 
-        public bool UpdateVisit(int userID, VetVisitInput input, DateTime? reminderAt)
+        public bool UpdateVisit(int userID, int householdID, VetVisitInput input, DateTime? reminderAt)
         {
             using var connection = OpenConnection();
             using var command = new SqlCommand("UpdateVetVisit", connection)
@@ -100,12 +111,13 @@ namespace PetPotty.Services
             AddVisitParameters(command, input);
             command.Parameters.Add("@VetVisitID", SqlDbType.Int).Value = input.VetVisitID;
             command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+            command.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID;
             command.Parameters.Add("@ReminderAt", SqlDbType.DateTime2).Value =
                 (object?)reminderAt ?? DBNull.Value;
             return Convert.ToBoolean(command.ExecuteScalar());
         }
 
-        public bool ChangeStatus(int userID, int vetVisitID, string status, string details)
+        public bool ChangeStatus(int userID, int householdID, int vetVisitID, string status, string details)
         {
             using var connection = OpenConnection();
             using var command = new SqlCommand("ChangeVetVisitStatus", connection)
@@ -115,11 +127,12 @@ namespace PetPotty.Services
             command.Parameters.Add("@Status", SqlDbType.NVarChar, 25).Value = status;
             command.Parameters.Add("@VetVisitID", SqlDbType.Int).Value = vetVisitID;
             command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+            command.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID;
             command.Parameters.Add("@Details", SqlDbType.NVarChar, 1000).Value = Clean(details);
             return Convert.ToBoolean(command.ExecuteScalar());
         }
 
-        public bool CompleteVisit(int userID, CompleteVetVisitInput input)
+        public bool CompleteVisit(int userID, int householdID, CompleteVetVisitInput input)
         {
             using var connection = OpenConnection();
             using var command = new SqlCommand("CompleteVetVisit", connection)
@@ -140,10 +153,11 @@ namespace PetPotty.Services
             command.Parameters.Add("@AdditionalNotes", SqlDbType.NVarChar, 4000).Value = Clean(input.AdditionalNotes);
             command.Parameters.Add("@VetVisitID", SqlDbType.Int).Value = input.VetVisitID;
             command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+            command.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID;
             return Convert.ToBoolean(command.ExecuteScalar());
         }
 
-        public bool DeleteVisit(int userID, int vetVisitID)
+        public bool DeleteVisit(int userID, int householdID, int vetVisitID)
         {
             using var connection = OpenConnection();
             using var command = new SqlCommand("DeleteVetVisit", connection)
@@ -152,10 +166,11 @@ namespace PetPotty.Services
             };
             command.Parameters.Add("@VetVisitID", SqlDbType.Int).Value = vetVisitID;
             command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+            command.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID;
             return Convert.ToBoolean(command.ExecuteScalar());
         }
 
-        public bool DismissReminder(int userID, int reminderID)
+        public bool DismissReminder(int userID, int householdID, int reminderID)
         {
             using var connection = OpenConnection();
             const string sql = """
@@ -163,16 +178,19 @@ namespace PetPotty.Services
                 FROM dbo.VetVisitReminders r
                 INNER JOIN dbo.VetVisits v ON v.VetVisitID = r.VetVisitID
                 INNER JOIN dbo.Pets p ON p.petID = v.PetID
-                WHERE r.VetVisitReminderID = @ReminderID AND p.userID = @UserID
+                INNER JOIN dbo.HouseholdMembers hm
+                    ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
+                WHERE r.VetVisitReminderID = @ReminderID AND p.HouseholdID = @HouseholdID
                   AND r.Status IN (N'Pending', N'Displayed');
                 """;
             using var command = new SqlCommand(sql, connection);
             command.Parameters.Add("@ReminderID", SqlDbType.Int).Value = reminderID;
             command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+            command.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID;
             return command.ExecuteNonQuery() == 1;
         }
 
-        public List<VetVisitDocument> GetDocuments(int userID, int vetVisitID)
+        public List<VetVisitDocument> GetDocuments(int userID, int householdID, int vetVisitID)
         {
             using var connection = OpenConnection();
             const string sql = """
@@ -182,12 +200,15 @@ namespace PetPotty.Services
                 FROM dbo.VetVisitDocuments d
                 INNER JOIN dbo.VetVisits v ON v.VetVisitID = d.VetVisitID
                 INNER JOIN dbo.Pets p ON p.petID = v.PetID
-                WHERE d.VetVisitID = @VetVisitID AND p.userID = @UserID AND v.IsDeleted = 0
+                INNER JOIN dbo.HouseholdMembers hm
+                    ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
+                WHERE d.VetVisitID = @VetVisitID AND p.HouseholdID = @HouseholdID AND v.IsDeleted = 0
                 ORDER BY d.CreatedAt DESC;
                 """;
             using var command = new SqlCommand(sql, connection);
             command.Parameters.Add("@VetVisitID", SqlDbType.Int).Value = vetVisitID;
             command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+            command.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID;
             using var reader = command.ExecuteReader();
             var documents = new List<VetVisitDocument>();
             while (reader.Read())
@@ -195,7 +216,7 @@ namespace PetPotty.Services
             return documents;
         }
 
-        public VetVisitDocument? GetDocument(int userID, int documentID)
+        public VetVisitDocument? GetDocument(int userID, int householdID, int documentID)
         {
             using var connection = OpenConnection();
             const string sql = """
@@ -205,17 +226,20 @@ namespace PetPotty.Services
                 FROM dbo.VetVisitDocuments d
                 INNER JOIN dbo.VetVisits v ON v.VetVisitID = d.VetVisitID
                 INNER JOIN dbo.Pets p ON p.petID = v.PetID
-                WHERE d.VetVisitDocumentID = @DocumentID AND p.userID = @UserID
+                INNER JOIN dbo.HouseholdMembers hm
+                    ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
+                WHERE d.VetVisitDocumentID = @DocumentID AND p.HouseholdID = @HouseholdID
                   AND v.IsDeleted = 0;
                 """;
             using var command = new SqlCommand(sql, connection);
             command.Parameters.Add("@DocumentID", SqlDbType.Int).Value = documentID;
             command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+            command.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID;
             using var reader = command.ExecuteReader();
             return reader.Read() ? MapDocument(reader) : null;
         }
 
-        public int AddDocument(int userID, VetVisitDocument document)
+        public int AddDocument(int userID, int householdID, VetVisitDocument document)
         {
             using var connection = OpenConnection();
             const string sql = """
@@ -229,15 +253,18 @@ namespace PetPotty.Services
                     (SELECT 1
                      FROM dbo.VetVisits v
                      INNER JOIN dbo.Pets p ON p.petID = v.PetID
-                     WHERE v.VetVisitID = @VetVisitID AND p.userID = @UserID AND v.IsDeleted = 0);
+                     INNER JOIN dbo.HouseholdMembers hm
+                         ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
+                     WHERE v.VetVisitID = @VetVisitID AND p.HouseholdID = @HouseholdID AND v.IsDeleted = 0);
                 """;
             using var command = new SqlCommand(sql, connection);
             AddDocumentParameters(command, userID, document);
+            command.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID;
             var result = command.ExecuteScalar();
             return result == null || result == DBNull.Value ? 0 : Convert.ToInt32(result);
         }
 
-        public bool UpdateDocument(int userID, int documentID, string documentType, string displayName, string description)
+        public bool UpdateDocument(int userID, int householdID, int documentID, string documentType, string displayName, string description)
         {
             using var connection = OpenConnection();
             const string sql = """
@@ -247,7 +274,9 @@ namespace PetPotty.Services
                 FROM dbo.VetVisitDocuments d
                 INNER JOIN dbo.VetVisits v ON v.VetVisitID = d.VetVisitID
                 INNER JOIN dbo.Pets p ON p.petID = v.PetID
-                WHERE d.VetVisitDocumentID = @DocumentID AND p.userID = @UserID
+                INNER JOIN dbo.HouseholdMembers hm
+                    ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
+                WHERE d.VetVisitDocumentID = @DocumentID AND p.HouseholdID = @HouseholdID
                   AND v.IsDeleted = 0;
                 """;
             using var command = new SqlCommand(sql, connection);
@@ -256,10 +285,11 @@ namespace PetPotty.Services
             command.Parameters.Add("@Description", SqlDbType.NVarChar, 1000).Value = Clean(description);
             command.Parameters.Add("@DocumentID", SqlDbType.Int).Value = documentID;
             command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+            command.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID;
             return command.ExecuteNonQuery() == 1;
         }
 
-        public VetVisitDocument? DeleteDocument(int userID, int documentID)
+        public VetVisitDocument? DeleteDocument(int userID, int householdID, int documentID)
         {
             using var connection = OpenConnection();
             using var transaction = connection.BeginTransaction();
@@ -270,7 +300,9 @@ namespace PetPotty.Services
                 FROM dbo.VetVisitDocuments d
                 INNER JOIN dbo.VetVisits v ON v.VetVisitID = d.VetVisitID
                 INNER JOIN dbo.Pets p ON p.petID = v.PetID
-                WHERE d.VetVisitDocumentID = @DocumentID AND p.userID = @UserID
+                INNER JOIN dbo.HouseholdMembers hm
+                    ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
+                WHERE d.VetVisitDocumentID = @DocumentID AND p.HouseholdID = @HouseholdID
                   AND v.IsDeleted = 0;
                 """;
             VetVisitDocument? document;
@@ -278,6 +310,7 @@ namespace PetPotty.Services
             {
                 select.Parameters.Add("@DocumentID", SqlDbType.Int).Value = documentID;
                 select.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+                select.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID;
                 using var reader = select.ExecuteReader();
                 document = reader.Read() ? MapDocument(reader) : null;
             }
@@ -295,7 +328,7 @@ namespace PetPotty.Services
             return document;
         }
 
-        public List<VetVisitHistory> GetHistory(int userID, int vetVisitID)
+        public List<VetVisitHistory> GetHistory(int userID, int householdID, int vetVisitID)
         {
             using var connection = OpenConnection();
             const string sql = """
@@ -304,12 +337,15 @@ namespace PetPotty.Services
                 FROM dbo.VetVisitHistory h
                 INNER JOIN dbo.VetVisits v ON v.VetVisitID = h.VetVisitID
                 INNER JOIN dbo.Pets p ON p.petID = v.PetID
-                WHERE h.VetVisitID = @VetVisitID AND p.userID = @UserID
+                INNER JOIN dbo.HouseholdMembers hm
+                    ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
+                WHERE h.VetVisitID = @VetVisitID AND p.HouseholdID = @HouseholdID
                 ORDER BY h.ChangedAt DESC, h.VetVisitHistoryID DESC;
                 """;
             using var command = new SqlCommand(sql, connection);
             command.Parameters.Add("@VetVisitID", SqlDbType.Int).Value = vetVisitID;
             command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+            command.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID;
             using var reader = command.ExecuteReader();
             var history = new List<VetVisitHistory>();
             while (reader.Read())
@@ -328,7 +364,7 @@ namespace PetPotty.Services
             return history;
         }
 
-        public List<DashboardCareItem> GetDashboardVisits(int userID, DateTime startDate, DateTime endDate)
+        public List<DashboardCareItem> GetDashboardVisits(int userID, int householdID, DateTime startDate, DateTime endDate)
         {
             using var connection = OpenConnection();
             const string sql = """
@@ -336,13 +372,16 @@ namespace PetPotty.Services
                        v.VisitReason, v.ClinicName
                 FROM dbo.VetVisits v
                 INNER JOIN dbo.Pets p ON p.petID = v.PetID
-                WHERE p.userID = @UserID AND v.IsDeleted = 0
+                INNER JOIN dbo.HouseholdMembers hm
+                    ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
+                WHERE p.HouseholdID = @HouseholdID AND v.IsDeleted = 0
                   AND v.Status IN (N'Scheduled', N'Confirmed', N'Rescheduled')
                   AND v.VisitDate >= @StartDate AND v.VisitDate < @EndDate
                 ORDER BY v.VisitDate, CASE WHEN v.VisitTime IS NULL THEN 1 ELSE 0 END, v.VisitTime;
                 """;
             using var command = new SqlCommand(sql, connection);
             command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+            command.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID;
             command.Parameters.Add("@StartDate", SqlDbType.Date).Value = startDate.Date;
             command.Parameters.Add("@EndDate", SqlDbType.Date).Value = endDate.Date;
             using var reader = command.ExecuteReader();
@@ -372,7 +411,7 @@ namespace PetPotty.Services
             return items;
         }
 
-        public List<string> GetDocumentPathsByPet(int userID, int petID)
+        public List<string> GetDocumentPathsByPet(int userID, int householdID, int petID)
         {
             using var connection = OpenConnection();
             const string sql = """
@@ -380,11 +419,14 @@ namespace PetPotty.Services
                 FROM dbo.VetVisitDocuments d
                 INNER JOIN dbo.VetVisits v ON v.VetVisitID = d.VetVisitID
                 INNER JOIN dbo.Pets p ON p.petID = v.PetID
-                WHERE v.PetID = @PetID AND p.userID = @UserID;
+                INNER JOIN dbo.HouseholdMembers hm
+                    ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
+                WHERE v.PetID = @PetID AND p.HouseholdID = @HouseholdID;
                 """;
             using var command = new SqlCommand(sql, connection);
             command.Parameters.Add("@PetID", SqlDbType.Int).Value = petID;
             command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+            command.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID;
             using var reader = command.ExecuteReader();
             var paths = new List<string>();
             while (reader.Read())
@@ -433,7 +475,7 @@ namespace PetPotty.Services
             command.Parameters.Add("@Description", SqlDbType.NVarChar, 1000).Value = Clean(document.Description);
         }
 
-        private static void RefreshReminderStatuses(SqlConnection connection, int userID)
+        private static void RefreshReminderStatuses(SqlConnection connection, int householdID)
         {
             const string sql = """
                 UPDATE r
@@ -455,11 +497,11 @@ namespace PetPotty.Services
                 FROM dbo.VetVisitReminders r
                 INNER JOIN dbo.VetVisits v ON v.VetVisitID = r.VetVisitID
                 INNER JOIN dbo.Pets p ON p.petID = v.PetID
-                WHERE p.userID = @UserID
+                WHERE p.HouseholdID = @HouseholdID
                   AND r.Status IN (N'Pending', N'Displayed');
                 """;
             using var command = new SqlCommand(sql, connection);
-            command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+            command.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID;
             command.ExecuteNonQuery();
         }
 
@@ -520,7 +562,11 @@ namespace PetPotty.Services
                     ? null
                     : reader.GetInt32(reader.GetOrdinal("ReminderID")),
                 ReminderAt = GetNullableDateTime(reader, "ReminderAt"),
-                ReminderStatus = GetNullableString(reader, "ReminderStatus")
+                ReminderStatus = GetNullableString(reader, "ReminderStatus"),
+                CreatedByUserID = reader.IsDBNull(reader.GetOrdinal("CreatedByUserID"))
+                    ? null
+                    : reader.GetInt32(reader.GetOrdinal("CreatedByUserID")),
+                CreatedByName = GetString(reader, "CreatedByName")
             };
         }
 

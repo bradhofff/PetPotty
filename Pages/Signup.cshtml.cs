@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Data.SqlClient;
+using PetPotty.Services;
 using System.Data;
 
 namespace PetPotty.Pages
@@ -8,10 +9,12 @@ namespace PetPotty.Pages
     public class SignupModel : PageModel
     {
         private readonly IConfiguration _configuration;
+        private readonly IHouseholdService _householdService;
 
-        public SignupModel(IConfiguration configuration)
+        public SignupModel(IConfiguration configuration, IHouseholdService householdService)
         {
             _configuration = configuration;
+            _householdService = householdService;
         }
 
         [BindProperty] public string SignupName     { get; set; } = string.Empty;
@@ -20,6 +23,7 @@ namespace PetPotty.Pages
         [BindProperty] public string SignupPhone    { get; set; } = string.Empty;
         [BindProperty] public string SignupPass     { get; set; } = string.Empty;
         [BindProperty] public string SignupConfirmPass { get; set; } = string.Empty;
+        [BindProperty(SupportsGet = true)] public string? Invite { get; set; }
 
         public string ErrorMessage   { get; set; } = string.Empty;
         public string SuccessMessage { get; set; } = string.Empty;
@@ -78,12 +82,13 @@ namespace PetPotty.Pages
             try
             {
                 conn.Open();
-                int rows = cmd.ExecuteNonQuery();
+                var result = cmd.ExecuteScalar();
 
-                if (rows > 0)
+                if (result != null && result != DBNull.Value)
                 {
+                    _householdService.EnsureDefaultHousehold(Convert.ToInt32(result), SignupName.Trim());
                     TempData["SignupSuccess"] = $"Account created successfully. Welcome, {SignupName.Trim()}! Please log in.";
-                    return RedirectToPage("/Login");
+                    return RedirectToPage("/Login", new { invite = Invite });
                 }
                 else
                 {

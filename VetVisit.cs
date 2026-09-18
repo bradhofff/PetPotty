@@ -33,6 +33,8 @@ namespace PetPotty.Models
         public int? ReminderID { get; set; }
         public DateTime? ReminderAt { get; set; }
         public string? ReminderStatus { get; set; }
+        public int? CreatedByUserID { get; set; }
+        public string CreatedByName { get; set; } = string.Empty;
 
         public DateTime AppointmentDateTime => VisitDate.Date + (VisitTime ?? TimeSpan.Zero);
         public bool IsUpcoming => Status is "Scheduled" or "Confirmed" or "Rescheduled"

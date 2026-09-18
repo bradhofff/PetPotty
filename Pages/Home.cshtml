@@ -766,6 +766,16 @@ else
                                 data-pet-name="@pet.Name">
                             + Add Task
                         </button>
+                        <div class="dropdown">
+                            <button type="button" class="add-task-card-btn dropdown-toggle w-100"
+                                    data-bs-toggle="dropdown" aria-expanded="false">
+                                + Log Health Event
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="/Health?petID=@pet.PetID&open=symptom">🩺 Log Symptom</a></li>
+                                <li><a class="dropdown-item" href="/Health?petID=@pet.PetID&open=incident">⚠️ Log Incident</a></li>
+                            </ul>
+                        </div>
                     </div>
 
                     @{

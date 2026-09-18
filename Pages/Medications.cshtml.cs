@@ -9,15 +9,27 @@ namespace PetPotty.Pages
     {
         private readonly IPetService _petService;
         private readonly IMedicationService _medService;
+        private readonly IHouseholdContextService _householdContext;
+        private readonly IUserTimeZoneService _timeZone;
+        private readonly int _lateAfterMinutes;
 
-        public MedicationsModel(IPetService petService, IMedicationService medService)
+        public MedicationsModel(
+            IPetService petService,
+            IMedicationService medService,
+            IHouseholdContextService householdContext,
+            IUserTimeZoneService timeZone,
+            IConfiguration configuration)
         {
             _petService = petService;
             _medService = medService;
+            _householdContext = householdContext;
+            _timeZone = timeZone;
+            _lateAfterMinutes = Math.Clamp(configuration.GetValue<int?>("MedicationAdherence:LateAfterMinutes") ?? 60, 1, 1440);
         }
 
         // ── Page state ──────────────────────────────────────────────
         public int UserID { get; set; }
+        public HouseholdContext Household { get; set; } = new();
         public List<Pet> Pets { get; set; } = new();
         public List<Medication> Medications { get; set; } = new();
         public List<MedSchedule> Schedule { get; set; } = new();
@@ -60,6 +72,8 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            if (!TryResolveHousehold())
+                return RedirectToPage("/Login");
             if (petID.HasValue)
                 SelectedPetID = petID.Value;
             LoadData();
@@ -97,8 +111,10 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            if (!TryResolveHousehold())
+                return RedirectToPage("/Login");
             RestoreStateFromSession();
-            Pets = _petService.GetPetsByUser(UserID);
+            Pets = _petService.GetPetsByHousehold(UserID, Household.HouseholdID);
 
             if (NewMedPetID <= 0)
                 return ShowMedicationModalError("addMedModal", "Choose a pet for this medication.");
@@ -145,11 +161,14 @@ namespace PetPotty.Pages
                 }
             }
 
-            _medService.AddMedication(
+            var newMedID = _medService.AddMedication(
+                UserID, Household.HouseholdID,
                 NewMedPetID, NewMedName, NewMedDosage,
                 NewMedFrequencyType, NewMedFrequencyInterval, NewMedTimingDoesNotMatter,
                 NewMedStartDate, NewMedForever ? null : NewMedEndDate,
                 NewMedNotes);
+            if (newMedID == 0)
+                return ShowMedicationModalError("addMedModal", "That medication could not be added.");
 
             SetSelectedPetID(NewMedPetID);
             TempData["StatusMessage"] = $"{NewMedName} added successfully!";
@@ -163,6 +182,8 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            if (!TryResolveHousehold())
+                return RedirectToPage("/Login");
             RestoreStateFromSession();
             SetSelectedPetID(SelectedPetID);
 
@@ -206,11 +227,13 @@ namespace PetPotty.Pages
                 }
             }
 
-            _medService.UpdateMedication(
+            if (!_medService.UpdateMedication(
+                UserID, Household.HouseholdID,
                 EditMedID, EditMedName, EditMedDosage,
                 EditMedFrequencyType, EditMedFrequencyInterval, EditMedTimingDoesNotMatter,
                 EditMedStartDate, EditMedForever ? null : EditMedEndDate,
-                EditMedNotes);
+                EditMedNotes))
+                return ShowMedicationModalError("editMedModal", "That medication could not be updated.");
 
             TempData["StatusMessage"] = $"{EditMedName} updated successfully!";
             return RedirectToPage();
@@ -223,10 +246,12 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            if (!TryResolveHousehold())
+                return RedirectToPage("/Login");
             RestoreStateFromSession();
-            _medService.DeleteMedication(medID);
-
-            TempData["StatusMessage"] = "Medication deleted.";
+            TempData["StatusMessage"] = _medService.DeleteMedication(UserID, Household.HouseholdID, medID)
+                ? "Medication deleted."
+                : "That medication could not be deleted.";
             return RedirectToPage();
         }
 
@@ -237,8 +262,17 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            if (!TryResolveHousehold())
+                return RedirectToPage("/Login");
             RestoreStateFromSession();
-            _medService.ConfirmSchedule(medID, logDate, confirmedAt);
+
+            var timingDoesNotMatter = SelectedPetID > 0
+                && _medService.GetMedicationsByPetID(UserID, Household.HouseholdID, SelectedPetID)
+                    .FirstOrDefault(m => m.MedID == medID)?.TimingDoesNotMatter == true;
+            var doseStatus = MedicationAdherence.ResolveConfirmStatus(logDate, confirmedAt, timingDoesNotMatter, _lateAfterMinutes);
+            var administeredAtUtc = _timeZone.ToUtc(confirmedAt, _timeZone.GetRequestOffsetMinutes(HttpContext));
+
+            _medService.ConfirmSchedule(UserID, Household.HouseholdID, medID, logDate, confirmedAt, UserID, administeredAtUtc, doseStatus);
 
             TempData["StatusMessage"] = "Dose confirmed!";
             return RedirectToPage();
@@ -251,8 +285,10 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            if (!TryResolveHousehold())
+                return RedirectToPage("/Login");
             RestoreStateFromSession();
-            _medService.UnconfirmSchedule(medID, logDate);
+            _medService.UnconfirmSchedule(UserID, Household.HouseholdID, medID, logDate);
 
             TempData["StatusMessage"] = "Dose unconfirmed.";
             return RedirectToPage();
@@ -312,7 +348,7 @@ namespace PetPotty.Pages
 
         private void LoadData()
         {
-            Pets = _petService.GetPetsByUser(UserID);
+            Pets = _petService.GetPetsByHousehold(UserID, Household.HouseholdID);
             RestoreStateFromSession();
 
             if (SelectedPetID > 0 && Pets.All(pet => pet.PetID != SelectedPetID))
@@ -322,9 +358,19 @@ namespace PetPotty.Pages
 
             if (SelectedPetID > 0)
             {
-                Medications = _medService.GetMedicationsByPetID(SelectedPetID);
-                Schedule    = _medService.GetScheduleByPetID(SelectedPetID, ShowAllTime);
+                Medications = _medService.GetMedicationsByPetID(UserID, Household.HouseholdID, SelectedPetID);
+                Schedule    = _medService.GetScheduleByPetID(UserID, Household.HouseholdID, SelectedPetID, ShowAllTime);
             }
+        }
+
+        private bool TryResolveHousehold()
+        {
+            var context = _householdContext.GetActiveHousehold(HttpContext.Session, UserID);
+            if (context == null)
+                return false;
+
+            Household = context;
+            return true;
         }
 
         private void RestoreStateFromSession()

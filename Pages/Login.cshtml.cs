@@ -17,18 +17,21 @@ public class LoginModel : PageModel
     [BindProperty]
     public string Password { get; set; }
 
+    [BindProperty(SupportsGet = true)]
+    public string? Invite { get; set; }
+
     public string ErrorMessage { get; set; }
 
     public IActionResult OnGet()
     {
-        return IsAuthenticated() ? RedirectToPage("/Home") : Page();
+        return IsAuthenticated() ? RedirectAfterLogin() : Page();
     }
 
     public IActionResult OnPost()
     {
         if (IsAuthenticated())
         {
-            return RedirectToPage("/Home");
+            return RedirectAfterLogin();
         }
 
         if (string.IsNullOrWhiteSpace(Username) || string.IsNullOrWhiteSpace(Password))
@@ -83,7 +86,7 @@ public class LoginModel : PageModel
                             SameSite = SameSiteMode.Lax
                         });
 
-                    return RedirectToPage("/Home");
+                    return RedirectAfterLogin();
                 }
                 else
                 {
@@ -102,5 +105,12 @@ public class LoginModel : PageModel
     private bool IsAuthenticated()
     {
         return !string.IsNullOrEmpty(HttpContext.Session.GetString("userID"));
+    }
+
+    private IActionResult RedirectAfterLogin()
+    {
+        return string.IsNullOrWhiteSpace(Invite)
+            ? RedirectToPage("/Home")
+            : RedirectToPage("/AcceptInvitation", new { token = Invite });
     }
 }

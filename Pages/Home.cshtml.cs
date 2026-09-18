@@ -10,6 +10,7 @@ namespace PetPotty.Pages
         private readonly IPetService _petService;
         private readonly IMedicationService _medicationService;
         private readonly IVetVisitService _vetVisitService;
+        private readonly IHouseholdContextService _householdContext;
         private readonly IPetImageStorage _petImageStorage;
         private readonly IVetVisitDocumentStorage _vetVisitDocumentStorage;
         private readonly ILogger<HomeModel> _logger;
@@ -18,6 +19,7 @@ namespace PetPotty.Pages
             IPetService petService,
             IMedicationService medicationService,
             IVetVisitService vetVisitService,
+            IHouseholdContextService householdContext,
             IPetImageStorage petImageStorage,
             IVetVisitDocumentStorage vetVisitDocumentStorage,
             ILogger<HomeModel> logger)
@@ -25,6 +27,7 @@ namespace PetPotty.Pages
             _petService = petService;
             _medicationService = medicationService;
             _vetVisitService = vetVisitService;
+            _householdContext = householdContext;
             _petImageStorage = petImageStorage;
             _vetVisitDocumentStorage = vetVisitDocumentStorage;
             _logger = logger;
@@ -32,6 +35,7 @@ namespace PetPotty.Pages
 
         public string UserName { get; set; } = string.Empty;
         public int UserID { get; set; }
+        public HouseholdContext Household { get; set; } = new();
         public List<Pet> Pets { get; set; } = new();
         public Dictionary<int, List<TaskItem>> PetTasks { get; set; } = new();
         public Dictionary<int, List<TaskItem>> PetAllTasks { get; set; } = new();
@@ -107,6 +111,8 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            if (!TryResolveHousehold())
+                return RedirectToPage("/Login");
             UserName = HttpContext.Session.GetString("name") ?? string.Empty;
             ShowAllTime = GetShowAllTime();
 
@@ -123,6 +129,8 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            if (!TryResolveHousehold())
+                return RedirectToPage("/Login");
             var validationError = _petImageStorage.Validate(NewPetImage);
             if (validationError != null)
                 return ShowPetModalError("addPetModal", validationError);
@@ -131,8 +139,10 @@ namespace PetPotty.Pages
             string? savedImagePath = null;
             try
             {
-                petID = _petService.AddPet(UserID, NewPetName, NewPetType, NewPetBreed,
+                petID = _petService.AddPet(UserID, Household.HouseholdID, NewPetName, NewPetType, NewPetBreed,
                                            NewPetAge, NewPetBirthdate, NewPetGender);
+                if (petID == 0)
+                    return ShowPetModalError("addPetModal", "That pet could not be added.");
 
                 if (NewPetImage != null && NewPetImage.Length > 0)
                 {
@@ -145,7 +155,7 @@ namespace PetPotty.Pages
                 _petImageStorage.Delete(savedImagePath);
                 if (petID != 0)
                 {
-                    try { _petService.DeletePet(petID); }
+                    try { _petService.DeletePet(UserID, Household.HouseholdID, petID); }
                     catch (Exception cleanupEx) { _logger.LogWarning(cleanupEx, "Could not roll back pet {PetID} after image upload failed", petID); }
                 }
 
@@ -166,7 +176,9 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
-            var pet = _petService.GetPetByID(UserID, EditPetID);
+            if (!TryResolveHousehold())
+                return RedirectToPage("/Login");
+            var pet = _petService.GetPetByID(UserID, Household.HouseholdID, EditPetID);
             if (pet == null)
                 return ShowPetModalError("editPetModal", "That pet could not be found.");
 
@@ -181,8 +193,12 @@ namespace PetPotty.Pages
                 if (EditPetImage != null && EditPetImage.Length > 0)
                     newImagePath = await _petImageStorage.SaveAsync(EditPetID, EditPetImage, HttpContext.RequestAborted);
 
-                _petService.EditPet(EditPetID, EditPetName, EditPetType, EditPetBreed,
-                                    EditPetAge, EditPetBirthdate, EditPetGender);
+                if (!_petService.EditPet(UserID, Household.HouseholdID, EditPetID, EditPetName, EditPetType, EditPetBreed,
+                                    EditPetAge, EditPetBirthdate, EditPetGender))
+                {
+                    _petImageStorage.Delete(newImagePath);
+                    return ShowPetModalError("editPetModal", "That pet could not be updated.");
+                }
 
                 if (newImagePath != null)
                 {
@@ -210,17 +226,24 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
-            var pet = _petService.GetPetByID(UserID, EditPetID);
+            if (!TryResolveHousehold())
+                return RedirectToPage("/Login");
+            var pet = _petService.GetPetByID(UserID, Household.HouseholdID, EditPetID);
             if (pet == null)
                 return RedirectToPage();
 
-            var documentPaths = _vetVisitService.GetDocumentPathsByPet(UserID, EditPetID);
-            _petService.DeletePet(EditPetID);
-            _petImageStorage.Delete(pet.ProfileImagePath);
-            foreach (var path in documentPaths)
-                _vetVisitDocumentStorage.Delete(path);
-
-            TempData["StatusMessage"] = "Pet has been deleted.";
+            var documentPaths = _vetVisitService.GetDocumentPathsByPet(UserID, Household.HouseholdID, EditPetID);
+            if (_petService.DeletePet(UserID, Household.HouseholdID, EditPetID))
+            {
+                _petImageStorage.Delete(pet.ProfileImagePath);
+                foreach (var path in documentPaths)
+                    _vetVisitDocumentStorage.Delete(path);
+                TempData["StatusMessage"] = "Pet has been deleted.";
+            }
+            else
+            {
+                TempData["StatusMessage"] = "That pet could not be deleted.";
+            }
             return RedirectToPage();
         }
 
@@ -233,7 +256,9 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
-            var pet = _petService.GetPetByID(UserID, EditPetID);
+            if (!TryResolveHousehold())
+                return RedirectToPage("/Login");
+            var pet = _petService.GetPetByID(UserID, Household.HouseholdID, EditPetID);
             if (pet == null)
                 return RedirectToPage();
 
@@ -255,14 +280,16 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            if (!TryResolveHousehold())
+                return RedirectToPage("/Login");
             ShowAllTime = GetShowAllTime();
             var timestamp = (!string.IsNullOrEmpty(localTime) && DateTime.TryParse(localTime, out var parsed))
                 ? parsed
                 : DateTime.Now;
-            _petService.AddTask(petID, taskType, string.Empty, timestamp);
+            _petService.AddTask(UserID, Household.HouseholdID, petID, taskType, string.Empty, timestamp);
 
             var emoji = taskType == "Pee" ? "💧" : "💩";
-            var petName = GetPetName(UserID, petID);
+            var petName = GetPetName(UserID, Household.HouseholdID, petID);
             TempData["StatusMessage"] = string.IsNullOrWhiteSpace(petName)
                 ? $"{emoji} {taskType} logged successfully!"
                 : $"{emoji} {taskType} logged successfully for {petName}!";
@@ -301,10 +328,12 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            if (!TryResolveHousehold())
+                return RedirectToPage("/Login");
             ShowAllTime = GetShowAllTime();
-            _petService.AddTask(NewTaskPetID, NewTaskType, NewTaskNotes, NewTaskCreatedAt);
+            _petService.AddTask(UserID, Household.HouseholdID, NewTaskPetID, NewTaskType, NewTaskNotes, NewTaskCreatedAt);
 
-            var petName = GetPetName(UserID, NewTaskPetID);
+            var petName = GetPetName(UserID, Household.HouseholdID, NewTaskPetID);
             TempData["StatusMessage"] = string.IsNullOrWhiteSpace(petName)
                 ? "Task added successfully!"
                 : $"Task added successfully for {petName}!";
@@ -320,8 +349,10 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            if (!TryResolveHousehold())
+                return RedirectToPage("/Login");
             ShowAllTime = GetShowAllTime();
-            _petService.UpdateTask(UpdateTaskID, UpdateTaskType, UpdateTaskNotes, UpdateTaskCreatedAt);
+            _petService.UpdateTask(UserID, Household.HouseholdID, UpdateTaskID, UpdateTaskType, UpdateTaskNotes, UpdateTaskCreatedAt);
 
             TempData["StatusMessage"] = "Task updated successfully!";
             return RedirectToPage();
@@ -336,8 +367,10 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            if (!TryResolveHousehold())
+                return RedirectToPage("/Login");
             ShowAllTime = GetShowAllTime();
-            _petService.DeleteTask(taskID);
+            _petService.DeleteTask(UserID, Household.HouseholdID, taskID);
 
             TempData["StatusMessage"] = "Task deleted.";
             return RedirectToPage();
@@ -436,10 +469,20 @@ namespace PetPotty.Pages
             return taskType == activityType || taskType == "Pee & Poop" && (activityType == "Pee" || activityType == "Poop");
         }
 
-        private string? GetPetName(int userID, int petID)
+        private string? GetPetName(int userID, int householdID, int petID)
         {
-            return _petService.GetPetsByUser(userID)
+            return _petService.GetPetsByHousehold(userID, householdID)
                 .FirstOrDefault(pet => pet.PetID == petID)?.Name;
+        }
+
+        private bool TryResolveHousehold()
+        {
+            var context = _householdContext.GetActiveHousehold(HttpContext.Session, UserID);
+            if (context == null)
+                return false;
+
+            Household = context;
+            return true;
         }
 
         private bool GetShowAllTime()
@@ -481,19 +524,21 @@ namespace PetPotty.Pages
 
         private void LoadData()
         {
-            Pets = _petService.GetPetsByUser(UserID);
+            Pets = _petService.GetPetsByHousehold(UserID, Household.HouseholdID);
             TaskHistoryStage = GetTaskHistoryStage();
             HasOlderTasks = false;
             var taskHistoryStartDate = GetTaskHistoryStartDate(TaskHistoryStage);
             var today = DateTime.Today;
             var reminderWindowEnd = today.AddDays(4);
             var vetReminderWindowEnd = today.AddDays(7);
-            var vetItems = _vetVisitService.GetDashboardVisits(UserID, today, vetReminderWindowEnd);
+            var vetItems = _vetVisitService.GetDashboardVisits(UserID, Household.HouseholdID, today, vetReminderWindowEnd);
             foreach (var pet in Pets)
             {
                 if (ShowAllTime)
                 {
                     PetTasks[pet.PetID] = _petService.GetTasksByPetIDSince(
+                        UserID,
+                        Household.HouseholdID,
                         pet.PetID,
                         taskHistoryStartDate,
                         out var petHasOlderTasks);
@@ -501,12 +546,12 @@ namespace PetPotty.Pages
                 }
                 else
                 {
-                    PetTasks[pet.PetID] = _petService.GetTasksByPetID(pet.PetID, false);
+                    PetTasks[pet.PetID] = _petService.GetTasksByPetID(UserID, Household.HouseholdID, pet.PetID, false);
                 }
 
-                PetAllTasks[pet.PetID] = _petService.GetLatestActivityTasksByPetID(pet.PetID);
+                PetAllTasks[pet.PetID] = _petService.GetLatestActivityTasksByPetID(UserID, Household.HouseholdID, pet.PetID);
 
-                var medicationItems = _medicationService.GetScheduleByPetID(pet.PetID, false)
+                var medicationItems = _medicationService.GetScheduleByPetID(UserID, Household.HouseholdID, pet.PetID, false)
                     .Where(schedule => !schedule.IsConfirmed
                         && schedule.ScheduleDate < reminderWindowEnd)
                     .Select(schedule => new DashboardCareItem

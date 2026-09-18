@@ -154,6 +154,7 @@
                         <li class="nav-item"><a class="nav-link" asp-page="/Home">🏠 Dashboard</a></li>
                         <li class="nav-item"><a class="nav-link" asp-page="/Medications">💊 Medications</a></li>
                         <li class="nav-item"><a class="nav-link" asp-page="/VetVisits">🏥 Vet Visits</a></li>
+                        <li class="nav-item"><a class="nav-link" asp-page="/Health">🩺 Health</a></li>
                         <li class="nav-item d-lg-none">
                             <form method="post" asp-page="/Theme" class="theme-toggle-form">
                                 <input type="hidden" name="returnUrl" value="@currentUrl" />
@@ -233,6 +234,11 @@
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    <script>
+        // Lets the server convert UTC timestamps (household/health features)
+        // into this browser's local time without guessing a server timezone.
+        document.cookie = "tzOffset=" + new Date().getTimezoneOffset() + ";path=/;max-age=31536000;SameSite=Lax";
+    </script>
 
     @await RenderSectionAsync("Scripts", required: false)
 </body>

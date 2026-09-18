@@ -25,6 +25,7 @@
                 }
 
                 <form method="post">
+                    <input type="hidden" asp-for="Invite" />
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Full Name <span class="required-marker" aria-hidden="true">*</span></label>
                         <input asp-for="SignupName" class="form-control" placeholder="e.g. Bradley" required />

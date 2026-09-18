@@ -10,6 +10,7 @@ namespace PetPotty.Models
     public class Pet
     {
         public int PetID { get; set; }
+        public int HouseholdID { get; set; }
 
         // "= string.Empty" is .NET Core nullable-aware coding style.
         // .NET Core 6+ enables nullable reference types by default in new projects.

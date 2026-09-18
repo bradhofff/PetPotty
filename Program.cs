@@ -6,6 +6,7 @@
 // ============================================================
 
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Metadata;
 using Microsoft.Extensions.FileProviders;
 using PetPotty.Services;
 
@@ -17,7 +18,15 @@ var builder = WebApplication.CreateBuilder(args);
 // here can be injected into any PageModel or class via constructor
 // --------------------
 
-builder.Services.AddRazorPages();
+// ASP.NET Core's model binder converts a submitted empty string to C# null
+// by default (ConvertEmptyStringToNull = true). Every optional [BindProperty]
+// string across this app is declared "= string.Empty", so a blank field is
+// meant to stay an empty string, not become null — a null reaching a
+// required NVARCHAR stored-procedure parameter via AddWithValue fails with a
+// misleading "parameter was not supplied" error instead of saving cleanly.
+builder.Services.AddRazorPages()
+    .AddMvcOptions(options =>
+        options.ModelMetadataDetailsProviders.Add(new SuppressConvertEmptyStringToNullProvider()));
 
 // REQUIRED for session to work — stores session data in memory.
 // In production you'd swap this for Redis or SQL-backed sessions.
@@ -53,6 +62,12 @@ builder.Services.AddAuthorization();
 builder.Services.AddScoped<IPetService, PetService>();
 builder.Services.AddScoped<IMedicationService, MedicationService>();
 builder.Services.AddScoped<IVetVisitService, VetVisitService>();
+builder.Services.AddScoped<IHouseholdService, HouseholdService>();
+builder.Services.AddScoped<IHouseholdContextService, HouseholdContextService>();
+builder.Services.AddScoped<IHouseholdInvitationService, HouseholdInvitationService>();
+builder.Services.AddScoped<IHealthService, HealthService>();
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+builder.Services.AddSingleton<IUserTimeZoneService, BrowserTimeZoneService>();
 builder.Services.AddSingleton<IPetImageStorage, PetImageStorage>();
 builder.Services.AddSingleton<IVetVisitDocumentStorage, VetVisitDocumentStorage>();
 
@@ -97,3 +112,9 @@ app.UseAuthorization();
 app.MapRazorPages();
 
 app.Run();
+
+sealed class SuppressConvertEmptyStringToNullProvider : IDisplayMetadataProvider
+{
+    public void CreateDisplayMetadata(DisplayMetadataProviderContext context) =>
+        context.DisplayMetadata.ConvertEmptyStringToNull = false;
+}

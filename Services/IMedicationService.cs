@@ -4,16 +4,18 @@ namespace PetPotty.Services
 {
     public interface IMedicationService
     {
-        List<Medication> GetMedicationsByPetID(int petID);
-        List<MedSchedule> GetScheduleByPetID(int petID, bool showAllTime);
-        void AddMedication(int petID, string medicationName, string dosage,
+        List<Medication> GetMedicationsByPetID(int userID, int householdID, int petID);
+        List<MedSchedule> GetScheduleByPetID(int userID, int householdID, int petID, bool showAllTime);
+        int AddMedication(int userID, int householdID, int petID, string medicationName, string dosage,
                            string frequencyType, int? frequencyInterval, bool timingDoesNotMatter,
                            DateTime startDate, DateTime? endDate, string notes);
-        void UpdateMedication(int medID, string medicationName, string dosage,
+        bool UpdateMedication(int userID, int householdID, int medID, string medicationName, string dosage,
                               string frequencyType, int? frequencyInterval, bool timingDoesNotMatter,
                               DateTime startDate, DateTime? endDate, string notes);
-        void DeleteMedication(int medID);
-        void ConfirmSchedule(int medID, DateTime logDate, DateTime confirmedAt);
-        void UnconfirmSchedule(int medID, DateTime logDate);
+        bool DeleteMedication(int userID, int householdID, int medID);
+        void ConfirmSchedule(int userID, int householdID, int medID, DateTime logDate, DateTime confirmedAt,
+                              int recordedByUserID, DateTime administeredAtUtc, string doseStatus,
+                              string? administrationNotes = null);
+        void UnconfirmSchedule(int userID, int householdID, int medID, DateTime logDate);
     }
 }

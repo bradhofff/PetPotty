@@ -56,6 +56,80 @@ procedure checks. For a functional Add/Update check, set an existing pet ID in
 `Migrationsss/2026-08-21_SmokeTestVetVisit.sql` and run it; the test performs an
 outer transaction rollback and leaves no test visit behind.
 
+For Households, Health events (symptoms/incidents), and care attribution, run,
+in this exact order, against the intended database:
+
+1. `Migrationsss/2026-09-17_AddHouseholdsAndHealthEvents.sql` — creates
+   `Households`, `HouseholdMembers`, `HouseholdInvitations`, and `HealthEvents`;
+   adds `Pets.HouseholdID`, `Tasks.RecordedByUserID`,
+   `VetVisits.CreatedByUserID`, and the `MedicationSchedule` adherence columns;
+   and backfills one household per existing user (as Owner) with their pets
+   attached. Idempotent and safe to rerun — every step is guarded and no
+   existing row is deleted or overwritten destructively.
+2. `Migrationsss/2026-09-17_AddHouseholdHealthStoredProcedures.sql` — creates
+   the household/invitation/health-event procedures and replaces the existing
+   Pet/Task/Medication/VetVisit procedures with household-aware versions
+   (`CREATE OR ALTER`, safe to rerun).
+3. `Migrationsss/2026-09-17_VerifyHouseholdHealthMvp.sql` — read-only. Must
+   print a single `PASS` row. If it prints `FAIL` rows instead, **stop** —
+   do not deploy the matching application build until every failure is
+   resolved. In particular check for any pet left with a `NULL HouseholdID`
+   (the script lists them by name) before proceeding; that would mean a pet
+   could not be automatically matched to its owner's household and needs a
+   manual, reviewed assignment rather than a guess.
+
+This release also needs new configuration (see `appsettings.json` for the
+shape). The production values are now committed directly since none of them
+are secret — `packtracker.tech` and `noreply@packtracker.tech` are public by
+nature (they appear in outgoing email and DNS), and Resend's SMTP username is
+always the literal string `resend`, documented publicly by Resend itself:
+
+- `App:BaseUrl` = `https://packtracker.tech` — used to build the Accept
+  Invitation link in invitation emails. Falls back to the current request's
+  scheme/host if left blank, which is fine for local testing but is set
+  explicitly here so links are always correct regardless of how the request
+  arrived (proxy, health check, etc.).
+- `Email:FromAddress` = `noreply@packtracker.tech`, `Email:FromName` =
+  `Pack Tracker`. The From address must be a verified sender/domain in
+  Resend or delivery will fail (see below — not done yet).
+- `Email:Smtp:Host` = `smtp.resend.com`, `Port` = `587`, `EnableSsl` = `true`,
+  `Username` = `resend`. No SMTP server needs to be installed on the VPS —
+  the app connects out to Resend directly, so only outbound TCP 587 needs to
+  be allowed from the VPS.
+- `Household:InvitationExpiryDays` — optional, defaults to 7 if unset.
+- `MedicationAdherence:LateAfterMinutes` / `MedicationAdherence:MissedAfterMinutes`
+  — optional, default to 60 / 720 if unset.
+
+**The one remaining secret is `Email__Smtp__Password` (the Resend API key).**
+It stays out of every file in this repo. Add it directly to the VPS's
+systemd unit the same way `ConnectionStrings__DefaultConnection` is already
+set there — an `Environment=` line under `[Service]`:
+
+```ini
+Environment=Email__Smtp__Password=re_xxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+Then:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart petpotty
+```
+
+(env vars use `__` as the section separator; `appsettings.json` above uses
+`:` — same keys, different notation for the same configuration system.)
+
+**Before this will actually deliver mail:** the Resend account has been
+created but the sending domain has not been verified yet. In the Resend
+dashboard, add `packtracker.tech` (or a `noreply` subdomain) as a domain and
+add the SPF/DKIM (and recommended DMARC) records it gives you at whichever
+DNS provider hosts `packtracker.tech`, then wait for Resend to show the
+domain as verified. Until that's done, `IsConfigured` will be `true` (host
+and From address are now set) so the app *will* attempt delivery, and Resend
+will reject/bounce it — invitations still save correctly and show as
+pending either way, and delivery failures are logged without ever logging
+the password or message body (see `Services/SmtpEmailService.cs`).
+
 ## VPS filesystem
 
 Run the setup script with the user (and optional group) from the `petpotty`

@@ -46,5 +46,12 @@ namespace PetPotty.Models
         public DateTime ScheduleDate { get; set; }
         public bool IsConfirmed { get; set; }
         public DateTime? ConfirmedAt { get; set; }
+        public string DoseStatus { get; set; } = "Due";
+        public DateTime? AdministeredAtUtc { get; set; }
+        public DateTime? RecordedAtUtc { get; set; }
+        public int? RecordedByUserID { get; set; }
+        public string RecordedByName { get; set; } = string.Empty;
+        public string? StatusReason { get; set; }
+        public string? AdministrationNotes { get; set; }
     }
 }

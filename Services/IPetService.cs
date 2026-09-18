@@ -15,17 +15,17 @@ namespace PetPotty.Services
 {
     public interface IPetService
     {
-        List<Pet> GetPetsByUser(int userID);
-        List<TaskItem> GetTasksByPetID(int petID, bool allTime);
-        List<TaskItem> GetTasksByPetIDSince(int petID, DateTime startDate, out bool hasOlderTasks);
-        List<TaskItem> GetLatestActivityTasksByPetID(int petID);
-        Pet? GetPetByID(int userID, int petID);
-        int AddPet(int userID, string name, string type, string breed, string age, DateTime birthdate, string gender);
-        void EditPet(int petID, string name, string type, string breed, string age, DateTime birthdate, string gender);
+        List<Pet> GetPetsByHousehold(int userID, int householdID);
+        Pet? GetPetByID(int userID, int householdID, int petID);
+        List<TaskItem> GetTasksByPetID(int userID, int householdID, int petID, bool allTime);
+        List<TaskItem> GetTasksByPetIDSince(int userID, int householdID, int petID, DateTime startDate, out bool hasOlderTasks);
+        List<TaskItem> GetLatestActivityTasksByPetID(int userID, int householdID, int petID);
+        int AddPet(int userID, int householdID, string name, string type, string breed, string age, DateTime birthdate, string gender);
+        bool EditPet(int userID, int householdID, int petID, string name, string type, string breed, string age, DateTime birthdate, string gender);
         void UpdatePetProfileImagePath(int petID, string? profileImagePath);
-        void DeletePet(int petID);
-        void AddTask(int petID, string taskType, string notes, DateTime createdAt);
-        void UpdateTask(int taskID, string taskType, string notes, DateTime createdAt);
-        void DeleteTask(int taskID);
+        bool DeletePet(int userID, int householdID, int petID);
+        bool AddTask(int userID, int householdID, int petID, string taskType, string notes, DateTime createdAt);
+        bool UpdateTask(int userID, int householdID, int taskID, string taskType, string notes, DateTime createdAt);
+        bool DeleteTask(int userID, int householdID, int taskID);
     }
 }

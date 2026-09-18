@@ -29,22 +29,26 @@ namespace PetPotty.Pages
 
         private readonly IPetService _petService;
         private readonly IVetVisitService _vetVisitService;
+        private readonly IHouseholdContextService _householdContext;
         private readonly IVetVisitDocumentStorage _documentStorage;
         private readonly ILogger<VetVisitsModel> _logger;
 
         public VetVisitsModel(
             IPetService petService,
             IVetVisitService vetVisitService,
+            IHouseholdContextService householdContext,
             IVetVisitDocumentStorage documentStorage,
             ILogger<VetVisitsModel> logger)
         {
             _petService = petService;
             _vetVisitService = vetVisitService;
+            _householdContext = householdContext;
             _documentStorage = documentStorage;
             _logger = logger;
         }
 
         public int UserID { get; set; }
+        public HouseholdContext Household { get; set; } = new();
         public int? SelectedPetID { get; set; }
         public int? FocusVisitID { get; set; }
         public bool OpenAddModal { get; set; }
@@ -87,6 +91,8 @@ namespace PetPotty.Pages
                 return RedirectToPage();
 
             UserID = userID;
+            if (!TryResolveHousehold())
+                return RedirectToPage("/Login");
             var requestedPetID = HttpContext.Session.GetInt32(SelectedPetSessionKey);
             var requestedSort = HttpContext.Session.GetString(SortSessionKey);
             Sort = requestedSort is "Newest" or "Oldest" ? requestedSort : "Soonest";
@@ -110,6 +116,8 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            if (!TryResolveHousehold())
+                return RedirectToPage("/Login");
             LoadPets();
             if (selectedPetID.HasValue && Pets.All(pet => pet.PetID != selectedPetID.Value))
                 return Forbid();
@@ -135,6 +143,8 @@ namespace PetPotty.Pages
 
             RevalidateForm(NewVisit, nameof(NewVisit));
             UserID = userID;
+            if (!TryResolveHousehold())
+                return RedirectToPage("/Login");
             LoadPets();
             ValidateVisit(NewVisit, nameof(NewVisit));
             ValidateOptionalDocument(NewVisitDocument, NewVisitDocumentType, nameof(NewVisitDocument));
@@ -154,7 +164,7 @@ namespace PetPotty.Pages
 
             try
             {
-                var visitID = _vetVisitService.AddVisit(userID, NewVisit, reminderAt);
+                var visitID = _vetVisitService.AddVisit(userID, Household.HouseholdID, NewVisit, reminderAt);
                 if (visitID == 0)
                     return Forbid();
 
@@ -164,7 +174,7 @@ namespace PetPotty.Pages
                     try
                     {
                         await SaveDocumentAsync(
-                            userID, new VetVisit { VetVisitID = visitID }, NewVisitDocument,
+                            userID, Household.HouseholdID, new VetVisit { VetVisitID = visitID }, NewVisitDocument,
                             NewVisitDocumentType,
                             Path.GetFileNameWithoutExtension(SafeOriginalFileName(NewVisitDocument.FileName)),
                             "Added while creating the visit.");
@@ -197,8 +207,10 @@ namespace PetPotty.Pages
 
             RevalidateForm(EditVisit, nameof(EditVisit));
             UserID = userID;
+            if (!TryResolveHousehold())
+                return RedirectToPage("/Login");
             LoadPets();
-            var existingVisit = _vetVisitService.GetVisit(userID, EditVisit.VetVisitID);
+            var existingVisit = _vetVisitService.GetVisit(userID, Household.HouseholdID, EditVisit.VetVisitID);
             if (existingVisit == null)
                 return Forbid();
 
@@ -212,7 +224,7 @@ namespace PetPotty.Pages
 
             try
             {
-                if (!_vetVisitService.UpdateVisit(userID, EditVisit, reminderAt))
+                if (!_vetVisitService.UpdateVisit(userID, Household.HouseholdID, EditVisit, reminderAt))
                 {
                     ModelState.AddModelError(string.Empty, "The visit could not be updated because it changed or no longer meets the visit requirements.");
                     return ShowModal("editVisitModal", EditVisit.PetID);
@@ -223,7 +235,7 @@ namespace PetPotty.Pages
                     try
                     {
                         await SaveDocumentAsync(
-                            userID, existingVisit, EditVisitDocument, EditVisitDocumentType,
+                            userID, Household.HouseholdID, existingVisit, EditVisitDocument, EditVisitDocumentType,
                             Path.GetFileNameWithoutExtension(SafeOriginalFileName(EditVisitDocument.FileName)),
                             "Added while updating the visit.");
                     }
@@ -252,13 +264,16 @@ namespace PetPotty.Pages
         {
             if (!TryGetUserID(out var userID))
                 return RedirectToPage("/Login");
+            UserID = userID;
+            if (!TryResolveHousehold())
+                return RedirectToPage("/Login");
             if (!AppointmentStatuses.Contains(status, StringComparer.OrdinalIgnoreCase) || status == "Completed")
                 return BadRequest();
 
-            var visit = _vetVisitService.GetVisit(userID, vetVisitID);
+            var visit = _vetVisitService.GetVisit(userID, Household.HouseholdID, vetVisitID);
             if (visit == null)
                 return Forbid();
-            if (!_vetVisitService.ChangeStatus(userID, vetVisitID, status, details ?? string.Empty))
+            if (!_vetVisitService.ChangeStatus(userID, Household.HouseholdID, vetVisitID, status, details ?? string.Empty))
                 return Forbid();
 
             TempData["StatusMessage"] = status == "Cancelled"
@@ -271,8 +286,11 @@ namespace PetPotty.Pages
         {
             if (!TryGetUserID(out var userID))
                 return RedirectToPage("/Login");
+            UserID = userID;
+            if (!TryResolveHousehold())
+                return RedirectToPage("/Login");
 
-            var visit = _vetVisitService.GetVisit(userID, Completion.VetVisitID);
+            var visit = _vetVisitService.GetVisit(userID, Household.HouseholdID, Completion.VetVisitID);
             if (visit == null)
                 return Forbid();
             RevalidateForm(Completion, nameof(Completion));
@@ -292,7 +310,7 @@ namespace PetPotty.Pages
                 return ShowModal("completeVisitModal", visit.PetID);
             }
 
-            if (!_vetVisitService.CompleteVisit(userID, Completion))
+            if (!_vetVisitService.CompleteVisit(userID, Household.HouseholdID, Completion))
                 return Forbid();
 
             if (CompletionDocument is { Length: > 0 })
@@ -300,7 +318,7 @@ namespace PetPotty.Pages
                 try
                 {
                     await SaveDocumentAsync(
-                        userID, visit, CompletionDocument, CompletionDocumentType,
+                        userID, Household.HouseholdID, visit, CompletionDocument, CompletionDocumentType,
                         Path.GetFileNameWithoutExtension(SafeOriginalFileName(CompletionDocument.FileName)),
                         "Added while completing the visit.");
                 }
@@ -320,18 +338,21 @@ namespace PetPotty.Pages
         {
             if (!TryGetUserID(out var userID))
                 return RedirectToPage("/Login");
+            UserID = userID;
+            if (!TryResolveHousehold())
+                return RedirectToPage("/Login");
 
-            var visit = _vetVisitService.GetVisit(userID, vetVisitID);
+            var visit = _vetVisitService.GetVisit(userID, Household.HouseholdID, vetVisitID);
             if (visit == null)
                 return Forbid();
             var storedDocumentPaths = _vetVisitService
-                .GetDocuments(userID, vetVisitID)
+                .GetDocuments(userID, Household.HouseholdID, vetVisitID)
                 .Select(document => document.StoredPath)
                 .ToList();
 
             try
             {
-                if (_vetVisitService.DeleteVisit(userID, vetVisitID))
+                if (_vetVisitService.DeleteVisit(userID, Household.HouseholdID, vetVisitID))
                 {
                     foreach (var storedPath in storedDocumentPaths)
                         _documentStorage.Delete(storedPath);
@@ -352,7 +373,10 @@ namespace PetPotty.Pages
         {
             if (!TryGetUserID(out var userID))
                 return RedirectToPage("/Login");
-            if (!_vetVisitService.DismissReminder(userID, reminderID))
+            UserID = userID;
+            if (!TryResolveHousehold())
+                return RedirectToPage("/Login");
+            if (!_vetVisitService.DismissReminder(userID, Household.HouseholdID, reminderID))
                 return Forbid();
 
             TempData["StatusMessage"] = "Reminder dismissed.";
@@ -363,8 +387,11 @@ namespace PetPotty.Pages
         {
             if (!TryGetUserID(out var userID))
                 return RedirectToPage("/Login");
+            UserID = userID;
+            if (!TryResolveHousehold())
+                return RedirectToPage("/Login");
 
-            var visit = _vetVisitService.GetVisit(userID, DocumentVisitID);
+            var visit = _vetVisitService.GetVisit(userID, Household.HouseholdID, DocumentVisitID);
             if (visit == null)
                 return Forbid();
 
@@ -382,7 +409,7 @@ namespace PetPotty.Pages
             try
             {
                 await SaveDocumentAsync(
-                    userID, visit, DocumentUpload!, DocumentType,
+                    userID, Household.HouseholdID, visit, DocumentUpload!, DocumentType,
                     DocumentDisplayName, DocumentDescription);
             }
             catch (Exception ex)
@@ -400,8 +427,11 @@ namespace PetPotty.Pages
         {
             if (!TryGetUserID(out var userID))
                 return RedirectToPage("/Login");
+            UserID = userID;
+            if (!TryResolveHousehold())
+                return RedirectToPage("/Login");
 
-            var document = _vetVisitService.GetDocument(userID, documentID);
+            var document = _vetVisitService.GetDocument(userID, Household.HouseholdID, documentID);
             if (document == null)
                 return Forbid();
             var physicalPath = _documentStorage.ResolvePhysicalPath(document.StoredPath);
@@ -420,8 +450,11 @@ namespace PetPotty.Pages
         {
             if (!TryGetUserID(out var userID))
                 return Unauthorized();
+            UserID = userID;
+            if (!TryResolveHousehold())
+                return Unauthorized();
 
-            var document = _vetVisitService.GetDocument(userID, documentID);
+            var document = _vetVisitService.GetDocument(userID, Household.HouseholdID, documentID);
             if (document == null)
                 return Forbid();
             var physicalPath = _documentStorage.ResolvePhysicalPath(document.StoredPath);
@@ -451,8 +484,11 @@ namespace PetPotty.Pages
         {
             if (!TryGetUserID(out var userID))
                 return RedirectToPage("/Login");
+            UserID = userID;
+            if (!TryResolveHousehold())
+                return RedirectToPage("/Login");
 
-            var document = _vetVisitService.GetDocument(userID, documentID);
+            var document = _vetVisitService.GetDocument(userID, Household.HouseholdID, documentID);
             if (document == null)
                 return Forbid();
             if (!DocumentTypes.Contains(documentType, StringComparer.OrdinalIgnoreCase)
@@ -461,26 +497,29 @@ namespace PetPotty.Pages
                 || (description?.Length ?? 0) > 1000)
             {
                 TempData["StatusMessage"] = "Attachment details were not valid.";
-                return RedirectToVisit(userID, document.VetVisitID);
+                return RedirectToVisit(userID, Household.HouseholdID, document.VetVisitID);
             }
 
-            if (!_vetVisitService.UpdateDocument(userID, documentID, documentType, displayName, description ?? string.Empty))
+            if (!_vetVisitService.UpdateDocument(userID, Household.HouseholdID, documentID, documentType, displayName, description ?? string.Empty))
                 return Forbid();
             TempData["StatusMessage"] = "Attachment details updated.";
-            return RedirectToVisit(userID, document.VetVisitID);
+            return RedirectToVisit(userID, Household.HouseholdID, document.VetVisitID);
         }
 
         public IActionResult OnPostDeleteDocument(int documentID)
         {
             if (!TryGetUserID(out var userID))
                 return RedirectToPage("/Login");
+            UserID = userID;
+            if (!TryResolveHousehold())
+                return RedirectToPage("/Login");
 
-            var document = _vetVisitService.DeleteDocument(userID, documentID);
+            var document = _vetVisitService.DeleteDocument(userID, Household.HouseholdID, documentID);
             if (document == null)
                 return Forbid();
             _documentStorage.Delete(document.StoredPath);
             TempData["StatusMessage"] = "Attachment removed from the visit and storage.";
-            return RedirectToVisit(userID, document.VetVisitID);
+            return RedirectToVisit(userID, Household.HouseholdID, document.VetVisitID);
         }
 
         public static string AppointmentTimeLabel(VetVisit visit)
@@ -520,9 +559,9 @@ namespace PetPotty.Pages
             SelectedPetID = requestedPetID.HasValue && Pets.Any(pet => pet.PetID == requestedPetID.Value)
                 ? requestedPetID
                 : null;
-            Visits = _vetVisitService.GetVisits(UserID, SelectedPetID);
+            Visits = _vetVisitService.GetVisits(UserID, Household.HouseholdID, SelectedPetID);
             var clinicVisits = SelectedPetID.HasValue
-                ? _vetVisitService.GetVisits(UserID)
+                ? _vetVisitService.GetVisits(UserID, Household.HouseholdID)
                 : Visits;
             ClinicOptions = clinicVisits
                 .Where(visit => !string.IsNullOrWhiteSpace(visit.ClinicName)
@@ -561,15 +600,25 @@ namespace PetPotty.Pages
 
             foreach (var visit in Visits)
             {
-                DocumentsByVisit[visit.VetVisitID] = _vetVisitService.GetDocuments(UserID, visit.VetVisitID);
-                HistoryByVisit[visit.VetVisitID] = _vetVisitService.GetHistory(UserID, visit.VetVisitID);
+                DocumentsByVisit[visit.VetVisitID] = _vetVisitService.GetDocuments(UserID, Household.HouseholdID, visit.VetVisitID);
+                HistoryByVisit[visit.VetVisitID] = _vetVisitService.GetHistory(UserID, Household.HouseholdID, visit.VetVisitID);
             }
 
             if (NewVisit.PetID == 0 && SelectedPetID.HasValue)
                 NewVisit.PetID = SelectedPetID.Value;
         }
 
-        private void LoadPets() => Pets = _petService.GetPetsByUser(UserID);
+        private void LoadPets() => Pets = _petService.GetPetsByHousehold(UserID, Household.HouseholdID);
+
+        private bool TryResolveHousehold()
+        {
+            var context = _householdContext.GetActiveHousehold(HttpContext.Session, UserID);
+            if (context == null)
+                return false;
+
+            Household = context;
+            return true;
+        }
 
         private PageResult ShowModal(string modalID, int? petID)
         {
@@ -623,9 +672,9 @@ namespace PetPotty.Pages
             return reminder;
         }
 
-        private RedirectToPageResult RedirectToVisit(int userID, int visitID)
+        private RedirectToPageResult RedirectToVisit(int userID, int householdID, int visitID)
         {
-            var visit = _vetVisitService.GetVisit(userID, visitID);
+            var visit = _vetVisitService.GetVisit(userID, householdID, visitID);
             return RedirectToVetVisits(visit?.PetID, visitID);
         }
 
@@ -639,7 +688,7 @@ namespace PetPotty.Pages
         }
 
         private async Task SaveDocumentAsync(
-            int userID, VetVisit visit, IFormFile upload, string documentType,
+            int userID, int householdID, VetVisit visit, IFormFile upload, string documentType,
             string displayName, string description)
         {
             string? storedPath = null;
@@ -648,7 +697,7 @@ namespace PetPotty.Pages
                 storedPath = await _documentStorage.SaveAsync(
                     visit.VetVisitID, upload, HttpContext.RequestAborted);
                 var originalName = SafeOriginalFileName(upload.FileName);
-                var documentID = _vetVisitService.AddDocument(userID, new VetVisitDocument
+                var documentID = _vetVisitService.AddDocument(userID, householdID, new VetVisitDocument
                 {
                     VetVisitID = visit.VetVisitID,
                     DocumentType = documentType,

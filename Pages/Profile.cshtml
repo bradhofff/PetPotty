@@ -12,6 +12,14 @@
     </div>
 }
 
+@if (TempData["HouseholdStatus"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["HouseholdStatus"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
 <style>
     .profile-sidebar {
         min-width: 180px;
@@ -66,11 +74,9 @@
         <a class="nav-link @(Model.ActiveTab == "Profile" ? "active" : "")" href="/Profile">
             👤 Profile
         </a>
-        @* Future tabs — uncomment when ready:
-        <a class="nav-link" href="/Profile">
-            🔒 Security
+        <a class="nav-link @(Model.ActiveTab == "Household" ? "active" : "")" href="/Profile?ActiveTab=Household">
+            🏡 Household
         </a>
-        *@
     </nav>
 
     @* ── MAIN CONTENT AREA ───────────────────────────────────── *@
@@ -84,6 +90,12 @@
             </div>
         }
 
+        @if (Model.ActiveTab == "Household")
+        {
+            <partial name="_ProfileHouseholdTab" />
+        }
+        else
+        {
         @* ─── PROFILE TAB ──────────────────────────────────────── *@
         <div class="card" style="border: 2px solid var(--pet-secondary); border-radius: 12px; max-width: 560px;">
             <div class="card-header d-flex justify-content-between align-items-center"
@@ -163,6 +175,7 @@
                 </div>
             </form>
         </div>
+        }
 
     </div>
 </div>
