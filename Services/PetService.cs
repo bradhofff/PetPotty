@@ -246,13 +246,14 @@ namespace PetPotty.Services
             cmd.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
             cmd.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = household.HouseholdID;
             cmd.Parameters.AddWithValue("@petID", petID);
-            // Same AddWithValue(null) pitfall as AddPet (see the comment there) — clearing
-            // Breed or Age while editing a pet would hit the identical "parameter not
-            // supplied" failure without this.
+            // Blank form fields arrive as null, and a raw null makes SqlClient omit the parameter
+            // ("expects parameter '@x', which was not supplied"), so text goes as "" instead.
+            // Age is the exception: UpdatePet.@age is INT and '' converts to 0 (shown as
+            // "0 yrs"), so a blank age goes as NULL.
             cmd.Parameters.Add("@name", SqlDbType.NVarChar, 255).Value = name ?? string.Empty;
             cmd.Parameters.Add("@type", SqlDbType.NVarChar, 255).Value = type ?? string.Empty;
             cmd.Parameters.Add("@breed", SqlDbType.NVarChar, 255).Value = breed ?? string.Empty;
-            cmd.Parameters.Add("@age", SqlDbType.NVarChar, 50).Value = age ?? string.Empty;
+            cmd.Parameters.Add("@age", SqlDbType.NVarChar, 50).Value = CleanOrNull(age);
             cmd.Parameters.AddWithValue("@birthdate", birthdate);
             cmd.Parameters.Add("@gender", SqlDbType.NVarChar, 50).Value = gender ?? string.Empty;
             conn.Open();
