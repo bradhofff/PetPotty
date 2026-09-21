@@ -65,27 +65,23 @@ namespace PetPotty.Services
             return pets;
         }
 
-        public List<TaskItem> GetTasksByPetID(int userID, int petID, bool allTime)
+        public List<TaskItem> GetTasksByPetID(int userID, int petID, bool allTime, DateTime userNowLocal)
         {
             var household = _householdContext.GetActiveHousehold(userID);
             if (household == null)
                 return [];
 
             using var conn = new SqlConnection(_connStr);
-            using var cmd = new SqlCommand($"""
-                SELECT t.taskID, t.petID, p.name AS petName, t.taskType, t.notes,
-                       t.createdAt, t.RecordedByUserID, u.name AS RecordedByName
-                FROM dbo.Tasks t
-                INNER JOIN dbo.Pets p ON p.petID = t.petID
-                INNER JOIN dbo.HouseholdMembers hm
-                  ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
-                LEFT JOIN dbo.Users u ON u.userID = t.RecordedByUserID
-                WHERE t.petID = @PetID AND p.HouseholdID = @HouseholdID
-                {(allTime ? string.Empty : "AND t.createdAt >= DATEADD(DAY, -7, SYSDATETIME())")}
-                ORDER BY t.createdAt DESC, t.taskID DESC;
-                """, conn);
+            using var cmd = new SqlCommand(
+                allTime ? "GetTasksByPetID" : "GetTasksByPetID_Recent",
+                conn)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
             cmd.Parameters.Add("@PetID", SqlDbType.Int).Value = petID;
             AddScopeParameters(cmd, userID, household.HouseholdID);
+            if (!allTime)
+                cmd.Parameters.Add("@AsOf", SqlDbType.DateTime2).Value = userNowLocal;
             conn.Open();
 
             using var reader = cmd.ExecuteReader();
@@ -102,40 +98,12 @@ namespace PetPotty.Services
             }
 
             using var conn = new SqlConnection(_connStr);
-            using var cmd = new SqlCommand("""
-                SELECT
-                    t.taskID,
-                    t.petID,
-                    p.[name] AS petName,
-                    t.taskType,
-                    t.notes,
-                    t.createdAt,
-                    t.RecordedByUserID,
-                    u.name AS RecordedByName
-                FROM dbo.Tasks AS t
-                INNER JOIN dbo.Pets AS p ON p.petID = t.petID
-                INNER JOIN dbo.HouseholdMembers hm
-                  ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
-                LEFT JOIN dbo.Users u ON u.userID = t.RecordedByUserID
-                WHERE t.petID = @petID
-                  AND p.HouseholdID = @HouseholdID
-                  AND t.createdAt >= @startDate
-                ORDER BY t.createdAt DESC;
-
-                SELECT CAST(CASE WHEN EXISTS
-                (
-                    SELECT 1
-                    FROM dbo.Tasks AS older
-                    INNER JOIN dbo.Pets olderPet ON olderPet.petID = older.petID
-                    INNER JOIN dbo.HouseholdMembers olderMember
-                      ON olderMember.HouseholdID = olderPet.HouseholdID
-                     AND olderMember.UserID = @UserID AND olderMember.Status = N'Active'
-                    WHERE older.petID = @petID AND olderPet.HouseholdID = @HouseholdID
-                      AND older.createdAt < @startDate
-                ) THEN 1 ELSE 0 END AS bit) AS hasOlder;
-                """, conn);
-            cmd.Parameters.AddWithValue("@petID", petID);
-            cmd.Parameters.Add("@startDate", SqlDbType.DateTime2).Value = startDate;
+            using var cmd = new SqlCommand("GetTasksByPetIDSince", conn)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
+            cmd.Parameters.Add("@PetID", SqlDbType.Int).Value = petID;
+            cmd.Parameters.Add("@StartDate", SqlDbType.DateTime2).Value = startDate;
             AddScopeParameters(cmd, userID, household.HouseholdID);
             conn.Open();
 
@@ -154,41 +122,11 @@ namespace PetPotty.Services
                 return [];
 
             using var conn = new SqlConnection(_connStr);
-            using var cmd = new SqlCommand("""
-                SELECT DISTINCT
-                    latest.taskID,
-                    latest.petID,
-                    latest.petName,
-                    latest.taskType,
-                    latest.notes,
-                    latest.createdAt,
-                    latest.RecordedByUserID,
-                    latest.RecordedByName
-                FROM (VALUES ('Pee'), ('Poop')) AS activity(activityType)
-                CROSS APPLY
-                (
-                    SELECT TOP (1)
-                        t.taskID,
-                        t.petID,
-                        p.[name] AS petName,
-                        t.taskType,
-                        t.notes,
-                        t.createdAt,
-                        t.RecordedByUserID,
-                        u.name AS RecordedByName
-                    FROM dbo.Tasks AS t
-                    INNER JOIN dbo.Pets AS p ON p.petID = t.petID
-                    INNER JOIN dbo.HouseholdMembers hm
-                      ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
-                    LEFT JOIN dbo.Users u ON u.userID = t.RecordedByUserID
-                    WHERE t.petID = @petID
-                      AND p.HouseholdID = @HouseholdID
-                      AND (t.taskType = activity.activityType OR t.taskType = 'Pee & Poop')
-                    ORDER BY t.createdAt DESC
-                ) AS latest
-                ORDER BY latest.createdAt DESC;
-                """, conn);
-            cmd.Parameters.AddWithValue("@petID", petID);
+            using var cmd = new SqlCommand("GetLatestActivityTasksByPetID", conn)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
+            cmd.Parameters.Add("@PetID", SqlDbType.Int).Value = petID;
             AddScopeParameters(cmd, userID, household.HouseholdID);
             conn.Open();
 

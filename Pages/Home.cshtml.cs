@@ -548,7 +548,11 @@ namespace PetPotty.Pages
                 }
                 else
                 {
-                    PetTasks[pet.PetID] = _petService.GetTasksByPetID(UserID, pet.PetID, false);
+                    PetTasks[pet.PetID] = _petService.GetTasksByPetID(
+                        UserID,
+                        pet.PetID,
+                        false,
+                        UserNowLocal);
                 }
 
                 PetAllTasks[pet.PetID] = _petService.GetLatestActivityTasksByPetID(UserID, pet.PetID);

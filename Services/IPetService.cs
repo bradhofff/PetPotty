@@ -16,7 +16,7 @@ namespace PetPotty.Services
     public interface IPetService
     {
         List<Pet> GetPetsByUser(int userID);
-        List<TaskItem> GetTasksByPetID(int userID, int petID, bool allTime);
+        List<TaskItem> GetTasksByPetID(int userID, int petID, bool allTime, DateTime userNowLocal);
         List<TaskItem> GetTasksByPetIDSince(int userID, int petID, DateTime startDate, out bool hasOlderTasks);
         List<TaskItem> GetLatestActivityTasksByPetID(int userID, int petID);
         Pet? GetPetByID(int userID, int petID);
