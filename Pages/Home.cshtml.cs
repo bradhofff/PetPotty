@@ -52,6 +52,10 @@ namespace PetPotty.Pages
         public bool ShowAllTime { get; set; } = false;
         public int TaskHistoryStage { get; set; }
         public bool HasOlderTasks { get; set; }
+
+        public string? PetImageUrl(Pet pet) => string.IsNullOrWhiteSpace(pet.ProfileImagePath)
+            ? null
+            : $"/pet-image/{_petImageStorage.GetAccessToken(pet.ProfileImagePath)}";
         public string TaskHistoryRangeLabel => TaskHistoryStage switch
         {
             0 => "Showing the last 7 days",
@@ -558,7 +562,6 @@ namespace PetPotty.Pages
                         DueAt = schedule.ScheduleDate,
                         Kind = "Medication",
                         Text = schedule.MedicationName,
-                        Url = $"/Medications?petID={pet.PetID}",
                         IsOverdue = schedule.TimingDoesNotMatter
                             ? schedule.ScheduleDate.Date < today
                             : schedule.ScheduleDate < UserNowLocal,

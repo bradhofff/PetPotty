@@ -44,6 +44,10 @@ function Request($client, [string]$method, [string]$path, [hashtable]$body = @{}
     $msg.Dispose(); $response.Dispose(); return $result
 }
 function Ok($response) { if ($response.Status -ne 302) { throw "Setup/positive control failed: $($response.Status) $(([regex]::Replace($response.Text, '<[^>]+>', ' ') -replace '\s+',' '))" } }
+function PetImageUrl([string]$relativePath) {
+    $digest = [Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($relativePath))
+    return '/pet-image/' + [Convert]::ToHexString($digest).ToLowerInvariant().Substring(0, 32)
+}
 function PetFields([string]$prefix, [string]$name) {
     return @{"${prefix}Name"=$name;"${prefix}Type"='Dog';"${prefix}Breed"='Audit';"${prefix}Age"='2';"${prefix}Birthdate"='2024-01-01';"${prefix}Gender"='Male'}
 }
@@ -73,8 +77,9 @@ function Seed([string]$label) {
     $doc = [int](Sql "SELECT MAX(VetVisitDocumentID) FROM VetVisitDocuments WHERE VetVisitID=$visit")
     $reminder = [int](Sql "SELECT MAX(VetVisitReminderID) FROM VetVisitReminders WHERE VetVisitID=$visit")
     $null = Request $client GET /Home
-    $null = Request $client GET "/Medications?petID=$pet"
-    $photo = [string](Sql "SELECT ProfileImagePath FROM Pets WHERE petID=$pet")
+    $null = Request $client POST '/Medications?handler=OpenMedication' @{petID=$pet;medicationID=$med}
+    $photoPath = [string](Sql "SELECT ProfileImagePath FROM Pets WHERE petID=$pet")
+    $photo = PetImageUrl $photoPath
     return @{Client=$client;Name=$name;User=$user;Pet=$pet;Task=$task;Med=$med;Visit=$visit;Doc=$doc;Reminder=$reminder;Photo=$photo}
 }
 function Snapshot($user) {
@@ -124,9 +129,9 @@ if ($Phase -eq 'final') {
     Ok (Request $b.Client POST '/Medications?handler=ConfirmSchedule' @{medID=$b.Med;logDate=[DateTime]::Today.ToString('s');confirmedAt=[DateTime]::Now.AddMinutes(-1).ToString('s')})
 }
 Attack $b.Photo @{} GET 'photo path'
-Attack "/Medications?petID=$($b.Pet)" @{} GET query
 Attack '/Medications?handler=SelectPet' @{selectedPetID=$b.Pet}
-Attack "/VetVisits?petID=$($b.Pet)&vetVisitID=$($b.Visit)" @{} GET query
+Attack '/Medications?handler=OpenMedication' @{petID=$b.Pet;medicationID=$b.Med}
+Attack '/VetVisits?handler=OpenVisit' @{petID=$b.Pet;vetVisitID=$b.Visit;openEdit='true'}
 foreach($page in @('Home','Medications','VetVisits')) { Attack "/$page/$($b.Pet)" @{} GET route }
 $f=PetFields EditPet ATTACK; $f.EditPetID=$b.Pet; Attack '/Home?handler=EditPet' $f
 Attack '/Home?handler=ResetPetImage' @{EditPetID=$b.Pet}
@@ -150,7 +155,7 @@ Attack "/VetVisits?handler=ChangeStatus&vetVisitID=$($b.Visit)" @{status='Cancel
 Attack '/VetVisits?handler=CompleteVisit' @{'Completion.VetVisitID'=$b.Visit;'Completion.VisitSummary'='ATTACK'}
 Attack '/VetVisits?handler=DismissReminder' @{reminderID=$b.Reminder;petID=$a.Pet}
 Attack '/VetVisits?handler=UploadDocument' @{DocumentVisitID=$b.Visit;DocumentType='Other';DocumentDisplayName='ATTACK'} POST multipart DocumentUpload
-Attack "/VetVisits?handler=PreviewDocument&documentID=$($b.Doc)" @{} GET query
+Attack '/VetVisits?handler=PreviewDocument' @{documentID=$b.Doc}
 Attack '/VetVisits?handler=DownloadDocument' @{documentID=$b.Doc}
 Attack '/VetVisits?handler=UpdateDocument' @{documentID=$b.Doc;documentType='Other';displayName='ATTACK';description='ATTACK'}
 Attack "/VetVisits?handler=DeleteDocument&documentID=$($b.Doc)" @{} POST query
@@ -181,7 +186,7 @@ if ($Phase -eq 'final') {
     }
     Control /Home @{} GET 200
     Control $a.Photo @{} GET 200
-    Control "/Medications?petID=$($a.Pet)" @{} GET 200
+    Control '/Medications?handler=OpenMedication' @{petID=$a.Pet;medicationID=$a.Med}
     Control '/Medications?handler=SelectPet' @{selectedPetID=$a.Pet}
     Control '/Medications?handler=SetScheduleView' @{showAllTime='true'}
     Control '/Home?handler=SetTaskView' @{showAllTime='true'}
@@ -199,7 +204,7 @@ if ($Phase -eq 'final') {
     Control '/VetVisits' @{selectedPetID=$a.Pet}
     $f=VisitFields EditVisit $a.Pet OWN_EDIT; $f.'EditVisit.VetVisitID'=$a.Visit
     Control '/VetVisits?handler=EditVisit' $f POST 302 { (Sql "SELECT ClinicName FROM VetVisits WHERE VetVisitID=$($a.Visit)") -eq 'OWN_EDIT' }
-    Control "/VetVisits?handler=PreviewDocument&documentID=$($a.Doc)" @{} GET 200
+    Control '/VetVisits?handler=PreviewDocument' @{documentID=$a.Doc} POST 200
     Control '/VetVisits?handler=DownloadDocument' @{documentID=$a.Doc} POST 200
     Control '/VetVisits?handler=UpdateDocument' @{documentID=$a.Doc;documentType='Other';displayName='OWN_EDIT'} POST 302 { (Sql "SELECT DisplayName FROM VetVisitDocuments WHERE VetVisitDocumentID=$($a.Doc)") -eq 'OWN_EDIT' }
     Control '/VetVisits?handler=DeleteDocument' @{documentID=$a.Doc} POST 302 { (Sql "SELECT COUNT(*) FROM VetVisitDocuments WHERE VetVisitDocumentID=$($a.Doc)") -eq 0 }

@@ -98,8 +98,6 @@ public sealed class HealthTimelineItem
     public string Attribution { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public int? Severity { get; set; }
-    public string Url { get; set; } = string.Empty;
-
     public string Icon => SourceType switch
     {
         HealthEventKinds.Symptom => "🩺",

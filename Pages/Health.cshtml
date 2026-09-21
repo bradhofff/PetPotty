@@ -5,7 +5,8 @@
     ViewData["Title"] = "Health";
     var selectedPet = Model.PetID.HasValue ? Model.Pets.FirstOrDefault(p => p.PetID == Model.PetID.Value) : null;
     var rangeDays = (Model.To!.Value.Date - Model.From!.Value.Date).Days + 1;
-    var presetValue = rangeDays == 7 ? "7" : rangeDays == 30 ? "30" : rangeDays == 90 ? "90" : "custom";
+    var endsToday = Model.To.Value.Date == Model.Local(DateTime.UtcNow).Date;
+    var presetValue = endsToday && new[] { 7, 30, 90 }.Contains(rangeDays) ? rangeDays.ToString() : "custom";
 }
 @functions {
     string FriendlyDate(DateTime date)
@@ -24,11 +25,8 @@
         _ => "health-badge-due"
     };
 
-    // Shared row markup for every Health History group (symptoms, incidents, medication
-    // activity, vet visits) — each group calls this over its own filtered slice of the
-    // timeline. A symptom/incident's edit action reopens the edit modal right here via a
-    // ?editHealthEventID= deep link; medication/vet-visit rows deep-link to their own edit
-    // form on /Medications or /VetVisits (Model.Timeline's Url already carries that link).
+    // Shared row markup for each Health History group. Cross-page actions post IDs in the
+    // request body and each destination stores its selection in session, keeping URLs clean.
     async Task RenderTimelineRows(IReadOnlyList<HealthTimelineItem> items)
     {
         DateTime? renderedDate = null;
@@ -41,11 +39,6 @@
             }
             var isHealthEvent = item.SourceType is HealthEventKinds.Symptom or HealthEventKinds.Incident;
             var eventID = isHealthEvent ? $"health-event-{item.SourceID}" : null;
-            var editUrl = isHealthEvent
-                ? Model.PetID.HasValue
-                    ? $"/Health?petID={Model.PetID}&editHealthEventID={item.SourceID}"
-                    : $"/Health?editHealthEventID={item.SourceID}"
-                : item.Url;
             <li class="health-timeline-row" id="@eventID">
                 <span class="health-timeline-icon health-timeline-icon-@item.SourceType.ToLowerInvariant()" aria-hidden="true">@item.Icon</span>
                 <div class="health-timeline-body">
@@ -68,14 +61,33 @@
                     }
                 </div>
                 <div class="health-timeline-actions">
-                    <a href="@editUrl" class="health-timeline-action-btn" title="Edit" aria-label="Edit @item.Title">✏️</a>
+                    @if (isHealthEvent)
+                    {
+                        <form method="post" asp-page="/Health" asp-page-handler="OpenEvent">
+                            <input type="hidden" name="healthEventID" value="@item.SourceID" />
+                            <button type="submit" class="health-timeline-action-btn" aria-label="Edit @item.Title">Edit</button>
+                        </form>
+                    }
+                    else if (item.SourceType == "Medication")
+                    {
+                        <form method="post" asp-page="/Medications" asp-page-handler="OpenMedication">
+                            <input type="hidden" name="petID" value="@item.PetID" />
+                            <button type="submit" class="health-timeline-action-btn" aria-label="Open @item.Title">Open</button>
+                        </form>
+                    }
+                    else
+                    {
+                        <form method="post" asp-page="/VetVisits" asp-page-handler="OpenVisit">
+                            <input type="hidden" name="petID" value="@item.PetID" />
+                            <input type="hidden" name="vetVisitID" value="@item.SourceID" />
+                            <button type="submit" class="health-timeline-action-btn" aria-label="Open @item.Title">Open</button>
+                        </form>
+                    }
                     @if (isHealthEvent)
                     {
                         <form method="post" asp-page-handler="DeleteEvent" onsubmit="return confirm('Remove this health event?');">
                             <input type="hidden" name="healthEventID" value="@item.SourceID" />
-                            <input type="hidden" name="petID" value="@item.PetID" />
-                            <input type="hidden" name="returnPetID" value="@Model.PetID" />
-                            <button type="submit" class="health-timeline-action-btn health-timeline-delete" title="Delete" aria-label="Delete @item.Title">✕</button>
+                            <button type="submit" class="health-timeline-action-btn health-timeline-delete" aria-label="Delete @item.Title">Delete</button>
                         </form>
                     }
                 </div>
@@ -104,22 +116,19 @@
     .health-log-button { background: var(--app-accent); border: 1px solid var(--app-accent); color: #fff; box-shadow: 0 5px 12px rgba(217,100,32,.15); }
     .health-log-button:hover, .health-log-button:focus-visible { background: var(--app-accent-dark); border-color: var(--app-accent-dark); color: #fff; }
 
-    .health-section-tabs { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: 1.2rem; }
-    .health-section-tab { border: 1px solid transparent; border-radius: 9px; color: var(--app-muted); font-size: .86rem; font-weight: 650; padding: .5rem .85rem; text-decoration: none; transition: background .18s ease, color .18s ease, transform .18s ease; }
-    .health-section-tab:hover { background: #edf1f5; color: var(--app-ink); }
-    .health-section-tab.is-active { background: #fff; border-color: var(--app-line); box-shadow: 0 3px 9px rgba(30,41,57,.06); color: var(--app-ink); }
-    .health-section-tab.is-jumping, .health-stat-card.is-jumping { animation: health-active-hop .34s ease; }
+    .health-stat-card.is-jumping { animation: health-active-hop .34s ease; }
     @@keyframes health-active-hop { 0%, 100% { transform: translateY(0); } 45% { transform: translateY(-5px); } }
     .health-page section[id] { scroll-margin-top: 1.3rem; }
-    @@media (prefers-reduced-motion: reduce) { .health-section-tab.is-jumping, .health-stat-card.is-jumping { animation: none; } }
+    @@media (prefers-reduced-motion: reduce) { .health-stat-card.is-jumping { animation: none; } }
 
-    /* Section collapse toggle — a small round caret next to each section's heading/actions.
-       Only the body below the header collapses, so the #current-medications / #health-history /
-       #vet-care anchor links above still scroll to a visible heading even when collapsed. */
+    /* Section collapse toggle — a small round caret next to each section's heading/actions. */
     .health-section-toggle { align-items: center; background: #fff; border: 1px solid var(--app-line); border-radius: 50%; color: #768193; cursor: pointer; display: inline-flex; flex-shrink: 0; font-size: .8rem; height: 30px; justify-content: center; line-height: 1; padding: 0; width: 30px; }
     .health-section-toggle:hover { background: #eef1f5; border-color: #b9c6d6; color: var(--app-ink); }
     .health-section-caret { display: inline-block; transition: transform .18s ease; }
     .health-section-toggle.collapsed .health-section-caret { transform: rotate(180deg); }
+    .health-history-search-toggle { align-items: center; background: transparent; border: 1px solid var(--app-line); border-radius: 50%; color: var(--app-muted); cursor: pointer; display: inline-flex; flex-shrink: 0; height: 30px; justify-content: center; padding: 0; width: 30px; }
+    .health-history-search-toggle:hover, .health-history-search-toggle:focus-visible { background: var(--app-accent-soft); border-color: var(--app-accent); color: var(--app-accent); }
+    .health-history-search-toggle svg { fill: none; height: 15px; stroke: currentColor; stroke-linecap: round; stroke-width: 2; width: 15px; }
 
     /* Overview — compact, clickable stat tiles. No embedded detail lists here. */
     .health-overview { margin-top: 1.4rem; }
@@ -181,7 +190,7 @@
     .health-timeline-delete:hover { background: #fdecec; border-color: #f0b4b4; color: #c23b3b; }
     @@media (hover: none), (pointer: coarse) { .health-timeline-actions { opacity: 1; } }
 
-    /* Filters — one preset dropdown instead of raw date pickers; auto-applies on change. */
+    /* Date presets update the range; Apply filters submits the complete selection. */
     .health-filter { background: #fff; border: 1px solid var(--app-line); border-radius: 13px; padding: 1rem; margin-top: 1rem; }
     .health-filter .form-label { font-size: .74rem; font-weight: 700; color: #505a6b; margin-bottom: .3rem; }
     .health-filter-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)) minmax(100px,.8fr); gap: .75rem; align-items: end; }
@@ -271,17 +280,11 @@
         border-color: #fff !important;
         color: #aeb8c6 !important;
     }
-    html[data-bs-theme="dark"] .health-page .health-section-tab.is-active {
-        background: #111820 !important;
-        border-color: #fff !important;
-        color: #fff !important;
-    }
-    html[data-bs-theme="dark"] .health-page .health-section-tab:hover { background: #202832 !important; color: #fff !important; }
     html[data-bs-theme="dark"] .health-page .health-history-group { border-color: #fff !important; }
 </style>
 
 <div class="health-page pb-5">
-    <header class="health-heading d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+    <header class="health-heading app-page-heading d-flex flex-column flex-xl-row justify-content-between align-items-xl-center gap-3">
         <div>
             <p class="app-eyebrow mb-1">HEALTH</p>
             <h1 class="mb-1">Health</h1>
@@ -293,16 +296,19 @@
         @if (Model.Pets.Count > 0)
         {
             <div class="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 gap-sm-3">
-                <form method="get" class="health-pet-switch">
+                <form method="post" asp-page-handler="SelectPet" class="health-pet-switch">
                     <label class="visually-hidden" for="healthPetSwitch">Pet</label>
-                    <select name="petID" id="healthPetSwitch" class="form-select" onchange="this.form.submit()" aria-label="Filter health records by pet">
-                        <option value="" selected="@(!Model.PetID.HasValue)">All pets</option>
+                    <select name="selectedPetID" id="healthPetSwitch" class="form-select" onchange="this.form.submit()" aria-label="Choose a pet">
+                        <option value="" selected="@(!Model.PetID.HasValue)">Select a pet</option>
                         @foreach (var pet in Model.Pets) { <option value="@pet.PetID" selected="@(Model.PetID == pet.PetID)">@pet.Name</option> }
                     </select>
                 </form>
-                <div class="health-actions">
-                    <button class="btn health-log-button" type="button" data-bs-toggle="modal" data-bs-target="#healthEventModal">🩺 Log health event</button>
-                </div>
+                @if (Model.PetID.HasValue)
+                {
+                    <div class="health-actions">
+                        <button class="btn health-log-button" type="button" data-bs-toggle="modal" data-bs-target="#healthEventModal">🩺 Log health event</button>
+                    </div>
+                }
             </div>
         }
     </header>
@@ -324,15 +330,16 @@
             <a asp-page="/Home" class="btn btn-primary btn-sm">Go to dashboard</a>
         </div>
     }
+    else if (!Model.PetID.HasValue)
+    {
+        <div class="empty-health mt-4">
+            <div class="display-6" aria-hidden="true">🐾</div>
+            <h2 class="h5 mt-2 mb-1">Select a pet to view health records</h2>
+            <p class="mb-0">Choose a pet above to see medications, health history, vet care, and reports.</p>
+        </div>
+    }
     else
     {
-        <nav class="health-section-tabs" aria-label="Health sections">
-            <a class="health-section-tab is-active" href="#health-overview" aria-current="location">Overview</a>
-            <a class="health-section-tab" href="#current-medications">Medications</a>
-            <a class="health-section-tab" href="#health-history">History</a>
-            <a class="health-section-tab" href="#vet-care">Vet care</a>
-            <a class="health-section-tab" href="#vet-report">Vet report</a>
-        </nav>
         @* ── HEALTH OVERVIEW — a handful of clickable stats, not a dashboard. ───── *@
         <section class="health-overview" id="health-overview" aria-label="Health overview">
             <div class="row row-cols-2 row-cols-md-4 g-3">
@@ -366,7 +373,7 @@
                             }
                             else
                             {
-                                <strong>@Model.RecentAdherence.AdherencePercent%</strong><em>this month</em>
+                                <strong>@Model.RecentAdherence.AdherencePercent%</strong><em>last 30 days · @Model.RecentAdherence.Total doses</em>
                             }
                         </span>
                     </a>
@@ -399,7 +406,10 @@
                     <h2 class="health-section-heading" id="currentMedicationsHeading">Current medications</h2>
                 </div>
                 <div class="d-flex align-items-center gap-2">
-                    <a asp-page="/Medications" asp-route-petID="@Model.PetID" class="small">@(Model.CanManageCarePlans ? "Manage medications" : "View medications") →</a>
+                    <form method="post" asp-page="/Medications" asp-page-handler="OpenMedication" class="d-inline">
+                        <input type="hidden" name="petID" value="@Model.PetID" />
+                        <button type="submit" class="btn btn-link btn-sm p-0">@(Model.CanManageCarePlans ? "Manage medications" : "View medications") →</button>
+                    </form>
                     <button type="button" class="health-section-toggle" data-bs-toggle="collapse"
                             data-bs-target="#current-medications-body" aria-expanded="true"
                             aria-controls="current-medications-body" aria-label="Collapse current medications section">
@@ -413,7 +423,10 @@
             {
                 <div class="empty-health">
                     <p class="mb-3">No active medications.</p>
-                    <a asp-page="/Medications" class="btn btn-outline-primary btn-sm">@(Model.CanManageCarePlans ? "Manage medications" : "View medications")</a>
+                    <form method="post" asp-page="/Medications" asp-page-handler="OpenMedication">
+                        <input type="hidden" name="petID" value="@Model.PetID" />
+                        <button type="submit" class="btn btn-outline-primary btn-sm">@(Model.CanManageCarePlans ? "Manage medications" : "View medications")</button>
+                    </form>
                 </div>
             }
             else
@@ -455,13 +468,24 @@
                                         }
                                     </div>
                                 </div>
+                                <form method="post" asp-page="/Medications" asp-page-handler="OpenMedication">
+                                    <input type="hidden" name="petID" value="@med.PetID" />
+                                    <button type="submit" class="btn btn-sm btn-outline-primary health-med-view">View dose schedule</button>
+                                </form>
                                 @if (Model.CanManageCarePlans)
                                 {
-                                    <a asp-page="/Medications" asp-route-petID="@med.PetID" asp-route-editMedID="@med.MedID" class="btn btn-sm btn-light health-med-view">Edit medication</a>
+                                    <form method="post" asp-page="/Medications" asp-page-handler="OpenMedication">
+                                        <input type="hidden" name="petID" value="@med.PetID" />
+                                        <input type="hidden" name="medicationID" value="@med.MedID" />
+                                        <button type="submit" class="btn btn-sm btn-light health-med-view">Edit medication</button>
+                                    </form>
                                 }
                                 else
                                 {
-                                    <a asp-page="/Medications" asp-route-petID="@med.PetID" class="btn btn-sm btn-light health-med-view">View medication</a>
+                                    <form method="post" asp-page="/Medications" asp-page-handler="OpenMedication">
+                                        <input type="hidden" name="petID" value="@med.PetID" />
+                                        <button type="submit" class="btn btn-sm btn-light health-med-view">View medication</button>
+                                    </form>
                                 }
                             </article>
                         </div>
@@ -477,19 +501,30 @@
                 <div>
                     <p class="app-eyebrow mb-1">HISTORY</p>
                     <h2 class="health-section-heading mb-1" id="healthHistoryHeading">Health history</h2>
-                    <p class="text-secondary mb-0 small">Symptoms, incidents, medication activity, and vet visits — not routine daily care.</p>
+                    <p class="text-secondary mb-0">Review symptoms, incidents, medication activity, and vet visits.</p>
                 </div>
-                <button type="button" class="health-section-toggle" data-bs-toggle="collapse"
-                        data-bs-target="#health-history-body" aria-expanded="true"
-                        aria-controls="health-history-body" aria-label="Collapse health history section">
-                    <span class="health-section-caret" aria-hidden="true">^</span>
-                </button>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="health-history-search-toggle" data-bs-toggle="collapse"
+                            data-bs-target="#health-history-filters" aria-expanded="false"
+                            aria-controls="health-history-filters" title="Show search and filters">
+                        <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><circle cx="10.8" cy="10.8" r="6.8"></circle><path d="m16 16 5 5"></path></svg>
+                        <span class="visually-hidden">Show search and filters</span>
+                    </button>
+                    <button type="button" class="health-section-toggle" data-bs-toggle="collapse"
+                            data-bs-target="#health-history-body" aria-expanded="true"
+                            aria-controls="health-history-body" aria-label="Collapse health history section">
+                        <span class="health-section-caret" aria-hidden="true">^</span>
+                    </button>
+                </div>
             </div>
 
             <div id="health-history-body" class="collapse show">
 
-            <form method="get" class="health-filter" aria-label="Health history filters">
-                <input type="hidden" name="petID" value="@Model.PetID" />
+            <form method="post" asp-page-handler="ApplyFilters" class="health-filter collapse" id="health-history-filters" aria-label="Health history search and filters">
+                <div class="mb-3">
+                    <label class="form-label" for="healthSearch">Search history</label>
+                    <input asp-for="Search" id="healthSearch" type="search" class="form-control" placeholder="Search by event, medication, pet, or notes" maxlength="200" />
+                </div>
                 <div class="health-filter-grid">
                     <div>
                         <label class="form-label" for="healthRangePreset">Date range</label>
@@ -510,7 +545,7 @@
                     </div>
                     <div>
                         <label class="form-label" for="healthEventTypeFilter">Type</label>
-                        <select asp-for="EventType" id="healthEventTypeFilter" class="form-select" onchange="this.form.submit()">
+                        <select asp-for="EventType" id="healthEventTypeFilter" class="form-select">
                             @foreach (var type in PetPotty.Pages.HealthModel.SourceTypes)
                             {
                                 <option value="@type">@(type == "All" ? "All health events" : type == "VetVisit" ? "Vet visits" : type)</option>
@@ -519,12 +554,25 @@
                     </div>
                     <div>
                         <label class="form-label" for="healthSort">Sort</label>
-                        <select asp-for="Sort" id="healthSort" class="form-select" onchange="this.form.submit()">
+                        <select asp-for="Sort" id="healthSort" class="form-select">
                             <option>Newest</option>
                             <option>Oldest</option>
                         </select>
                     </div>
-                    <button class="btn btn-outline-secondary" type="submit">Apply</button>
+                    <div>
+                        <label class="form-label" for="healthHistoryView">View</label>
+                        <select asp-for="HistoryView" id="healthHistoryView" class="form-select">
+                            <option value="Grouped">By category</option>
+                            <option value="Timeline">Timeline</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="health-filter-footer">
+                    <p class="mb-0 text-secondary" role="status">@Model.Timeline.Count matching @(Model.Timeline.Count == 1 ? "record" : "records") · @Model.From.Value.ToString("MMM d, yyyy") – @Model.To.Value.ToString("MMM d, yyyy")</p>
+                    <div class="d-flex gap-2 align-items-center">
+                        <button type="submit" asp-page-handler="ResetFilters" class="btn btn-outline-secondary" formnovalidate>Reset</button>
+                        <button class="btn btn-primary" type="submit">Apply filters</button>
+                    </div>
                 </div>
             </form>
 
@@ -532,9 +580,16 @@
             {
                 <div class="empty-health mt-3">
                     <div class="display-6" aria-hidden="true">🩺</div>
-                    <h3 class="h5 mt-2 mb-1">No health concerns recorded yet</h3>
-                    <p class="mb-0">When something unusual happens, log a symptom or incident so you can track it over time.</p>
+                    <h3 class="h5 mt-2 mb-1">No records match these filters</h3>
+                    <p class="mb-3">Try a different date range or search, or record a new health event.</p>
+                    <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#healthEventModal">Log health event</button>
                 </div>
+            }
+            else if (Model.HistoryView == "Timeline")
+            {
+                <ol class="health-timeline health-chronological mt-3">
+                    @{ await RenderTimelineRows(Model.Timeline); }
+                </ol>
             }
             else
             {
@@ -593,7 +648,10 @@
             {
                 <div class="empty-health">
                     <p class="mb-3">No vet visits recorded.</p>
-                    <a asp-page="/VetVisits" class="btn btn-outline-primary btn-sm">@(Model.CanManageCarePlans ? "Add vet visit" : "View vet visits")</a>
+                    <form method="post" asp-page="/VetVisits">
+                        <input type="hidden" name="selectedPetID" value="@Model.PetID" />
+                        <button type="submit" class="btn btn-outline-primary btn-sm">@(Model.CanManageCarePlans ? "Add vet visit" : "View vet visits")</button>
+                    </form>
                 </div>
             }
             else
@@ -605,7 +663,12 @@
                             <small>Next visit</small>
                             <h3>@Model.NextVetVisit.AppointmentDateTime.ToString(Model.NextVetVisit.IsAllDay ? "MMM d, yyyy" : "MMM d 'at' h:mm tt")</h3>
                             <p>@(selectedPet == null ? $"{Model.Pets.FirstOrDefault(p => p.PetID == Model.NextVetVisit.PetID)?.Name} · " : "")@(string.IsNullOrWhiteSpace(Model.NextVetVisit.VisitReason) ? Model.NextVetVisit.ClinicName : Model.NextVetVisit.VisitReason)</p>
-                            <a asp-page="/VetVisits" asp-route-petID="@Model.NextVetVisit.PetID" asp-route-vetVisitID="@Model.NextVetVisit.VetVisitID" asp-fragment="@($"visit-{Model.NextVetVisit.VetVisitID}")" class="btn btn-sm btn-light">@(Model.CanManageCarePlans ? "Edit appointment" : "View appointment")</a>
+                            <form method="post" asp-page="/VetVisits" asp-page-handler="OpenVisit">
+                                <input type="hidden" name="petID" value="@Model.NextVetVisit.PetID" />
+                                <input type="hidden" name="vetVisitID" value="@Model.NextVetVisit.VetVisitID" />
+                                <input type="hidden" name="openEdit" value="@Model.CanManageCarePlans.ToString().ToLowerInvariant()" />
+                                <button type="submit" class="btn btn-sm btn-light">@(Model.CanManageCarePlans ? "Edit appointment" : "View appointment")</button>
+                            </form>
                         </article>
                     }
                     @if (Model.RecentVetVisit != null)
@@ -614,7 +677,12 @@
                             <small>Recent visit</small>
                             <h3>@Model.RecentVetVisit.AppointmentDateTime.ToString("MMM d, yyyy")</h3>
                             <p>@(selectedPet == null ? $"{Model.Pets.FirstOrDefault(p => p.PetID == Model.RecentVetVisit.PetID)?.Name} · " : "")@(string.IsNullOrWhiteSpace(Model.RecentVetVisit.VisitReason) ? Model.RecentVetVisit.ClinicName : Model.RecentVetVisit.VisitReason)</p>
-                            <a asp-page="/VetVisits" asp-route-petID="@Model.RecentVetVisit.PetID" asp-route-vetVisitID="@Model.RecentVetVisit.VetVisitID" asp-fragment="@($"visit-{Model.RecentVetVisit.VetVisitID}")" class="btn btn-sm btn-light">@(Model.CanManageCarePlans ? "Edit visit" : "View visit")</a>
+                            <form method="post" asp-page="/VetVisits" asp-page-handler="OpenVisit">
+                                <input type="hidden" name="petID" value="@Model.RecentVetVisit.PetID" />
+                                <input type="hidden" name="vetVisitID" value="@Model.RecentVetVisit.VetVisitID" />
+                                <input type="hidden" name="openEdit" value="@Model.CanManageCarePlans.ToString().ToLowerInvariant()" />
+                                <button type="submit" class="btn btn-sm btn-light">@(Model.CanManageCarePlans ? "Edit visit" : "View visit")</button>
+                            </form>
                         </article>
                     }
                 </div>
@@ -641,20 +709,8 @@
             <form method="post" asp-page="/Reports" asp-page-handler="Generate" class="row g-3 align-items-end">
                 <div class="col-12 col-md-3">
                     <label class="form-label" for="vetReportPet">Pet</label>
-                    <select class="form-select" id="vetReportPet" name="SelectedPetID" required>
-                        <option value="">Choose pet</option>
-                        @foreach (var pet in Model.Pets)
-                        {
-                            if (Model.PetID == pet.PetID || (!Model.PetID.HasValue && Model.Pets.Count == 1))
-                            {
-                                <option value="@pet.PetID" selected>@pet.Name</option>
-                            }
-                            else
-                            {
-                                <option value="@pet.PetID">@pet.Name</option>
-                            }
-                        }
-                    </select>
+                    <input type="hidden" name="SelectedPetID" value="@Model.PetID" />
+                    <input class="form-control" id="vetReportPet" value="@selectedPet?.Name" readonly />
                 </div>
                 <div class="col-12 col-md-3">
                     <label class="form-label" for="vetReportPeriod">Date range</label>
@@ -689,7 +745,6 @@
     <div class="modal fade" id="healthEventModal" tabindex="-1" aria-labelledby="healthEventModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-scrollable modal-lg">
             <form method="post" asp-page-handler="LogEvent" class="modal-content">
-                <input type="hidden" name="returnPetID" value="@Model.PetID" />
                 <input asp-for="NewEvent.UtcOffsetMinutes" type="hidden" data-utc-offset />
                 <div class="modal-header">
                     <div><p class="app-eyebrow mb-1">HEALTH LOG</p><h2 class="modal-title fs-5" id="healthEventModalLabel">Log health event</h2></div>
@@ -727,13 +782,10 @@
     <datalist id="symptomTypes">@foreach (var type in PetPotty.Pages.HealthModel.SymptomTypes) { <option value="@type"></option> }</datalist>
     <datalist id="incidentTypes">@foreach (var type in PetPotty.Pages.HealthModel.IncidentTypes) { <option value="@type"></option> }</datalist>
 
-    @* Editing a symptom/incident opens this same-page modal via a ?editHealthEventID= deep
-       link (Model.OpenEditEventModal) — the same mechanism /Medications and /VetVisits use
-       for their own edit deep links, just without leaving this page. *@
+    @* Editing posts the event ID, stores it briefly in session, and returns to a clean URL. *@
     <div class="modal fade" id="editHealthEventModal" tabindex="-1" aria-labelledby="editHealthEventModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-scrollable modal-lg">
             <form method="post" asp-page-handler="EditEvent" class="modal-content">
-                <input type="hidden" name="returnPetID" value="@Model.PetID" />
                 <input asp-for="EditEvent.HealthEventID" type="hidden" />
                 <input asp-for="EditEvent.UtcOffsetMinutes" type="hidden" data-utc-offset />
                 <div class="modal-header">
@@ -780,8 +832,6 @@
             </form>
             <form method="post" asp-page-handler="DeleteEvent" id="deleteEditedEventForm">
                 <input type="hidden" name="healthEventID" value="@Model.EditEvent.HealthEventID" />
-                <input type="hidden" name="petID" value="@Model.EditEvent.PetID" />
-                <input type="hidden" name="returnPetID" value="@Model.PetID" />
             </form>
         </div>
     </div>
@@ -822,16 +872,17 @@
             syncNewKind();
             filterMedications();
 
-            const sectionTabs = [...document.querySelectorAll('.health-section-tab')];
-            const sectionLinks = [...document.querySelectorAll('.health-section-tab, .health-stat-card')];
-            const setActiveSection = id => {
-                sectionTabs.forEach(tab => {
-                    const active = tab.getAttribute('href') === `#${id}`;
-                    tab.classList.toggle('is-active', active);
-                    if (active) tab.setAttribute('aria-current', 'location');
-                    else tab.removeAttribute('aria-current');
+            document.querySelectorAll('.health-section-toggle').forEach(toggle => {
+                const body = document.getElementById(toggle.getAttribute('aria-controls'));
+                const label = toggle.getAttribute('aria-label').replace(/^Collapse /, '');
+                body?.addEventListener('shown.bs.collapse', event => {
+                    if (event.target === body) toggle.setAttribute('aria-label', `Collapse ${label}`);
                 });
-            };
+                body?.addEventListener('hidden.bs.collapse', event => {
+                    if (event.target === body) toggle.setAttribute('aria-label', `Expand ${label}`);
+                });
+            });
+            const sectionLinks = [...document.querySelectorAll('.health-stat-card')];
             const hop = element => {
                 element.classList.remove('is-jumping');
                 void element.offsetWidth;
@@ -846,21 +897,8 @@
                 if (collapsedBody) bootstrap.Collapse.getOrCreateInstance(collapsedBody).show();
                 target.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
                 history.replaceState(null, '', `#${id}`);
-                setActiveSection(id);
                 hop(link);
-                const matchingTab = sectionTabs.find(tab => tab.getAttribute('href') === `#${id}`);
-                if (matchingTab && matchingTab !== link) hop(matchingTab);
             }));
-            if (sectionTabs.length) {
-                const sections = sectionTabs.map(tab => document.getElementById(tab.hash.slice(1))).filter(Boolean);
-                const observer = new IntersectionObserver(entries => {
-                    const visible = entries.filter(entry => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-                    if (visible) setActiveSection(visible.target.id);
-                }, { rootMargin: '-15% 0px -60% 0px', threshold: [0, .1, .5] });
-                sections.forEach(section => observer.observe(section));
-                if (location.hash && document.getElementById(location.hash.slice(1))) setActiveSection(location.hash.slice(1));
-                else requestAnimationFrame(() => hop(sectionTabs[0]));
-            }
 
             const reportPeriod = document.getElementById('vetReportPeriod');
             const reportCustomFields = document.querySelectorAll('.health-report-custom');
@@ -895,7 +933,6 @@
                     from.setDate(to.getDate() - (days - 1));
                     toInput.value = asDateInput(to);
                     fromInput.value = asDateInput(from);
-                    rangePreset.form.submit();
                 });
             }
 

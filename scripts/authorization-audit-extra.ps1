@@ -17,7 +17,7 @@ $anonymous=Client
 $anonymous.DefaultRequestHeaders.Add('Cookie', "userID=$($b.User); userName=forged")
 Check 'GET /Home with forged identity cookies, no session' (Request $anonymous GET /Home) 302 $before
 Check 'GET foreign photo with forged identity cookies, no session' (Request $anonymous GET $b.Photo) 401 $before
-Check 'GET /VetVisits?handler=PreviewDocument with no session' (Request $anonymous GET "/VetVisits?handler=PreviewDocument&documentID=$($b.Doc)") 401 $before
+Check 'POST /VetVisits?handler=PreviewDocument with no session' (Request $anonymous POST '/VetVisits?handler=PreviewDocument' @{documentID=$b.Doc}) 401 $before
 
 # A session is authoritative even if the display/legacy identity cookie is forged.
 $a.Client.DefaultRequestHeaders.Add('Cookie', "userID=$($b.User)")

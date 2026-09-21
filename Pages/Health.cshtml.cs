@@ -13,12 +13,22 @@ public sealed class HealthModel(
     IUserTimeZoneService timeZone,
     IHouseholdContextService householdContext) : PageModel
 {
-    // An omitted petID shows every pet; a petID query scopes the page to one pet.
+    private const string SelectedPetSessionKey = "health-selected-pet";
+    private const string EditEventSessionKey = "health-edit-event";
+    private const string FromSessionKey = "health-filter-from";
+    private const string ToSessionKey = "health-filter-to";
+    private const string EventTypeSessionKey = "health-filter-type";
+    private const string SortSessionKey = "health-filter-sort";
+    private const string SearchSessionKey = "health-filter-search";
+    private const string HistoryViewSessionKey = "health-filter-view";
+
     public int? PetID { get; set; }
-    [BindProperty(SupportsGet = true)] public DateTime? From { get; set; }
-    [BindProperty(SupportsGet = true)] public DateTime? To { get; set; }
-    [BindProperty(SupportsGet = true)] public string? EventType { get; set; } = "All";
-    [BindProperty(SupportsGet = true)] public string? Sort { get; set; } = "Newest";
+    [BindProperty] public DateTime? From { get; set; }
+    [BindProperty] public DateTime? To { get; set; }
+    [BindProperty] public string? EventType { get; set; } = "All";
+    [BindProperty] public string? Sort { get; set; } = "Newest";
+    [BindProperty] public string? Search { get; set; }
+    [BindProperty] public string? HistoryView { get; set; } = "Grouped";
     [BindProperty] public HealthEventInput NewEvent { get; set; } = new();
     [BindProperty] public HealthEventInput EditEvent { get; set; } = new();
     [BindProperty] public bool ReturnToDashboard { get; set; }
@@ -54,19 +64,17 @@ public sealed class HealthModel(
     public static readonly string[] IncidentTypes =
         ["Seizure", "Vomiting", "Diarrhea", "Fall", "Injury", "Pain episode", "Breathing problem", "Allergic reaction", "Accident", "Behavioral change", "Other"];
 
-    public IActionResult OnGet(int? petID, int? editHealthEventID)
+    public IActionResult OnGet()
     {
         if (!TryGetUserID(out var userID))
             return RedirectToPage("/Login");
-
-        if (petID is > 0 && petService.GetPetByID(userID, petID.Value) == null)
-            return NotFound();
-        PetID = petID is > 0 ? petID : null;
 
         var result = LoadPage(userID);
         if (result != null)
             return result;
 
+        var editHealthEventID = HttpContext.Session.GetInt32(EditEventSessionKey);
+        HttpContext.Session.Remove(EditEventSessionKey);
         if (editHealthEventID.HasValue)
         {
             var existing = healthService.GetHealthEventByID(userID, editHealthEventID.Value);
@@ -77,19 +85,66 @@ public sealed class HealthModel(
             }
         }
 
-        NewEvent.PetID = PetID ?? (Pets.Count == 1 ? Pets[0].PetID : 0);
+        NewEvent.PetID = PetID ?? 0;
         NewEvent.EventKind = HealthEventKinds.Symptom;
         NewEvent.OccurredAtLocal = timeZone.ToLocal(DateTime.UtcNow, UtcOffsetMinutes);
         NewEvent.UtcOffsetMinutes = UtcOffsetMinutes;
         return Page();
     }
 
-    public IActionResult OnPostLogEvent(int? returnPetID)
+    public IActionResult OnPostSelectPet(int? selectedPetID)
+    {
+        if (!TryGetUserID(out var userID))
+            return RedirectToPage("/Login");
+        if (selectedPetID.HasValue && petService.GetPetByID(userID, selectedPetID.Value) == null)
+            return NotFound();
+
+        if (selectedPetID.HasValue)
+            HttpContext.Session.SetInt32(SelectedPetSessionKey, selectedPetID.Value);
+        else
+            HttpContext.Session.Remove(SelectedPetSessionKey);
+        return RedirectToPage();
+    }
+
+    public IActionResult OnPostOpenEvent(int healthEventID)
+    {
+        if (!TryGetUserID(out var userID))
+            return RedirectToPage("/Login");
+        var existing = healthService.GetHealthEventByID(userID, healthEventID);
+        if (existing == null)
+            return NotFound();
+
+        HttpContext.Session.SetInt32(SelectedPetSessionKey, existing.PetID);
+        HttpContext.Session.SetInt32(EditEventSessionKey, healthEventID);
+        return RedirectToPage();
+    }
+
+    public IActionResult OnPostApplyFilters()
+    {
+        if (!TryGetUserID(out _))
+            return RedirectToPage("/Login");
+
+        NormalizeFilters();
+        StoreFilters();
+        return Redirect("/Health#health-history");
+    }
+
+    public IActionResult OnPostResetFilters()
+    {
+        if (!TryGetUserID(out _))
+            return RedirectToPage("/Login");
+
+        foreach (var key in new[] { FromSessionKey, ToSessionKey, EventTypeSessionKey, SortSessionKey, SearchSessionKey, HistoryViewSessionKey })
+            HttpContext.Session.Remove(key);
+        return Redirect("/Health#health-history");
+    }
+
+    public IActionResult OnPostLogEvent()
     {
         if (!TryGetUserID(out var userID))
             return RedirectToPage("/Login");
 
-        PetID = returnPetID;
+        PetID = HttpContext.Session.GetInt32(SelectedPetSessionKey);
         NewEvent.EventKind = NormalizeKind(NewEvent.EventKind);
         if (petService.GetPetByID(userID, NewEvent.PetID) == null)
             return NotFound();
@@ -134,15 +189,16 @@ public sealed class HealthModel(
         if (ReturnToDashboard)
             return RedirectToPage("/Home");
 
-        return returnPetID.HasValue ? RedirectToPage(new { petID = returnPetID.Value }) : RedirectToPage();
+        HttpContext.Session.SetInt32(SelectedPetSessionKey, NewEvent.PetID);
+        return RedirectToPage();
     }
 
-    public IActionResult OnPostEditEvent(int? returnPetID)
+    public IActionResult OnPostEditEvent()
     {
         if (!TryGetUserID(out var userID))
             return RedirectToPage("/Login");
 
-        PetID = returnPetID;
+        PetID = HttpContext.Session.GetInt32(SelectedPetSessionKey);
         EditEvent.EventKind = NormalizeKind(EditEvent.EventKind);
         if (petService.GetPetByID(userID, EditEvent.PetID) == null)
             return NotFound();
@@ -178,20 +234,19 @@ public sealed class HealthModel(
             return NotFound();
 
         TempData["StatusMessage"] = $"{EditEvent.EventKind} updated for {PetsName(userID, EditEvent.PetID)}.";
-        return returnPetID.HasValue ? RedirectToPage(new { petID = returnPetID.Value }) : RedirectToPage();
+        HttpContext.Session.SetInt32(SelectedPetSessionKey, EditEvent.PetID);
+        return RedirectToPage();
     }
 
-    public IActionResult OnPostDeleteEvent(int healthEventID, int petID, int? returnPetID)
+    public IActionResult OnPostDeleteEvent(int healthEventID)
     {
         if (!TryGetUserID(out var userID))
             return RedirectToPage("/Login");
-        if (petService.GetPetByID(userID, petID) == null)
-            return NotFound();
         if (!healthService.DeleteHealthEvent(userID, healthEventID))
             return NotFound();
 
         TempData["StatusMessage"] = "Health event removed.";
-        return returnPetID.HasValue ? RedirectToPage(new { petID = returnPetID.Value }) : RedirectToPage();
+        return RedirectToPage();
     }
 
     private IActionResult? LoadPage(int userID)
@@ -200,17 +255,23 @@ public sealed class HealthModel(
         var household = householdContext.GetActiveHousehold(userID);
         CanManageCarePlans = household != null
             && HouseholdAccessRules.HasPermission(household.Role, HouseholdPermission.ManageCarePlans);
-        EventType = SourceTypes.FirstOrDefault(type =>
-                type.Equals(EventType, StringComparison.OrdinalIgnoreCase)) ?? "All";
-        Sort = string.Equals(Sort, "Oldest", StringComparison.OrdinalIgnoreCase) ? "Oldest" : "Newest";
         Pets = petService.GetPetsByUser(userID);
-        // A posted pet can be removed before an invalid form is redisplayed.
+        PetID ??= HttpContext.Session.GetInt32(SelectedPetSessionKey);
         if (PetID.HasValue && Pets.All(pet => pet.PetID != PetID.Value))
+        {
             PetID = null;
+            HttpContext.Session.Remove(SelectedPetSessionKey);
+        }
 
         var userToday = timeZone.ToLocal(DateTime.UtcNow, UtcOffsetMinutes).Date;
+        RestoreFilters();
+        NormalizeFilters();
         From ??= userToday.AddDays(-29);
         To ??= userToday;
+
+        if (!PetID.HasValue)
+            return null;
+
         if (From.Value.Date > To.Value.Date)
         {
             HealthError = "The start date must be on or before the end date.";
@@ -230,17 +291,56 @@ public sealed class HealthModel(
                 string.Equals(Sort, "Oldest", StringComparison.OrdinalIgnoreCase));
         }
 
+        if (!string.IsNullOrWhiteSpace(Search))
+            Timeline = Timeline.Where(item => new[] { item.Title, item.Summary, item.PetName, item.Attribution, item.Status }
+                .Any(value => value?.Contains(Search, StringComparison.OrdinalIgnoreCase) == true)).ToList();
+
         SymptomTimeline = Timeline.Where(item => item.SourceType == HealthEventKinds.Symptom).ToList();
         IncidentTimeline = Timeline.Where(item => item.SourceType == HealthEventKinds.Incident).ToList();
         MedicationTimeline = Timeline.Where(item => item.SourceType == "Medication").ToList();
         VetVisitTimeline = Timeline.Where(item => item.SourceType == "VetVisit").ToList();
 
         MedicationOptions = Pets
+            .Where(pet => pet.PetID == PetID.Value)
             .SelectMany(pet => medicationService.GetMedicationsByPetID(userID, pet.PetID))
             .OrderBy(medication => medication.MedicationName)
             .ToList();
         LoadOverview(userID, userToday);
         return null;
+    }
+
+    private void RestoreFilters()
+    {
+        if (DateTime.TryParse(HttpContext.Session.GetString(FromSessionKey), out var from))
+            From = from;
+        if (DateTime.TryParse(HttpContext.Session.GetString(ToSessionKey), out var to))
+            To = to;
+        if (HttpContext.Session.GetString(EventTypeSessionKey) is { } eventType) EventType = eventType;
+        if (HttpContext.Session.GetString(SortSessionKey) is { } sort) Sort = sort;
+        if (HttpContext.Session.GetString(SearchSessionKey) is { } search) Search = search;
+        if (HttpContext.Session.GetString(HistoryViewSessionKey) is { } view) HistoryView = view;
+    }
+
+    private void NormalizeFilters()
+    {
+        EventType = SourceTypes.FirstOrDefault(type =>
+                type.Equals(EventType, StringComparison.OrdinalIgnoreCase)) ?? "All";
+        Sort = string.Equals(Sort, "Oldest", StringComparison.OrdinalIgnoreCase) ? "Oldest" : "Newest";
+        HistoryView = string.Equals(HistoryView, "Timeline", StringComparison.OrdinalIgnoreCase) ? "Timeline" : "Grouped";
+        Search = Search?.Trim();
+    }
+
+    private void StoreFilters()
+    {
+        if (From.HasValue) HttpContext.Session.SetString(FromSessionKey, From.Value.ToString("O"));
+        else HttpContext.Session.Remove(FromSessionKey);
+        if (To.HasValue) HttpContext.Session.SetString(ToSessionKey, To.Value.ToString("O"));
+        else HttpContext.Session.Remove(ToSessionKey);
+        HttpContext.Session.SetString(EventTypeSessionKey, EventType ?? "All");
+        HttpContext.Session.SetString(SortSessionKey, Sort ?? "Newest");
+        HttpContext.Session.SetString(HistoryViewSessionKey, HistoryView ?? "Grouped");
+        if (string.IsNullOrWhiteSpace(Search)) HttpContext.Session.Remove(SearchSessionKey);
+        else HttpContext.Session.SetString(SearchSessionKey, Search);
     }
 
     private HealthEventInput ToInput(HealthEvent existing) => new()
@@ -317,9 +417,7 @@ public sealed class HealthModel(
                     LastDoseStatus = lastActivity?.EffectiveStatus ?? string.Empty,
                     NextDoseWhen = nextActivity == null
                         ? string.Empty
-                        : nextActivity.ScheduleDate.Date == userToday
-                            ? "Today"
-                            : FormatHealthDate(nextActivity.ScheduleDate, nowLocal, !nextActivity.TimingDoesNotMatter),
+                        : FormatHealthDate(nextActivity.ScheduleDate, nowLocal, !nextActivity.TimingDoesNotMatter),
                     NextDoseIsLate = nextIsLate
                 });
             }

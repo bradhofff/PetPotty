@@ -84,21 +84,10 @@ namespace PetPotty.Pages
         [BindProperty] public string DocumentDisplayName { get; set; } = string.Empty;
         [BindProperty] public string DocumentDescription { get; set; } = string.Empty;
 
-        public IActionResult OnGet(int? petID, int? vetVisitID)
+        public IActionResult OnGet()
         {
             if (!TryGetUserID(out var userID))
                 return RedirectToPage("/Login");
-            if (petID.HasValue && _petService.GetPetByID(userID, petID.Value) == null)
-                return NotFound();
-            if (vetVisitID.HasValue && _vetVisitService.GetVisit(userID, vetVisitID.Value) == null)
-                return NotFound();
-            if (Request.QueryString.HasValue)
-            {
-                // Relay the deep link through session before dropping the query string, so a
-                // link like /Health's "Edit visit" still lands on the right pet/visit — and
-                // opens it for editing, the same way /Medications' ?editMedID= deep link does.
-                return RedirectToVetVisits(petID, vetVisitID, openEdit: vetVisitID.HasValue);
-            }
 
             UserID = userID;
             var requestedPetID = HttpContext.Session.GetInt32(SelectedPetSessionKey);
@@ -129,6 +118,16 @@ namespace PetPotty.Pages
                 }
             }
             return Page();
+        }
+
+        public IActionResult OnPostOpenVisit(int petID, int vetVisitID, bool openEdit = false)
+        {
+            if (!TryGetUserID(out var userID))
+                return RedirectToPage("/Login");
+            var visit = _vetVisitService.GetVisit(userID, vetVisitID);
+            if (visit == null || visit.PetID != petID)
+                return NotFound();
+            return RedirectToVetVisits(petID, vetVisitID, openEdit);
         }
 
         private void PopulateEditVisit(VetVisit visit)
@@ -473,7 +472,7 @@ namespace PetPotty.Pages
             };
         }
 
-        public IActionResult OnGetPreviewDocument(int documentID)
+        public IActionResult OnPostPreviewDocument(int documentID)
         {
             if (!TryGetUserID(out var userID))
                 return Unauthorized();

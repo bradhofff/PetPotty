@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Text;
+
 namespace PetPotty.Services
 {
     public sealed class PetImageStorage : IPetImageStorage
@@ -70,7 +73,7 @@ namespace PetPotty.Services
             Directory.CreateDirectory(_petsRoot);
 
             var extension = Path.GetExtension(image.FileName).ToLowerInvariant();
-            var fileName = $"{petID}_{Guid.NewGuid():N}{extension}";
+            var fileName = $"{Guid.NewGuid():N}{extension}";
             var physicalPath = Path.Combine(_petsRoot, fileName);
 
             await using var output = new FileStream(physicalPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
@@ -78,28 +81,37 @@ namespace PetPotty.Services
             return $"/uploads/pets/{fileName}";
         }
 
+        public string GetAccessToken(string relativePath)
+        {
+            var digest = SHA256.HashData(Encoding.UTF8.GetBytes(relativePath));
+            return Convert.ToHexString(digest).ToLowerInvariant()[..32];
+        }
+
+        public string? ResolvePhysicalPath(string relativePath)
+        {
+            const string expectedPrefix = "/uploads/pets/";
+            if (!relativePath.StartsWith(expectedPrefix, StringComparison.OrdinalIgnoreCase))
+                return null;
+            var fileName = Path.GetFileName(relativePath);
+            if (!string.Equals(relativePath, expectedPrefix + fileName, StringComparison.OrdinalIgnoreCase))
+                return null;
+            return Path.Combine(_petsRoot, fileName);
+        }
+
         public void Delete(string? relativePath)
         {
             if (string.IsNullOrWhiteSpace(relativePath))
                 return;
 
-            const string expectedPrefix = "/uploads/pets/";
-            if (!relativePath.StartsWith(expectedPrefix, StringComparison.OrdinalIgnoreCase))
+            var physicalPath = ResolvePhysicalPath(relativePath);
+            if (physicalPath == null)
             {
                 _logger.LogWarning("Ignored unexpected pet image path {ProfileImagePath}", relativePath);
                 return;
             }
 
-            var fileName = Path.GetFileName(relativePath);
-            if (!string.Equals(relativePath, expectedPrefix + fileName, StringComparison.OrdinalIgnoreCase))
-            {
-                _logger.LogWarning("Ignored unsafe pet image path {ProfileImagePath}", relativePath);
-                return;
-            }
-
             try
             {
-                var physicalPath = Path.Combine(_petsRoot, fileName);
                 if (File.Exists(physicalPath))
                     File.Delete(physicalPath);
             }

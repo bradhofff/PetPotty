@@ -1176,7 +1176,7 @@ GO
 -- exists. The app now needs the timeline in the CALLER'S time zone with the Missed status computed
 -- here: @UtcOffsetMinutes / @NowUtc / @MissedAfterMinutes (defaults: UTC, now, 720 = configuration
 -- MedicationAdherence:MissedAfterMinutes). Columns: SourceType, SourceID, PetID, PetName, EventAtUtc,
--- Title, Summary, Attribution, Status, Severity, Url.
+-- Title, Summary, Attribution, Status, Severity.
 CREATE OR ALTER PROCEDURE dbo.GetHealthTimeline
     @UserID INT, @HouseholdID INT, @PetID INT = NULL,
     @StartUtc DATETIME2(6), @EndUtc DATETIME2(6),
@@ -1188,7 +1188,7 @@ BEGIN
     SET @NowUtc = COALESCE(@NowUtc, SYSUTCDATETIME());
 
     SELECT SourceType, SourceID, PetID, PetName, EventAtUtc, Title, Summary,
-           Attribution, Status, Severity, Url
+           Attribution, Status, Severity
     FROM
     (
         SELECT h.EventKind AS SourceType,
@@ -1200,8 +1200,7 @@ BEGIN
                h.Description AS Summary,
                CONVERT(nvarchar(100), u.name) AS Attribution,
                h.RecoveryStatus AS Status,
-               CONVERT(int, h.Severity) AS Severity,
-               CONCAT(N'/Health?petID=', h.PetID, N'#health-event-', h.HealthEventID) AS Url
+               CONVERT(int, h.Severity) AS Severity
         FROM dbo.HealthEvents h
         INNER JOIN dbo.Pets p ON p.petID = h.PetID
         LEFT JOIN dbo.Users u ON u.userID = h.CreatedByUserID
@@ -1229,8 +1228,7 @@ BEGIN
                        DATEADD(MINUTE, @UtcOffsetMinutes, CONVERT(datetime2(0), ms.scheduleDate))) THEN N'Missed'
                    ELSE N'Due'
                END,
-               NULL,
-               CONCAT(N'/Medications?petID=', m.petID, N'&editMedID=', m.medID)
+               NULL
         FROM dbo.MedicationSchedule ms
         INNER JOIN dbo.Medications m ON m.medID = ms.medID
         INNER JOIN dbo.Pets p ON p.petID = m.petID
@@ -1252,8 +1250,7 @@ BEGIN
                CONVERT(nvarchar(2000), CONCAT(v.ClinicName,
                    CASE WHEN NULLIF(v.VisitSummary, N'') IS NULL THEN N''
                         ELSE CONCAT(N' ', NCHAR(8212), N' ', v.VisitSummary) END)),
-               CONVERT(nvarchar(100), visitUser.name), CONVERT(nvarchar(30), v.Status), NULL,
-               CONCAT(N'/VetVisits?petID=', v.PetID, N'&vetVisitID=', v.VetVisitID)
+               CONVERT(nvarchar(100), visitUser.name), CONVERT(nvarchar(30), v.Status), NULL
         FROM dbo.VetVisits v
         INNER JOIN dbo.Pets p ON p.petID = v.PetID
         LEFT JOIN dbo.Users visitUser ON visitUser.userID = v.CreatedByUserID
