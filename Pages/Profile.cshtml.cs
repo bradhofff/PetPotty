@@ -108,7 +108,7 @@ public sealed class ProfileModel : PageModel
             command.ExecuteNonQuery();
             HttpContext.Session.SetString("name", ProfileName.Trim());
             TempData["ProfileStatus"] = "Profile updated successfully.";
-            return RedirectToPage();
+            return Redirect("/Profile#account-details");
         }
         catch (SqlException exception)
         {
@@ -130,7 +130,7 @@ public sealed class ProfileModel : PageModel
             TempData["HouseholdError"] = "You do not have access to that household.";
         else
             TempData["ProfileStatus"] = "Active household changed.";
-        return RedirectToPage();
+        return Redirect("/Profile#household-settings");
     }
 
     public IActionResult OnPostRenameHousehold()
@@ -142,7 +142,7 @@ public sealed class ProfileModel : PageModel
             TempData["HouseholdError"] = "The household name could not be changed.";
         else
             TempData["ProfileStatus"] = "Household name updated.";
-        return RedirectToPage();
+        return Redirect("/Profile#household-settings");
     }
 
     public async Task<IActionResult> OnPostInviteAsync()
@@ -153,12 +153,12 @@ public sealed class ProfileModel : PageModel
         if (household == null || !HouseholdAccessRules.TryParseRole(InviteRole, out var role))
         {
             TempData["HouseholdError"] = "Choose a valid invitation role.";
-            return RedirectToPage();
+            return Redirect("/Profile#household-settings");
         }
 
         var result = await _invitations.CreateAsync(userID, household.HouseholdID, InviteEmail, role, HttpContext.RequestAborted);
         TempData[result.Succeeded ? "ProfileStatus" : "HouseholdError"] = result.Message;
-        return RedirectToPage();
+        return Redirect("/Profile#household-settings");
     }
 
     public IActionResult OnPostChangeMemberRole(Guid memberPublicID, string role)
@@ -172,7 +172,7 @@ public sealed class ProfileModel : PageModel
         TempData[changed ? "ProfileStatus" : "HouseholdError"] = changed
             ? "Member role updated."
             : "That member's role could not be changed.";
-        return RedirectToPage();
+        return Redirect("/Profile#household-settings");
     }
 
     public IActionResult OnPostRemoveMember(Guid memberPublicID)
@@ -185,7 +185,7 @@ public sealed class ProfileModel : PageModel
         TempData[removed ? "ProfileStatus" : "HouseholdError"] = removed
             ? "Household member removed."
             : "That member cannot be removed. Owners cannot be removed without an ownership-transfer flow.";
-        return RedirectToPage();
+        return Redirect("/Profile#household-settings");
     }
 
     public IActionResult OnPostCancelInvitation(Guid invitationPublicID)
@@ -197,7 +197,7 @@ public sealed class ProfileModel : PageModel
             ? new HouseholdInvitationResult(false, "No active household was found.")
             : _invitations.Revoke(userID, household.HouseholdID, invitationPublicID);
         TempData[result.Succeeded ? "ProfileStatus" : "HouseholdError"] = result.Message;
-        return RedirectToPage();
+        return Redirect("/Profile#household-settings");
     }
 
     public async Task<IActionResult> OnPostResendInvitationAsync(Guid invitationPublicID)
@@ -213,7 +213,7 @@ public sealed class ProfileModel : PageModel
                 invitationPublicID,
                 HttpContext.RequestAborted);
         TempData[result.Succeeded ? "ProfileStatus" : "HouseholdError"] = result.Message;
-        return RedirectToPage();
+        return Redirect("/Profile#household-settings");
     }
 
     private void LoadPage(int userID, bool loadProfile = true)

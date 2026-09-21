@@ -421,7 +421,6 @@
                                                 var extension = System.IO.Path.GetExtension(document.OriginalFileName).ToLowerInvariant();
                                                 var isImage = extension is ".jpg" or ".jpeg" or ".png";
                                                 var isPdf = extension == ".pdf";
-                                                var previewUrl = Url.Page("/VetVisits", "PreviewDocument", new { documentID = document.VetVisitDocumentID });
                                                 <div class="document-row" data-preview-id="@previewID">
                                                     @if (Model.CanManageCarePlans)
                                                     {
@@ -449,12 +448,12 @@
                                                             <div class="document-preview-frame">
                                                                 @if (isImage)
                                                                 {
-                                                                    <img class="document-preview-image" data-preview-src="@previewUrl"
+                                                                    <img class="document-preview-image" data-document-id="@document.VetVisitDocumentID"
                                                                          alt="Preview of @document.DisplayName" />
                                                                 }
                                                                 else if (isPdf)
                                                                 {
-                                                                    <iframe data-preview-src="@previewUrl" title="Preview of @document.DisplayName"></iframe>
+                                                                    <iframe data-document-id="@document.VetVisitDocumentID" title="Preview of @document.DisplayName"></iframe>
                                                                 }
                                                                 else
                                                                 {
@@ -922,14 +921,31 @@
             });
         });
 
+        const previewObjectUrls = [];
         document.querySelectorAll('.document-preview-collapse').forEach(preview => {
-            preview.addEventListener('show.bs.collapse', () => {
-                preview.querySelectorAll('[data-preview-src]').forEach(element => {
-                    if (!element.getAttribute('src'))
-                        element.setAttribute('src', element.dataset.previewSrc);
-                });
+            preview.addEventListener('show.bs.collapse', async () => {
+                for (const element of preview.querySelectorAll('[data-document-id]')) {
+                    if (element.getAttribute('src') || element.dataset.loading === 'true') continue;
+                    element.dataset.loading = 'true';
+                    const form = new FormData();
+                    form.append('documentID', element.dataset.documentId);
+                    const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+                    if (token) form.append('__RequestVerificationToken', token);
+                    const response = await fetch('/VetVisits?handler=PreviewDocument', { method: 'POST', body: form });
+                    if (!response.ok) {
+                        element.replaceWith(Object.assign(document.createElement('div'), {
+                            className: 'document-preview-unavailable',
+                            textContent: 'Preview could not be loaded.'
+                        }));
+                        continue;
+                    }
+                    const objectUrl = URL.createObjectURL(await response.blob());
+                    previewObjectUrls.push(objectUrl);
+                    element.setAttribute('src', objectUrl);
+                }
             });
         });
+        window.addEventListener('pagehide', () => previewObjectUrls.forEach(URL.revokeObjectURL));
 
         function resetSubmitButton(button) {
             if (!button) return;

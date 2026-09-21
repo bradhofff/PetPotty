@@ -163,7 +163,6 @@ namespace PetPotty.Models
         public DateTime DueAt { get; set; }
         public string Kind { get; set; } = string.Empty;
         public string Text { get; set; } = string.Empty;
-        public string Url { get; set; } = string.Empty;
         public bool IsOverdue { get; set; }
         public bool TimingDoesNotMatter { get; set; }
     }

@@ -726,7 +726,7 @@ BEGIN
         RETURN;
 
     SELECT SourceType, SourceID, PetID, PetName, EventAtUtc, Title, Summary, Attribution,
-           Status, Severity, RawDoseStatus, ScheduleDateRaw, TimingDoesNotMatter, Url
+           Status, Severity, RawDoseStatus, ScheduleDateRaw, TimingDoesNotMatter
     FROM
     (
         SELECT h.EventKind AS SourceType, h.HealthEventID AS SourceID, h.PetID,
@@ -735,8 +735,7 @@ BEGIN
                CONVERT(nvarchar(100), u.name) AS Attribution, h.RecoveryStatus AS Status,
                CONVERT(int, h.Severity) AS Severity,
                CAST(NULL AS nvarchar(40)) AS RawDoseStatus, CAST(NULL AS datetime2(6)) AS ScheduleDateRaw,
-               CAST(NULL AS bit) AS TimingDoesNotMatter,
-               CONCAT(N'/Health?petID=', h.PetID, N'#health-event-', h.HealthEventID) AS Url
+               CAST(NULL AS bit) AS TimingDoesNotMatter
         FROM dbo.HealthEvents h
         INNER JOIN dbo.Pets p ON p.petID = h.PetID
         INNER JOIN dbo.Users u ON u.userID = h.CreatedByUserID
@@ -753,8 +752,7 @@ BEGIN
                         ELSE CONCAT(N' ', NCHAR(8212), N' ', ms.AdministrationNotes) END)),
                COALESCE(CONVERT(nvarchar(100), u.name), N'Recorded user unavailable'),
                CAST(NULL AS nvarchar(40)), CAST(NULL AS int),
-               ms.DoseStatus, ms.scheduleDate, m.TimingDoesNotMatter,
-               CONCAT(N'/Medications?petID=', m.petID, N'&editMedID=', m.medID)
+               ms.DoseStatus, ms.scheduleDate, m.TimingDoesNotMatter
         FROM dbo.MedicationSchedule ms
         INNER JOIN dbo.Medications m ON m.medID = ms.medID
         INNER JOIN dbo.Pets p ON p.petID = m.petID
@@ -771,8 +769,7 @@ BEGIN
                    CASE WHEN NULLIF(v.VisitSummary, N'') IS NULL THEN N'' ELSE CONCAT(N' ', NCHAR(8212), N' ', v.VisitSummary) END)),
                COALESCE(CONVERT(nvarchar(100), visitUser.name), N'Recorded user unavailable'),
                CONVERT(nvarchar(30), v.Status), CAST(NULL AS int),
-               CAST(NULL AS nvarchar(40)), CAST(NULL AS datetime2(6)), CAST(NULL AS bit),
-               CONCAT(N'/VetVisits?petID=', v.PetID, N'&vetVisitID=', v.VetVisitID)
+               CAST(NULL AS nvarchar(40)), CAST(NULL AS datetime2(6)), CAST(NULL AS bit)
         FROM dbo.VetVisits v
         INNER JOIN dbo.Pets p ON p.petID = v.PetID
         LEFT JOIN dbo.Users visitUser ON visitUser.userID = v.CreatedByUserID

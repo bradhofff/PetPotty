@@ -32,15 +32,13 @@ public sealed class ReportsModel(
 
     public string RangeLabel => $"{RangeStartLocal:MMMM d, yyyy} – {RangeEndLocal:MMMM d, yyyy}";
 
-    public IActionResult OnGet(int? petID)
+    public IActionResult OnGet()
     {
         if (!TryGetUserID(out var userID))
             return RedirectToPage("/Login");
 
         Pets = petService.GetPetsByUser(userID);
-        SelectedPetID = petID ?? Pets.FirstOrDefault()?.PetID ?? 0;
-        if (petID.HasValue && petService.GetPetByID(userID, petID.Value) == null)
-            return NotFound();
+        SelectedPetID = 0;
         return LoadReport(userID);
     }
 

@@ -692,6 +692,7 @@ else
             var quickLogTasks = Model.PetAllTasks[pet.PetID];
             string lastPeeLabel = PetPotty.Pages.HomeModel.LastActivityLabel(quickLogTasks, "Pee", Model.UserNowLocal);
             string lastPoopLabel = PetPotty.Pages.HomeModel.LastActivityLabel(quickLogTasks, "Poop", Model.UserNowLocal);
+            var petImageUrl = Model.PetImageUrl(pet);
 
             <div class="col-md-6 col-xxl-4">
                 <div class="pet-card">
@@ -709,7 +710,7 @@ else
                             data-pet-age="@pet.Age"
                             data-pet-birthdate="@petBirthdate"
                             data-pet-gender="@pet.Gender"
-                            data-pet-image="@pet.ProfileImagePath"
+                            data-pet-image="@petImageUrl"
                             data-pet-emoji="@petEmoji"
                             title="Edit @pet.Name">
                         ✏️
@@ -718,13 +719,13 @@ else
 
                     @* Avatar + info *@
                     <div class="d-flex align-items-center gap-3 mb-3">
-                        @if (!string.IsNullOrWhiteSpace(pet.ProfileImagePath))
+                        @if (!string.IsNullOrWhiteSpace(petImageUrl))
                         {
                             <button type="button" class="pet-avatar pet-photo-lightbox-trigger"
-                                    data-image-src="@pet.ProfileImagePath"
+                                    data-image-src="@petImageUrl"
                                     data-image-alt="@pet.Name profile photo"
                                     aria-label="View a larger photo of @pet.Name">
-                                <img src="@pet.ProfileImagePath" alt="@pet.Name profile photo"
+                                <img src="@petImageUrl" alt="@pet.Name profile photo"
                                      onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';" />
                                 <span style="display:none">@petEmoji</span>
                             </button>
@@ -799,9 +800,10 @@ else
                                 data-pet-name="@pet.Name">
                             + Add Task
                         </button>
-                        <a asp-page="/Health" asp-route-petID="@pet.PetID" class="log-health-card-btn">
-                            🩺 View health
-                        </a>
+                        <form method="post" asp-page="/Health" asp-page-handler="SelectPet">
+                            <input type="hidden" name="selectedPetID" value="@pet.PetID" />
+                            <button type="submit" class="log-health-card-btn">🩺 View health</button>
+                        </form>
                     </div>
 
                     @{
@@ -826,25 +828,21 @@ else
                                 }
                                 else
                                 {
-                                <a href="@item.Url" class="care-notification-link @(item.IsOverdue ? "is-overdue" : "")">
-                                    <span aria-hidden="true">@(item.Kind == "Medication" ? "💊" : "🏥")</span>
-                                    <span>@PetPotty.Pages.HomeModel.CareItemLabel(item, Model.UserNowLocal)</span>
-                                </a>
+                                <form method="post" asp-page="/Medications" asp-page-handler="OpenMedication">
+                                    <input type="hidden" name="petID" value="@pet.PetID" />
+                                    <button type="submit" class="care-notification-link @(item.IsOverdue ? "is-overdue" : "")">
+                                        <span aria-hidden="true">💊</span>
+                                        <span>@PetPotty.Pages.HomeModel.CareItemLabel(item, Model.UserNowLocal)</span>
+                                    </button>
+                                </form>
                                 }
                             }
                             @if (careItems.Count > 3)
                             {
-                                @if (careItems.Any(item => item.Kind == "VetVisit"))
-                                {
-                                <form method="post" asp-page="/VetVisits">
+                                <form method="post" asp-page="/Health" asp-page-handler="SelectPet">
                                     <input type="hidden" name="selectedPetID" value="@pet.PetID" />
                                     <button type="submit" class="care-view-all">View all @careItems.Count items →</button>
                                 </form>
-                                }
-                                else
-                                {
-                                <a href="@($"/Medications?petID={pet.PetID}")" class="care-view-all">View all @careItems.Count items →</a>
-                                }
                             }
                         </div>
                     }

@@ -20,41 +20,14 @@
 }
 
 <style>
-    .profile-sidebar {
-        min-width: 180px;
-        border-right: 2px solid var(--pet-secondary, #f4a460);
-        padding-right: 0;
-    }
-
-    .profile-sidebar .nav-link {
-        color: var(--pet-dark, #3b1f0a);
-        border-radius: 8px 0 0 8px;
-        padding: 10px 20px;
-        font-weight: 500;
-        transition: background 0.15s ease;
-    }
-
-    .profile-sidebar .nav-link:hover {
-        background: rgba(244, 164, 96, 0.15);
-        color: var(--pet-primary, #c8762a);
-    }
-
-    .profile-sidebar .nav-link.active {
-        background: rgba(244, 164, 96, 0.25);
-        color: var(--pet-primary, #c8762a);
-        border-right: 3px solid var(--pet-primary, #c8762a);
-        font-weight: 700;
-    }
-
+    .account-layout { align-items: flex-start; display: flex; gap: 2rem; }
+    .profile-sidebar { border-right: 1px solid var(--app-line); flex: 0 0 180px; padding-right: .75rem; }
+    .profile-sidebar .account-tab { border: 0; border-radius: 8px; display: block; width: 100%; }
+    .profile-sidebar .account-tab:hover, .profile-sidebar .account-tab:focus-visible { background: var(--app-accent-soft); }
     .profile-content {
         flex: 1;
-        padding-left: 2rem;
-    }
-
-    .profile-field-row label {
-        font-weight: 600;
-        color: var(--pet-dark, #3b1f0a);
-        min-width: 110px;
+        padding-left: 0;
+        min-width: 0;
     }
 
     .field-display {
@@ -62,29 +35,29 @@
         font-size: 1rem;
         padding: 6px 0;
     }
+
+    @@media (max-width: 768px) {
+        .account-layout { flex-direction: column; gap: 1rem; }
+        .profile-sidebar { border-bottom: 1px solid var(--app-line); border-right: 0; flex-basis: auto; flex-direction: row !important; padding: 0 0 .5rem; width: 100%; }
+        .profile-sidebar .account-tab { width: auto; }
+    }
 </style>
 
-<h1 class="mb-4">👤 My Profile</h1>
+<header class="app-page-heading mb-4">
+    <p class="app-eyebrow mb-1">ACCOUNT</p>
+    <h1 class="mb-1">My profile</h1>
+    <p class="text-secondary mb-0">Manage your account and the people who care for your pets.</p>
+</header>
 
-<div class="d-flex align-items-start">
-
-    @* ── LEFT SIDEBAR TAB BAR ─────────────────────────────────── *@
-    <nav class="profile-sidebar me-0 d-flex flex-column nav" id="profileTabs">
-        <a class="nav-link active" href="#account-details">
-            👤 Profile
-        </a>
-        <a class="nav-link" href="#household-settings">
-            🏠 Household
-        </a>
-        @* Future tabs — uncomment when ready:
-        <a class="nav-link" href="/Profile">
-            🔒 Security
-        </a>
-        *@
+<div class="account-layout">
+    <nav class="profile-sidebar d-flex flex-column gap-1" aria-label="Account settings" role="tablist">
+        <a id="profileTab" class="account-tab" href="#account-details" data-account-tab="profile" role="tab"
+           aria-controls="account-details" aria-selected="true">👤 Profile</a>
+        <a id="householdTab" class="account-tab" href="#household-settings" data-account-tab="household" role="tab"
+           aria-controls="household-settings" aria-selected="false">🏠 Household</a>
     </nav>
 
-    @* ── MAIN CONTENT AREA ───────────────────────────────────── *@
-    <div class="profile-content">
+<div class="profile-content">
 
         @if (Model.ErrorMessage != null)
         {
@@ -95,7 +68,8 @@
         }
 
         @* ─── PROFILE TAB ──────────────────────────────────────── *@
-        <div class="card profile-card" id="account-details" style="border: 2px solid var(--pet-secondary); border-radius: 12px; max-width: 760px;">
+        <section class="account-panel" id="account-details" role="tabpanel" aria-labelledby="profileTab">
+        <div class="card profile-card" style="border: 2px solid var(--pet-secondary); border-radius: 12px; max-width: 760px;">
             <div class="card-header d-flex justify-content-between align-items-center"
                  style="background: rgba(244,164,96,0.12); border-bottom: 1px solid rgba(244,164,96,0.4);">
                 <h5 class="mb-0">Account Details</h5>
@@ -174,163 +148,13 @@
             </form>
         </div>
 
-        <section class="mt-5" id="household-settings" aria-labelledby="household-heading">
-            <div class="d-flex align-items-end justify-content-between gap-3 flex-wrap mb-3">
-                <div>
-                    <p class="app-eyebrow mb-1">SHARED CARE</p>
-                    <h2 class="h3 mb-1" id="household-heading">Household</h2>
-                    <p class="text-muted mb-0">Care for the same pets from separate PetPotty accounts.</p>
-                </div>
-                @if (Model.UserHouseholds.Count > 1)
-                {
-                    <form method="post" asp-page-handler="SwitchHousehold" class="household-switcher">
-                        <label for="householdPublicID" class="form-label small fw-semibold">Current household</label>
-                        <select id="householdPublicID" name="householdPublicID" class="form-select" onchange="this.form.submit()">
-                            @foreach (var household in Model.UserHouseholds)
-                            {
-                                <option value="@household.PublicID" selected="@(household.HouseholdID == Model.ActiveHousehold?.HouseholdID)">@household.Name</option>
-                            }
-                        </select>
-                    </form>
-                }
-            </div>
-
-            @if (Model.ActiveHousehold != null)
-            {
-                <div class="card household-card mb-4">
-                    <div class="card-body d-flex align-items-center justify-content-between gap-3 flex-wrap">
-                        <div>
-                            <h3 class="h5 mb-1">@Model.ActiveHousehold.Name</h3>
-                            <span class="badge household-role-badge">Your role: @Model.ActiveHousehold.Role</span>
-                        </div>
-                        @if (Model.IsOwner)
-                        {
-                            <form method="post" asp-page-handler="RenameHousehold" class="d-flex gap-2 flex-wrap">
-                                <label for="HouseholdName" class="visually-hidden">Household name</label>
-                                <input asp-for="HouseholdName" class="form-control" maxlength="150" required />
-                                <button type="submit" class="btn btn-outline-secondary">Rename</button>
-                            </form>
-                        }
-                    </div>
-                </div>
-
-                <div class="card household-card mb-4">
-                    <div class="card-header d-flex justify-content-between align-items-center gap-3 flex-wrap">
-                        <div>
-                            <h3 class="h5 mb-1">Members</h3>
-                            <p class="text-muted small mb-0">Everyone uses their own login.</p>
-                        </div>
-                        @if (Model.IsOwner)
-                        {
-                            <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#inviteMemberForm" aria-expanded="false" aria-controls="inviteMemberForm">+ Invite Household Member</button>
-                        }
-                    </div>
-                    @if (Model.IsOwner)
-                    {
-                        <div class="collapse" id="inviteMemberForm">
-                            <div class="card-body border-bottom">
-                                @if (!Model.EmailConfigured)
-                                {
-                                    <div class="alert alert-warning small">Invitations can be created, but email delivery requires the Email and App:BaseUrl settings.</div>
-                                }
-                                <form method="post" asp-page-handler="Invite" class="row g-3 align-items-end">
-                                    <div class="col-md-7">
-                                        <label asp-for="InviteEmail" class="form-label">Email address</label>
-                                        <input asp-for="InviteEmail" type="email" class="form-control" maxlength="100" required />
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label asp-for="InviteRole" class="form-label">Role</label>
-                                        <select asp-for="InviteRole" class="form-select">
-                                            <option value="Member">Member</option>
-                                            <option value="Caregiver">Caregiver</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-2 d-grid">
-                                        <button type="submit" class="btn btn-primary">Send</button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    }
-                    <div class="list-group list-group-flush household-member-list">
-                        @foreach (var member in Model.Members)
-                        {
-                            <div class="list-group-item d-flex justify-content-between align-items-center gap-3 flex-wrap">
-                                <div>
-                                    <strong>@member.Name</strong>
-                                    @if (member.IsCurrentUser)
-                                    {
-                                        <span class="text-muted small">(you)</span>
-                                    }
-                                    @if (Model.IsOwner)
-                                    {
-                                        <div><a href="mailto:@member.Email" class="small">@member.Email</a></div>
-                                    }
-                                </div>
-                                <div class="d-flex align-items-center gap-2 flex-wrap">
-                                    @if (Model.IsOwner && member.Role != PetPotty.Models.HouseholdRole.Owner)
-                                    {
-                                        <form method="post" asp-page-handler="ChangeMemberRole" class="d-flex gap-2">
-                                            <input type="hidden" name="memberPublicID" value="@member.UserPublicID" />
-                                            <select name="role" class="form-select form-select-sm" aria-label="Role for @member.Name">
-                                                <option value="Member" selected="@(member.Role == PetPotty.Models.HouseholdRole.Member)">Member</option>
-                                                <option value="Caregiver" selected="@(member.Role == PetPotty.Models.HouseholdRole.Caregiver)">Caregiver</option>
-                                            </select>
-                                            <button type="submit" class="btn btn-sm btn-outline-secondary">Save</button>
-                                        </form>
-                                        <form method="post" asp-page-handler="RemoveMember">
-                                            <input type="hidden" name="memberPublicID" value="@member.UserPublicID" />
-                                            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Remove this member from the household? They will immediately lose access to its pets and records.');">Remove</button>
-                                        </form>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge text-bg-light household-member-role">@member.Role</span>
-                                    }
-                                </div>
-                            </div>
-                        }
-                    </div>
-                </div>
-
-                @if (Model.IsOwner)
-                {
-                    <div class="card household-card">
-                        <div class="card-header">
-                            <h3 class="h5 mb-1">Pending Invitations</h3>
-                            <p class="text-muted small mb-0">Invitation links expire automatically.</p>
-                        </div>
-                        <div class="list-group list-group-flush household-member-list">
-                            @if (Model.PendingInvitations.Count == 0)
-                            {
-                                <div class="list-group-item text-muted">No pending invitations.</div>
-                            }
-                            @foreach (var invitation in Model.PendingInvitations)
-                            {
-                                <div class="list-group-item d-flex justify-content-between align-items-center gap-3 flex-wrap">
-                                    <div>
-                                        <a href="mailto:@invitation.Email"><strong>@invitation.Email</strong></a>
-                                        <div class="small text-muted">@invitation.Role · invited @invitation.CreatedAtUtc.ToString("MMM d") · expires @invitation.ExpiresAtUtc.ToString("MMM d") · Pending</div>
-                                    </div>
-                                    <div class="d-flex gap-2">
-                                        <form method="post" asp-page-handler="ResendInvitation">
-                                            <input type="hidden" name="invitationPublicID" value="@invitation.PublicID" />
-                                            <button type="submit" class="btn btn-sm btn-outline-secondary">Resend</button>
-                                        </form>
-                                        <form method="post" asp-page-handler="CancelInvitation">
-                                            <input type="hidden" name="invitationPublicID" value="@invitation.PublicID" />
-                                            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Cancel this household invitation?');">Cancel</button>
-                                        </form>
-                                    </div>
-                                </div>
-                            }
-                        </div>
-                    </div>
-                }
-            }
         </section>
 
-    </div>
+        <section class="account-panel" id="household-settings" role="tabpanel" aria-labelledby="householdTab" hidden>
+            <partial name="_HouseholdManagement" model="Model" />
+        </section>
+
+</div>
 </div>
 
 @section Scripts {
@@ -366,6 +190,23 @@
             document.getElementById('saveFooter').classList.add('d-none');
             document.getElementById('passwordSection').classList.add('d-none');
         }
+
+        const accountTabs = [...document.querySelectorAll('[data-account-tab]')];
+        const accountPanels = {
+            profile: document.getElementById('account-details'),
+            household: document.getElementById('household-settings')
+        };
+        function selectAccountTab(tabName, updateUrl = true) {
+            const selected = tabName === 'household' ? 'household' : 'profile';
+            accountTabs.forEach(tab => tab.setAttribute('aria-selected', String(tab.dataset.accountTab === selected)));
+            Object.entries(accountPanels).forEach(([name, panel]) => { if (panel) panel.hidden = name !== selected; });
+            if (updateUrl) history.replaceState(null, '', `#${selected === 'household' ? 'household-settings' : 'account-details'}`);
+        }
+        accountTabs.forEach(tab => tab.addEventListener('click', event => {
+            event.preventDefault();
+            selectAccountTab(tab.dataset.accountTab);
+        }));
+        selectAccountTab(location.hash === '#household-settings' ? 'household' : 'profile', false);
 
         // If page loaded with an error, re-enable editing automatically
         @if (Model.ErrorMessage != null)

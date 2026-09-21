@@ -4,6 +4,7 @@
     var isLoggedIn = Context.Session.GetString("userID") != null;
     var darkMode = isLoggedIn && Context.Session.GetString("darkMode") == "true";
     var currentUrl = $"{Context.Request.PathBase}{Context.Request.Path}{Context.Request.QueryString}";
+    var currentPage = ViewContext.RouteData.Values["page"]?.ToString();
 }
 <html lang="en" data-bs-theme="@(darkMode ? "dark" : "light")">
 <head>
@@ -12,6 +13,7 @@
     <title>@ViewData["Title"] - Pack Tracker</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/app-ui.css" asp-append-version="true" />
     <style>
         /* ── Jumping paw on navbar brand ── */
         .navbar-brand .paw {
@@ -130,7 +132,8 @@
         }
     </style>
 </head>
-<body>
+<body class="@(isLoggedIn ? "app-ui" : "")">
+    <a class="skip-link" href="#main-content">Skip to content</a>
     <header>
         <nav class="navbar navbar-expand-lg navbar-dark site-navbar sticky-top" aria-label="Primary navigation">
             <div class="container">
@@ -152,10 +155,11 @@
                     @if (isLoggedIn)
                     {
                     <ul class="navbar-nav me-auto ms-lg-4">
-                        <li class="nav-item"><a class="nav-link" asp-page="/Home">🏠 Dashboard</a></li>
-                        <li class="nav-item"><a class="nav-link" asp-page="/Health">🩺 Health</a></li>
-                        <li class="nav-item"><a class="nav-link" asp-page="/Medications">💊 Medications</a></li>
-                        <li class="nav-item"><a class="nav-link" asp-page="/VetVisits">🏥 Vet Visits</a></li>
+                        @foreach (var item in new[] { (Page: "/Home", Label: "🏠 Dashboard"), (Page: "/Health", Label: "🩺 Health"), (Page: "/Medications", Label: "💊 Medications"), (Page: "/VetVisits", Label: "🏥 Vet Visits") })
+                        {
+                            var active = currentPage == item.Page || (currentPage == "/Reports" && item.Page == "/Health");
+                            <li class="nav-item"><a class="nav-link @(active ? "active" : "")" aria-current="@(active ? "page" : null)" asp-page="@item.Page">@item.Label</a></li>
+                        }
                         <li class="nav-item d-lg-none">
                             <form method="post" asp-page="/Theme" class="theme-toggle-form">
                                 <input type="hidden" name="returnUrl" value="@currentUrl" />
@@ -219,7 +223,7 @@
     </header>
 
     <div class="container main-content mt-3">
-        <main role="main">
+        <main role="main" id="main-content" tabindex="-1">
             @* Inserts the requested page, including Index (landing) or Home (dashboard). *@
             @RenderBody()
         </main>

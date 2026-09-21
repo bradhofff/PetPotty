@@ -7,6 +7,8 @@ namespace PetPotty.Pages
 {
     public class MedicationsModel : PageModel
     {
+        private const string SelectedPetSessionKey = "medicationsSelectedPetID";
+        private const string FocusMedicationSessionKey = "medications-focus-medication";
         private readonly IPetService _petService;
         private readonly IMedicationService _medService;
         private readonly IUserTimeZoneService _timeZone;
@@ -65,25 +67,19 @@ namespace PetPotty.Pages
         [BindProperty] public string EditMedNotes { get; set; } = string.Empty;
 
         // ── GET ──────────────────────────────────────────────────────
-        public IActionResult OnGet(int? petID, int? editMedID)
+        public IActionResult OnGet()
         {
             if (!int.TryParse(HttpContext.Session.GetString("userID"), out int userID))
                 return RedirectToPage("/Login");
 
             UserID = userID;
             UtcOffsetMinutes = _timeZone.GetUtcOffsetMinutes(Request);
-            if (petID.HasValue && _petService.GetPetByID(UserID, petID.Value) == null)
-                return NotFound();
-            if (petID.HasValue)
-                SelectedPetID = petID.Value;
             LoadData();
-            if (petID.HasValue && SelectedPetID == petID.Value)
-                SetSelectedPetID(petID.Value);
             if (NewMedPetID == 0 && SelectedPetID > 0)
                 NewMedPetID = SelectedPetID;
 
-            // Deep link from /Health's "Edit medication" — opens straight into the real
-            // edit form instead of duplicating it there.
+            var editMedID = HttpContext.Session.GetInt32(FocusMedicationSessionKey);
+            HttpContext.Session.Remove(FocusMedicationSessionKey);
             if (editMedID.HasValue)
             {
                 var medication = Medications.FirstOrDefault(med => med.MedID == editMedID.Value);
@@ -94,6 +90,25 @@ namespace PetPotty.Pages
                 }
             }
             return Page();
+        }
+
+        public IActionResult OnPostOpenMedication(int petID, int? medicationID)
+        {
+            if (!int.TryParse(HttpContext.Session.GetString("userID"), out var userID))
+                return RedirectToPage("/Login");
+            if (_petService.GetPetByID(userID, petID) == null)
+                return NotFound();
+            if (medicationID.HasValue)
+            {
+                var medication = _medService.GetMedicationsByPetID(userID, petID)
+                    .FirstOrDefault(item => item.MedID == medicationID.Value);
+                if (medication == null)
+                    return NotFound();
+                HttpContext.Session.SetInt32(FocusMedicationSessionKey, medicationID.Value);
+            }
+
+            SetSelectedPetID(petID);
+            return RedirectToPage();
         }
 
         public IActionResult OnPostSelectPet(int selectedPetID)
@@ -421,7 +436,7 @@ namespace PetPotty.Pages
 
         private void RestoreStateFromSession()
         {
-            if (SelectedPetID <= 0 && int.TryParse(HttpContext.Session.GetString("medicationsSelectedPetID"), out var selectedPetID))
+            if (SelectedPetID <= 0 && int.TryParse(HttpContext.Session.GetString(SelectedPetSessionKey), out var selectedPetID))
                 SelectedPetID = selectedPetID;
 
             ShowAllTime = bool.TryParse(HttpContext.Session.GetString("medicationsShowAllTime"), out var showAllTime) && showAllTime;
@@ -430,7 +445,10 @@ namespace PetPotty.Pages
         private void SetSelectedPetID(int selectedPetID)
         {
             SelectedPetID = selectedPetID;
-            HttpContext.Session.SetString("medicationsSelectedPetID", selectedPetID.ToString());
+            if (selectedPetID > 0)
+                HttpContext.Session.SetString(SelectedPetSessionKey, selectedPetID.ToString());
+            else
+                HttpContext.Session.Remove(SelectedPetSessionKey);
         }
 
         private void PopulateEditMedFields(Medication medication)

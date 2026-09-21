@@ -66,19 +66,21 @@ try {
 
     Ok (Request $a.Client POST '/Home?handler=AddPet' (PetFields NewPet 'HEALTH_EMPTY_PET'))
     $emptyPet = [int](Sql "SELECT MAX(petID) FROM Pets WHERE userID=$($a.User)")
-    $emptyTimeline = Request $a.Client GET "/Health?petID=$emptyPet"
+    Ok (Request $a.Client POST '/Health?handler=SelectPet' @{selectedPetID=$emptyPet})
+    $emptyTimeline = Request $a.Client GET '/Health'
     Check 'multiple-pet empty timeline' ($emptyTimeline.Status -eq 200 -and $emptyTimeline.Text.Contains('No medical events in this range'))
 
     $dashboardPage = Request $a.Client GET '/Home'
     Check 'primary navigation omits Reports' ($dashboardPage.Status -eq 200 -and !$dashboardPage.Text.Contains('📄 Reports'))
-    Check 'dashboard links to Health for full pet details' ($dashboardPage.Text.Contains('🩺 Pet Details') -and $dashboardPage.Text.Contains("/Health?petID=$($a.Pet)"))
+    Check 'dashboard opens Health without exposing the pet ID in its URL' ($dashboardPage.Text.Contains('🩺 Pet Details') -and $dashboardPage.Text.Contains('/Health?handler=SelectPet') -and !$dashboardPage.Text.Contains("/Health?petID="))
     $dashboardHealthFields = HealthFields $a.Pet Symptom 'HEALTH_FROM_DASHBOARD' $today.AddHours(12)
     $dashboardHealthFields.ReturnToDashboard = 'true'
     $dashboardHealth = Request $a.Client POST '/Health?handler=LogEvent' $dashboardHealthFields
     Check 'dashboard and Health share creation handler' ($dashboardHealth.Status -eq 302 -and $dashboardHealth.Location.EndsWith('/Home') -and [int](Sql "SELECT COUNT(*) FROM HealthEvents WHERE PetID=$($a.Pet) AND EventType='HEALTH_FROM_DASHBOARD' AND IsDeleted=0") -eq 1) "status=$($dashboardHealth.Status) location=$($dashboardHealth.Location)"
     Ok (Request $a.Client POST '/Home?handler=AddTask' @{NewTaskPetID=$a.Pet;NewTaskType='HEALTH_ROUTINE_ONLY';NewTaskNotes='must stay on dashboard';NewTaskCreatedAt=$today.AddHours(9).ToString('s')})
 
-    $healthPage = Request $a.Client GET "/Health?petID=$($a.Pet)"
+    Ok (Request $a.Client POST '/Health?handler=SelectPet' @{selectedPetID=$a.Pet})
+    $healthPage = Request $a.Client GET '/Health'
     Check 'timeline contains owned symptom' ($healthPage.Status -eq 200 -and $healthPage.Text.Contains('HEALTH_A_TODAY'))
     Check 'health overview includes medical summaries' ($healthPage.Text.Contains('Health overview') -and $healthPage.Text.Contains('Current medications') -and $healthPage.Text.Contains('30-day adherence') -and $healthPage.Text.Contains('vet visit'))
     Check 'routine Tasks stay out of Health' (!$healthPage.Text.Contains('HEALTH_ROUTINE_ONLY') -and !$healthPage.Text.Contains('must stay on dashboard'))
@@ -86,14 +88,19 @@ try {
     Check 'timeline excludes another pet' (!$healthPage.Text.Contains('HEALTH_B_PRIVATE'))
     Check 'Health owns vet-report generation UX' ($healthPage.Text.Contains('id="vet-report"') -and $healthPage.Text.Contains('Generate vet report') -and $healthPage.Text.Contains('Last 30 days') -and $healthPage.Text.Contains('Last 90 days') -and $healthPage.Text.Contains('Custom range'))
 
-    $incidentOnly = Request $a.Client GET "/Health?petID=$($a.Pet)&EventType=Incident&From=$($today.AddDays(-40).ToString('yyyy-MM-dd'))&To=$($today.ToString('yyyy-MM-dd'))"
+    Ok (Request $a.Client POST '/Health?handler=ApplyFilters' @{
+        EventType='Incident'
+        From=$today.AddDays(-40).ToString('yyyy-MM-dd')
+        To=$today.ToString('yyyy-MM-dd')
+    })
+    $incidentOnly = Request $a.Client GET '/Health'
     Check 'event-type filter' ($incidentOnly.Status -eq 200 -and $incidentOnly.Text.Contains("health-event-$boundary30") -and !$incidentOnly.Text.Contains("health-event-$aEvent"))
 
-    $foreignTimeline = Request $a.Client GET "/Health?petID=$($b.Pet)"
-    Check 'foreign timeline denied' ($foreignTimeline.Status -eq 404) "status=$($foreignTimeline.Status)"
+    $foreignTimeline = Request $a.Client POST '/Health?handler=SelectPet' @{selectedPetID=$b.Pet}
+    Check 'foreign timeline selection denied' ($foreignTimeline.Status -eq 404) "status=$($foreignTimeline.Status)"
     $foreignCreate = Request $a.Client POST '/Health?handler=LogEvent' (HealthFields $b.Pet Symptom 'ATTACK_CREATE' $today)
     Check 'foreign symptom create denied' ($foreignCreate.Status -eq 404 -and [int](Sql "SELECT COUNT(*) FROM HealthEvents WHERE PetID=$($b.Pet) AND EventType='ATTACK_CREATE'") -eq 0)
-    $foreignDelete = Request $a.Client POST '/Health?handler=DeleteEvent' @{healthEventID=$bEvent;petID=$b.Pet}
+    $foreignDelete = Request $a.Client POST '/Health?handler=DeleteEvent' @{healthEventID=$bEvent}
     Check 'foreign health event delete denied' ($foreignDelete.Status -eq 404 -and [int](Sql "SELECT COUNT(*) FROM HealthEvents WHERE HealthEventID=$bEvent AND IsDeleted=0") -eq 1)
 
     $invalid = HealthFields $a.Pet Symptom 'INVALID_SEVERITY' $today
