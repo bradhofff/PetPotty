@@ -55,7 +55,7 @@
    ---- PETS / TASKS ------------------------------------------------------------
    UPDATED GetPetsByHouseholdID           PetService.GetPetsByUser         tie-break order
    UPDATED GetTasksByPetID                PetService.GetTasksByPetID       tie-break order
-   UPDATED GetTasksByPetID_Recent         PetService.GetTasksByPetID       was 36 hours, app uses 7 days
+   UPDATED GetTasksByPetID_Recent         PetService.GetTasksByPetID       Recent Tasks = past 36 hours
    NEW     GetTasksByPetIDSince           PetService.GetTasksByPetIDSince
    NEW     GetLatestActivityTasksByPetID  PetService.GetLatestActivityTasksByPetID
    UPDATED AddPet                         PetService.AddPet                Owner-only; typed params; optional createdAt
@@ -170,8 +170,10 @@ GO
 
 -- [UPDATED] GetTasksByPetID (all time)  -  PetService.GetTasksByPetID(allTime: true)
 -- Adds the taskID tie-break the app uses so same-second tasks keep a stable order.
-CREATE OR ALTER PROCEDURE dbo.GetTasksByPetID
-    @UserID INT, @HouseholdID INT, @petID INT
+CREATE OR ALTER PROCEDURE [dbo].[GetTasksByPetID]
+    @UserID INT,
+    @HouseholdID INT,
+    @PetID INT
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -181,17 +183,24 @@ BEGIN
     FROM dbo.Tasks t
     INNER JOIN dbo.Pets p ON p.petID = t.petID
     INNER JOIN dbo.HouseholdMembers hm
-      ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
+      ON hm.HouseholdID = p.HouseholdID
+     AND hm.UserID = @UserID
+     AND hm.Status = N'Active'
     LEFT JOIN dbo.Users u ON u.userID = t.RecordedByUserID
-    WHERE t.petID = @petID AND p.HouseholdID = @HouseholdID
+    WHERE t.petID = @PetID
+      AND p.HouseholdID = @HouseholdID
     ORDER BY t.createdAt DESC, t.taskID DESC;
 END;
 GO
 
 -- [UPDATED] GetTasksByPetID_Recent  -  PetService.GetTasksByPetID(allTime: false)
--- The deployed procedure returned the last 36 HOURS; the app's "recent" view is the last 7 DAYS.
-CREATE OR ALTER PROCEDURE dbo.GetTasksByPetID_Recent
-    @UserID INT, @HouseholdID INT, @petID INT
+-- Recent Tasks is a rolling past-36-hours view. @AsOf is browser-local because
+-- Tasks.createdAt is stored as a browser-local wall-clock value.
+CREATE OR ALTER PROCEDURE [dbo].[GetTasksByPetID_Recent]
+    @UserID INT,
+    @HouseholdID INT,
+    @PetID INT,
+    @AsOf DATETIME2 = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -201,75 +210,103 @@ BEGIN
     FROM dbo.Tasks t
     INNER JOIN dbo.Pets p ON p.petID = t.petID
     INNER JOIN dbo.HouseholdMembers hm
-      ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
+      ON hm.HouseholdID = p.HouseholdID
+     AND hm.UserID = @UserID
+     AND hm.Status = N'Active'
     LEFT JOIN dbo.Users u ON u.userID = t.RecordedByUserID
-    WHERE t.petID = @petID AND p.HouseholdID = @HouseholdID
-      AND t.createdAt >= DATEADD(DAY, -7, SYSDATETIME())
+    WHERE t.petID = @PetID
+      AND p.HouseholdID = @HouseholdID
+      AND t.createdAt >= DATEADD(HOUR, -36, COALESCE(@AsOf, SYSDATETIME()))
     ORDER BY t.createdAt DESC, t.taskID DESC;
 END;
 GO
 
 -- [NEW] GetTasksByPetIDSince  -  PetService.GetTasksByPetIDSince
--- Result set 1: tasks on/after @startDate.  Result set 2: single row  hasOlder (bit).
-CREATE OR ALTER PROCEDURE dbo.GetTasksByPetIDSince
-    @UserID INT, @HouseholdID INT, @petID INT, @startDate DATETIME2
+-- View All/history defaults to 7 days and uses @StartDate for its previous-week,
+-- month, 6-month, year, and longer historical ranges.
+-- Result set 1: tasks on/after @StartDate.  Result set 2: single row  hasOlder (bit).
+CREATE OR ALTER PROCEDURE [dbo].[GetTasksByPetIDSince]
+    @UserID INT,
+    @HouseholdID INT,
+    @PetID INT,
+    @StartDate DATETIME2
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    SELECT t.taskID, t.petID, p.[name] AS petName, t.taskType, t.notes,
+    SELECT t.taskID, t.petID, p.name AS petName, t.taskType, t.notes,
            t.createdAt, t.RecordedByUserID, u.name AS RecordedByName
-    FROM dbo.Tasks AS t
-    INNER JOIN dbo.Pets AS p ON p.petID = t.petID
+    FROM dbo.Tasks t
+    INNER JOIN dbo.Pets p ON p.petID = t.petID
     INNER JOIN dbo.HouseholdMembers hm
-      ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
+      ON hm.HouseholdID = p.HouseholdID
+     AND hm.UserID = @UserID
+     AND hm.Status = N'Active'
     LEFT JOIN dbo.Users u ON u.userID = t.RecordedByUserID
-    WHERE t.petID = @petID
+    WHERE t.petID = @PetID
       AND p.HouseholdID = @HouseholdID
-      AND t.createdAt >= @startDate
-    ORDER BY t.createdAt DESC;
+      AND t.createdAt >= @StartDate
+    ORDER BY t.createdAt DESC, t.taskID DESC;
 
     SELECT CAST(CASE WHEN EXISTS
     (
         SELECT 1
-        FROM dbo.Tasks AS older
+        FROM dbo.Tasks older
         INNER JOIN dbo.Pets olderPet ON olderPet.petID = older.petID
         INNER JOIN dbo.HouseholdMembers olderMember
           ON olderMember.HouseholdID = olderPet.HouseholdID
-         AND olderMember.UserID = @UserID AND olderMember.Status = N'Active'
-        WHERE older.petID = @petID AND olderPet.HouseholdID = @HouseholdID
-          AND older.createdAt < @startDate
+         AND olderMember.UserID = @UserID
+         AND olderMember.Status = N'Active'
+        WHERE older.petID = @PetID
+          AND olderPet.HouseholdID = @HouseholdID
+          AND older.createdAt < @StartDate
     ) THEN 1 ELSE 0 END AS bit) AS hasOlder;
 END;
 GO
 
 -- [NEW] GetLatestActivityTasksByPetID  -  PetService.GetLatestActivityTasksByPetID
 -- The most recent Pee and the most recent Poop entry ('Pee & Poop' counts for both).
-CREATE OR ALTER PROCEDURE dbo.GetLatestActivityTasksByPetID
-    @UserID INT, @HouseholdID INT, @petID INT
+CREATE OR ALTER PROCEDURE [dbo].[GetLatestActivityTasksByPetID]
+    @UserID INT,
+    @HouseholdID INT,
+    @PetID INT
 AS
 BEGIN
     SET NOCOUNT ON;
 
     SELECT DISTINCT
-        latest.taskID, latest.petID, latest.petName, latest.taskType, latest.notes,
-        latest.createdAt, latest.RecordedByUserID, latest.RecordedByName
+        latest.taskID,
+        latest.petID,
+        latest.petName,
+        latest.taskType,
+        latest.notes,
+        latest.createdAt,
+        latest.RecordedByUserID,
+        latest.RecordedByName
     FROM (VALUES ('Pee'), ('Poop')) AS activity(activityType)
     CROSS APPLY
     (
         SELECT TOP (1)
-            t.taskID, t.petID, p.[name] AS petName, t.taskType, t.notes,
-            t.createdAt, t.RecordedByUserID, u.name AS RecordedByName
-        FROM dbo.Tasks AS t
-        INNER JOIN dbo.Pets AS p ON p.petID = t.petID
+            t.taskID,
+            t.petID,
+            p.name AS petName,
+            t.taskType,
+            t.notes,
+            t.createdAt,
+            t.RecordedByUserID,
+            u.name AS RecordedByName
+        FROM dbo.Tasks t
+        INNER JOIN dbo.Pets p ON p.petID = t.petID
         INNER JOIN dbo.HouseholdMembers hm
-          ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
+          ON hm.HouseholdID = p.HouseholdID
+         AND hm.UserID = @UserID
+         AND hm.Status = N'Active'
         LEFT JOIN dbo.Users u ON u.userID = t.RecordedByUserID
-        WHERE t.petID = @petID
+        WHERE t.petID = @PetID
           AND p.HouseholdID = @HouseholdID
           AND (t.taskType = activity.activityType OR t.taskType = 'Pee & Poop')
-        ORDER BY t.createdAt DESC
-    ) AS latest
+        ORDER BY t.createdAt DESC, t.taskID DESC
+    ) latest
     ORDER BY latest.createdAt DESC;
 END;
 GO
