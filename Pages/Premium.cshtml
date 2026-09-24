@@ -21,6 +21,8 @@
     .premium-card h2 { font-size: 1.1rem; }
     .premium-check { color: #198754; font-weight: 700; }
     .premium-test-link { border: 2px dashed var(--pet-secondary); border-radius: 16px; padding: 18px; }
+    .premium-plan { border: 1px solid #ead8ca; border-radius: 16px; padding: 16px; height: 100%; cursor: pointer; }
+    .premium-plan:has(input:checked) { border: 2px solid #8b4513; background: rgba(217,100,32,.06); }
 </style>
 
 <div class="premium-shell">
@@ -51,12 +53,52 @@
             </div>
             @if (!isPremium)
             {
-                <form method="post" asp-page-handler="StartCheckout">
-                    <button type="submit" class="btn btn-light btn-lg fw-bold">Start Premium checkout</button>
-                </form>
+                <div class="text-md-end">
+                    <span class="fw-bold">Choose a plan below</span>
+                </div>
             }
         </div>
     </section>
+
+    @if (!isPremium)
+    {
+        @if (Model.Plans.Count == 0)
+        {
+            <div class="alert alert-warning" role="status">No Premium prices are configured yet. Add your three Stripe test Price IDs to <code>appsettings.Development.json</code>.</div>
+        }
+        else
+        {
+            <form method="post" asp-page-handler="StartCheckout" class="mb-4">
+                <fieldset>
+                    <legend class="h4 mb-3">Choose your household plan</legend>
+                    <div class="row g-3 mb-3">
+                        @foreach (var plan in Model.Plans)
+                        {
+                            <div class="col-md-4">
+                                <label class="premium-plan d-block">
+                                    <span class="d-flex gap-2 align-items-start">
+                                        <input asp-for="SelectedPlanKey" type="radio" value="@plan.Key" required />
+                                        <span>
+                                            <span class="d-block fw-bold">@plan.Name</span>
+                                            @if (!string.IsNullOrWhiteSpace(plan.PriceLabel))
+                                            {
+                                                <span class="d-block mt-1">@plan.PriceLabel</span>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(plan.Description))
+                                            {
+                                                <span class="d-block text-muted small mt-1">@plan.Description</span>
+                                            }
+                                        </span>
+                                    </span>
+                                </label>
+                            </div>
+                        }
+                    </div>
+                </fieldset>
+                <button type="submit" class="btn btn-primary btn-lg fw-bold" @(Model.Plans.Count == 0 ? "disabled" : null)>Continue to secure checkout</button>
+            </form>
+        }
+    }
 
     <div class="row g-3 mb-4">
         <div class="col-md-4"><div class="premium-card"><div class="fs-2 mb-2">📈</div><h2>More useful history</h2><p class="mb-0 text-muted">Keep richer care records and see the patterns that matter across your pets.</p></div></div>

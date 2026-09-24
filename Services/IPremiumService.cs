@@ -8,6 +8,8 @@ public interface IPremiumService
     Task<PremiumCheckoutSession> CreateCheckoutSessionAsync(
         int userID,
         HouseholdContext household,
+        string priceID,
+        string mode,
         string baseUrl,
         CancellationToken cancellationToken = default);
     Task ProcessWebhookAsync(string payload, string? signature, CancellationToken cancellationToken = default);

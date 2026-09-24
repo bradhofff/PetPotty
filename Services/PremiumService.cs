@@ -55,11 +55,16 @@ public sealed class PremiumService : IPremiumService
     public async Task<PremiumCheckoutSession> CreateCheckoutSessionAsync(
         int userID,
         HouseholdContext household,
+        string priceID,
+        string mode,
         string baseUrl,
         CancellationToken cancellationToken = default)
     {
         var secretKey = RequiredSetting("Stripe:SecretKey");
-        var priceID = RequiredSetting("Stripe:PremiumPriceId");
+        if (string.IsNullOrWhiteSpace(priceID))
+            throw new InvalidOperationException("Select a configured Premium plan.");
+        if (mode is not ("payment" or "subscription"))
+            throw new InvalidOperationException("The selected Premium plan has an invalid checkout mode.");
         var existing = GetStatus(userID, household.HouseholdID);
         if (existing == null)
             throw new InvalidOperationException("The selected household is not available.");
@@ -69,15 +74,20 @@ public sealed class PremiumService : IPremiumService
         var normalizedBaseUrl = baseUrl.TrimEnd('/');
         var form = new Dictionary<string, string>
         {
-            ["mode"] = "subscription",
+            ["mode"] = mode,
             ["line_items[0][price]"] = priceID,
             ["line_items[0][quantity]"] = "1",
             ["client_reference_id"] = household.PublicID.ToString(),
             ["success_url"] = $"{normalizedBaseUrl}/Premium?checkout=success",
             ["cancel_url"] = $"{normalizedBaseUrl}/Premium?checkout=cancelled",
-            ["subscription_data[metadata][household_public_id]"] = household.PublicID.ToString(),
-            ["subscription_data[metadata][purchaser_user_id]"] = userID.ToString(CultureInfo.InvariantCulture)
+            ["metadata[household_public_id]"] = household.PublicID.ToString(),
+            ["metadata[purchaser_user_id]"] = userID.ToString(CultureInfo.InvariantCulture)
         };
+        if (mode == "subscription")
+        {
+            form["subscription_data[metadata][household_public_id]"] = household.PublicID.ToString();
+            form["subscription_data[metadata][purchaser_user_id]"] = userID.ToString(CultureInfo.InvariantCulture);
+        }
         if (!string.IsNullOrWhiteSpace(existing.StripeCustomerID))
             form["customer"] = existing.StripeCustomerID;
 

@@ -30,16 +30,48 @@ refunds, payment failures, and reconciliation.
 
 ## Stripe configuration
 
-Create a recurring Premium Price in Stripe and configure these values using
+Create three recurring Premium Prices in Stripe and configure these values using
 environment variables, user-secrets, or the deployment secret store. The JSON
 settings are intentionally blank in source control.
 
 ```text
 Stripe__SecretKey=sk_test_...
 Stripe__WebhookSecret=whsec_...
-Stripe__PremiumPriceId=price_...
+Stripe__Plans__Lifetime__PriceId=price_...
+Stripe__Plans__Month__PriceId=price_...
+Stripe__Plans__Year__PriceId=price_...
 App__BaseUrl=https://your-domain.example
 ```
+
+The Premium page supports multiple selectable plans. For local development,
+put the Stripe credentials and a plan entry for each Price ID in the ignored
+`appsettings.Development.json` file. For example:
+
+```json
+{
+  "Stripe": {
+    "SecretKey": "sk_test_...",
+    "WebhookSecret": "whsec_...",
+    "Plans": {
+      "Lifetime": { "Name": "Lifetime", "PriceLabel": "$135 once", "Description": "Lifetime access", "PriceId": "price_...", "Mode": "payment" },
+      "Month": { "Name": "Monthly", "PriceLabel": "$6.99 / month", "Description": "Recurring plan", "PriceId": "price_...", "Mode": "subscription" },
+      "Year": { "Name": "Yearly", "PriceLabel": "$69.99 / year", "Description": "Recurring plan", "PriceId": "price_...", "Mode": "subscription" }
+    }
+  }
+}
+```
+
+Plan keys are internal identifiers; `Name`, optional `PriceLabel`, and
+`Description` are shown on the Premium page. Set `PriceLabel` to match the
+corresponding Stripe amount and interval (or state that it is a one-time
+purchase). Only plans with a configured `PriceId` are offered. The selected key
+is resolved against server configuration before checkout, so the browser never
+chooses an arbitrary Stripe Price ID.
+Set `Mode` to `payment` for a one-time price and `subscription` for a recurring
+price. Checkout validates and uses this server-side setting. The tracked
+`appsettings.json` contains the same empty plan structure as a reference;
+`appsettings.Development.json` is ignored by Git and is the per-machine place
+for local test credentials and Price IDs.
 
 Register this webhook endpoint in Stripe:
 
