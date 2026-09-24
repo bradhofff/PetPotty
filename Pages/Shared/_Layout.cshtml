@@ -5,8 +5,10 @@
     var darkMode = isLoggedIn && Context.Session.GetString("darkMode") == "true";
     var currentUrl = $"{Context.Request.PathBase}{Context.Request.Path}{Context.Request.QueryString}";
     var currentPage = ViewContext.RouteData.Values["page"]?.ToString();
+    var isLandingPage = currentPage == "/Index";
+    var pageTheme = currentPage == "/Index" ? "light" : (darkMode ? "dark" : "light");
 }
-<html lang="en" data-bs-theme="@(darkMode ? "dark" : "light")">
+<html lang="en" data-bs-theme="@pageTheme">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -142,6 +144,8 @@
                     <span>PackTracker</span>
                 </a>
 
+                @if (!isLandingPage || !isLoggedIn)
+                {
                 <button class="navbar-toggler" type="button"
                         data-bs-toggle="collapse"
                         data-bs-target="#primaryNavigation"
@@ -150,12 +154,13 @@
                         aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
+                }
 
-                <div class="navbar-collapse collapse" id="primaryNavigation">
-                    @if (isLoggedIn)
+                <div class="navbar-collapse @(isLandingPage && isLoggedIn ? "" : "collapse")" id="primaryNavigation">
+                    @if (isLoggedIn && !isLandingPage)
                     {
                     <ul class="navbar-nav me-auto ms-lg-4">
-                        @foreach (var item in new[] { (Page: "/Home", Label: "🏠 Dashboard"), (Page: "/Health", Label: "🩺 Health"), (Page: "/Medications", Label: "💊 Medications"), (Page: "/VetVisits", Label: "🏥 Vet Visits") })
+                        @foreach (var item in new[] { (Page: "/Home", Label: "🏠 Dashboard"), (Page: "/Health", Label: "🩺 Health"), (Page: "/Medications", Label: "💊 Medications"), (Page: "/VetVisits", Label: "🏥 Vet Visits"), (Page: "/Premium", Label: "✨ Premium") })
                         {
                             var active = currentPage == item.Page || (currentPage == "/Reports" && item.Page == "/Health");
                             <li class="nav-item"><a class="nav-link @(active ? "active" : "")" aria-current="@(active ? "page" : null)" asp-page="@item.Page">@item.Label</a></li>
@@ -171,11 +176,18 @@
                         </li>
                     </ul>
                     }
-                    else
+                    else if (!isLoggedIn)
                     {
                     <ul class="navbar-nav me-auto ms-lg-4">
-                        <li class="nav-item"><a class="nav-link" asp-page="/Index" asp-fragment="features">✨ Features</a></li>
+                        <li class="nav-item"><a class="nav-link" asp-page="/Index" asp-fragment="product-tour">✨ See the app</a></li>
                     </ul>
+                    }
+
+                    @if (isLoggedIn && isLandingPage)
+                    {
+                        <div class="site-navbar-actions d-flex flex-column flex-lg-row gap-2 mt-3 mt-lg-0">
+                            <a asp-page="/Home" class="btn pt-btn-primary">Get Started <span aria-hidden="true">→</span></a>
+                        </div>
                     }
 
                     @if (isLoggedIn)
@@ -187,7 +199,10 @@
                                    role="button"
                                    data-bs-toggle="dropdown"
                                    aria-expanded="false">
-                                    <span class="profile-welcome">Welcome, @Context.Session.GetString("name")!</span>
+                                    @if (!isLandingPage)
+                                    {
+                                        <span class="profile-welcome">Welcome, @Context.Session.GetString("name")!</span>
+                                    }
                                     <div class="profile-avatar" aria-hidden="true">
                                         <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                             <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
@@ -196,7 +211,7 @@
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end">
                                     <li><a class="dropdown-item" asp-page="/Profile">Edit Profile</a></li>
-                                    <li class="d-none d-lg-block">
+                                    <li class="@(isLandingPage ? "" : "d-none d-lg-block")">
                                         <form method="post" asp-page="/Theme" class="theme-toggle-form">
                                             <input type="hidden" name="returnUrl" value="@currentUrl" />
                                             <button type="submit" class="dropdown-item theme-toggle-button">
@@ -213,8 +228,8 @@
                     else
                     {
                         <div class="site-navbar-actions d-flex flex-column flex-lg-row gap-2 mt-3 mt-lg-0">
-                            <a asp-page="/Login" class="btn pt-btn-secondary">Log in</a>
-                            <a asp-page="/Signup" class="btn pt-btn-primary">Sign up</a>
+                            <a asp-page="/Signup" class="btn pt-btn-primary">Get Started</a>
+                            <a asp-page="/Login" class="btn pt-btn-secondary">Login</a>
                         </div>
                     }
                 </div>

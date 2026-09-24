@@ -1,0 +1,74 @@
+@page
+@model PetPotty.Pages.PremiumModel
+@{
+    ViewData["Title"] = "Premium";
+    var isPremium = Model.Status?.IsPremium == true;
+}
+
+<style>
+    .premium-shell { max-width: 960px; margin: 0 auto 48px; }
+    .premium-hero {
+        border-radius: 24px;
+        padding: clamp(28px, 6vw, 56px);
+        background: linear-gradient(135deg, #46210f 0%, #8b4513 52%, #d96420 100%);
+        color: #fff;
+        box-shadow: 0 18px 50px rgba(86, 42, 17, .2);
+    }
+    .premium-hero h1 { font-weight: 800; letter-spacing: -.03em; }
+    .premium-kicker { text-transform: uppercase; letter-spacing: .12em; font-size: .76rem; font-weight: 700; opacity: .8; }
+    .premium-status { border-radius: 16px; border: 1px solid rgba(255,255,255,.28); background: rgba(255,255,255,.12); padding: 16px; }
+    .premium-card { height: 100%; border: 1px solid #ead8ca; border-radius: 18px; padding: 22px; background: var(--bs-body-bg); }
+    .premium-card h2 { font-size: 1.1rem; }
+    .premium-check { color: #198754; font-weight: 700; }
+    .premium-test-link { border: 2px dashed var(--pet-secondary); border-radius: 16px; padding: 18px; }
+</style>
+
+<div class="premium-shell">
+    @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+    }
+    @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+    {
+        <div class="alert alert-info" role="status">@Model.StatusMessage</div>
+    }
+
+    <section class="premium-hero mb-4">
+        <div class="premium-kicker">@(Model.Household?.Name ?? "Household")</div>
+        <h1 class="display-5 mt-2 mb-3">A calmer, more connected care routine.</h1>
+        <p class="lead mb-4">Premium belongs to the household, so every active family member gets access when one person subscribes.</p>
+        <div class="premium-status d-flex flex-column flex-md-row justify-content-between gap-3 align-items-md-center">
+            <div>
+                <div class="fw-bold">Household status: @(isPremium ? "Premium active" : "Free plan")</div>
+                @if (isPremium && Model.Status?.CurrentPeriodEndUtc is { } periodEnd)
+                {
+                    <small>Current period ends @periodEnd.ToLocalTime().ToString("MMMM d, yyyy")@(Model.Status.CancelAtPeriodEnd ? " · cancellation scheduled" : "")</small>
+                }
+                else
+                {
+                    <small>One subscription covers this household's active members.</small>
+                }
+            </div>
+            @if (!isPremium)
+            {
+                <form method="post" asp-page-handler="StartCheckout">
+                    <button type="submit" class="btn btn-light btn-lg fw-bold">Start Premium checkout</button>
+                </form>
+            }
+        </div>
+    </section>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-4"><div class="premium-card"><div class="fs-2 mb-2">📈</div><h2>More useful history</h2><p class="mb-0 text-muted">Keep richer care records and see the patterns that matter across your pets.</p></div></div>
+        <div class="col-md-4"><div class="premium-card"><div class="fs-2 mb-2">👨‍👩‍👧‍👦</div><h2>Shared by the household</h2><p class="mb-0 text-muted">One purchase follows the household, not the individual who paid.</p></div></div>
+        <div class="col-md-4"><div class="premium-card"><div class="fs-2 mb-2">🛡️</div><h2>Billing you can trust</h2><p class="mb-0 text-muted">Stripe confirms payment through a signed webhook before access is granted.</p></div></div>
+    </div>
+
+    <div class="premium-test-link d-flex flex-column flex-md-row justify-content-between gap-3 align-items-md-center">
+        <div>
+            <h2 class="h5 mb-1">Premium access test page</h2>
+            <p class="mb-0 text-muted">This link is server-gated and returns no premium content for a non-premium household.</p>
+        </div>
+        <a class="btn btn-outline-primary" asp-page="/PremiumTest">Open test page</a>
+    </div>
+</div>

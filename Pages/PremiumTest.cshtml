@@ -1,0 +1,18 @@
+@page
+@model PetPotty.Pages.PremiumTestModel
+@{
+    ViewData["Title"] = "Premium Test Feature";
+}
+
+<div class="container py-4" style="max-width: 820px">
+    <div class="p-4 p-md-5 rounded-4 text-white" style="background: linear-gradient(135deg, #263238, #8b4513)">
+        <div class="text-uppercase small fw-bold opacity-75">Premium-only test feature</div>
+        <h1 class="display-6 fw-bold mt-2">Household insights are unlocked.</h1>
+        <p class="lead mb-0">This server-rendered page is visible because <strong>@Model.HouseholdName</strong> currently has an active Premium entitlement.</p>
+    </div>
+    <div class="row g-3 mt-2">
+        <div class="col-md-4"><div class="card h-100 border-0 shadow-sm"><div class="card-body"><div class="fs-2">📊</div><h2 class="h5 mt-2">Trend summary</h2><p class="text-muted mb-0">Placeholder for premium health and care trends.</p></div></div></div>
+        <div class="col-md-4"><div class="card h-100 border-0 shadow-sm"><div class="card-body"><div class="fs-2">🔔</div><h2 class="h5 mt-2">Smart reminders</h2><p class="text-muted mb-0">Placeholder for household-wide premium reminders.</p></div></div></div>
+        <div class="col-md-4"><div class="card h-100 border-0 shadow-sm"><div class="card-body"><div class="fs-2">📄</div><h2 class="h5 mt-2">Premium reports</h2><p class="text-muted mb-0">Placeholder for downloadable care reports.</p></div></div></div>
+    </div>
+</div>
