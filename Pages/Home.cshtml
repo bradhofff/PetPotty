@@ -677,7 +677,7 @@ else
     <div class="row g-3 mb-4">
         @foreach (var pet in Model.Pets)
         {
-            var petBirthdate = pet.Birthdate.ToString("yyyy-MM-dd");
+            var petBirthdate = pet.Birthdate == default ? string.Empty : pet.Birthdate.ToString("yyyy-MM-dd");
             string petEmoji = pet.Type?.ToLower() switch {
                 "cat"    => "🐱",
                 "dog"    => "🐕",
@@ -1078,7 +1078,7 @@ else
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Birthdate</label>
+                            <label class="form-label">Birthdate <span class="text-muted">(optional)</span></label>
                             <input asp-for="NewPetBirthdate" type="date" class="form-control" id="NewPetBirthdate" />
                         </div>
                     </div>
@@ -1165,7 +1165,7 @@ else
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Birthdate</label>
+                            <label class="form-label">Birthdate <span class="text-muted">(optional)</span></label>
                             <input asp-for="EditPetBirthdate" type="date" class="form-control" id="editPetBirthdate" />
                         </div>
                     </div>

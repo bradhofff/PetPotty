@@ -1,116 +1,69 @@
 @page
-@model PetPotty.Pages.PremiumModel
+@model PetPotty.Pages.PremiumComingSoonModel
 @{
     ViewData["Title"] = "Premium";
-    var isPremium = Model.Status?.IsPremium == true;
 }
 
 <style>
-    .premium-shell { max-width: 960px; margin: 0 auto 48px; }
-    .premium-hero {
-        border-radius: 24px;
-        padding: clamp(28px, 6vw, 56px);
-        background: linear-gradient(135deg, #46210f 0%, #8b4513 52%, #d96420 100%);
-        color: #fff;
-        box-shadow: 0 18px 50px rgba(86, 42, 17, .2);
-    }
-    .premium-hero h1 { font-weight: 800; letter-spacing: -.03em; }
-    .premium-kicker { text-transform: uppercase; letter-spacing: .12em; font-size: .76rem; font-weight: 700; opacity: .8; }
-    .premium-status { border-radius: 16px; border: 1px solid rgba(255,255,255,.28); background: rgba(255,255,255,.12); padding: 16px; }
-    .premium-card { height: 100%; border: 1px solid #ead8ca; border-radius: 18px; padding: 22px; background: var(--bs-body-bg); }
-    .premium-card h2 { font-size: 1.1rem; }
-    .premium-check { color: #198754; font-weight: 700; }
-    .premium-test-link { border: 2px dashed var(--pet-secondary); border-radius: 16px; padding: 18px; }
-    .premium-plan { border: 1px solid #ead8ca; border-radius: 16px; padding: 16px; height: 100%; cursor: pointer; }
-    .premium-plan:has(input:checked) { border: 2px solid #8b4513; background: rgba(217,100,32,.06); }
+    .premium-preview { max-width: 1020px; margin: 0 auto 4rem; color: #273142; }
+    .premium-preview-hero { position: relative; overflow: hidden; border-radius: 26px; padding: clamp(2.5rem, 7vw, 5rem); background: linear-gradient(135deg, #302b46 0%, #6b3650 54%, #d96a33 100%); color: #fff; box-shadow: 0 24px 55px rgba(66, 39, 49, .17); }
+    .premium-preview-hero::before, .premium-preview-hero::after { content: ""; position: absolute; border: 1px solid rgba(255,255,255,.16); border-radius: 50%; pointer-events: none; }
+    .premium-preview-hero::before { width: 350px; height: 350px; right: -95px; top: -185px; }
+    .premium-preview-hero::after { width: 470px; height: 470px; right: -200px; bottom: -340px; }
+    .premium-preview-hero-content { position: relative; z-index: 1; max-width: 660px; }
+    .premium-preview-mark { display: inline-flex; align-items: center; justify-content: center; width: 54px; height: 54px; border-radius: 17px; background: rgba(255,255,255,.18); font-size: 1.8rem; margin-bottom: 1.5rem; }
+    .premium-preview-eyebrow { display: inline-block; text-transform: uppercase; letter-spacing: .15em; font-size: .73rem; font-weight: 800; color: #ffe0c5; }
+    .premium-preview-hero h1 { font-size: clamp(2.35rem, 5vw, 4rem); font-weight: 800; letter-spacing: -.05em; line-height: 1.06; margin: .7rem 0 1.15rem; }
+    .premium-preview-hero p { color: rgba(255,255,255,.88); font-size: 1.1rem; line-height: 1.6; margin: 0; }
+    .premium-preview-section { padding: 2.6rem 0 0; }
+    .premium-preview-section-heading { text-align: center; margin-bottom: 1.4rem; }
+    .premium-preview-section-heading h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); font-weight: 750; letter-spacing: -.035em; margin-bottom: .35rem; }
+    .premium-preview-section-heading p { color: #697386; margin: 0; }
+    .premium-preview-price-card { height: 100%; padding: 1.8rem; border: 1px solid #e7dcd8; border-radius: 20px; background: var(--bs-body-bg); box-shadow: 0 10px 30px rgba(44, 43, 65, .06); }
+    .premium-preview-price-card h3 { font-size: 1.05rem; font-weight: 750; margin: 0 0 1.5rem; }
+    .premium-preview-price { font-size: clamp(2.2rem, 4vw, 2.85rem); font-weight: 800; letter-spacing: -.055em; line-height: 1; }
+    .premium-preview-billing { color: #697386; font-size: .9rem; margin-top: .5rem; }
+    .premium-preview-soon { display: inline-block; margin-top: 1.7rem; padding: .4rem .75rem; border-radius: 999px; background: #fff1e8; color: #a94e1c; font-size: .72rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+    .premium-preview-footer { text-align: center; color: #697386; margin-top: 1.8rem; font-size: .9rem; }
+    html[data-bs-theme="dark"] .premium-preview { color: var(--bs-body-color); }
+    html[data-bs-theme="dark"] .premium-preview-price-card { border-color: #54454b; }
+    html[data-bs-theme="dark"] .premium-preview-section-heading p,
+    html[data-bs-theme="dark"] .premium-preview-billing,
+    html[data-bs-theme="dark"] .premium-preview-footer { color: #b9c1ce; }
+    html[data-bs-theme="dark"] .premium-preview-soon { background: #4a2d24; color: #ffbd92; }
 </style>
 
-<div class="premium-shell">
-    @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
-    {
-        <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
-    }
-    @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
-    {
-        <div class="alert alert-info" role="status">@Model.StatusMessage</div>
-    }
-
-    <section class="premium-hero mb-4">
-        <div class="premium-kicker">@(Model.Household?.Name ?? "Household")</div>
-        <h1 class="display-5 mt-2 mb-3">A calmer, more connected care routine.</h1>
-        <p class="lead mb-4">Premium belongs to the household, so every active family member gets access when one person subscribes.</p>
-        <div class="premium-status d-flex flex-column flex-md-row justify-content-between gap-3 align-items-md-center">
-            <div>
-                <div class="fw-bold">Household status: @(isPremium ? "Premium active" : "Free plan")</div>
-                @if (isPremium && Model.Status?.CurrentPeriodEndUtc is { } periodEnd)
-                {
-                    <small>Current period ends @periodEnd.ToLocalTime().ToString("MMMM d, yyyy")@(Model.Status.CancelAtPeriodEnd ? " · cancellation scheduled" : "")</small>
-                }
-                else
-                {
-                    <small>One subscription covers this household's active members.</small>
-                }
-            </div>
-            @if (!isPremium)
-            {
-                <div class="text-md-end">
-                    <span class="fw-bold">Choose a plan below</span>
-                </div>
-            }
+<div class="premium-preview">
+    <section class="premium-preview-hero" aria-labelledby="premiumPreviewTitle">
+        <div class="premium-preview-hero-content">
+            <span class="premium-preview-mark" aria-hidden="true">🐾</span>
+            <div class="premium-preview-eyebrow">PackTracker Premium</div>
+            <h1 id="premiumPreviewTitle">Something lovely is coming soon.</h1>
+            <p>We're getting Premium ready for you and your pets. Check back soon.</p>
         </div>
     </section>
 
-    @if (!isPremium)
+    @if (Model.Prices.Count > 0)
     {
-        @if (Model.Plans.Count == 0)
-        {
-            <div class="alert alert-warning" role="status">No Premium prices are configured yet. Add your three Stripe test Price IDs to <code>appsettings.Development.json</code>.</div>
-        }
-        else
-        {
-            <form method="post" asp-page-handler="StartCheckout" class="mb-4">
-                <fieldset>
-                    <legend class="h4 mb-3">Choose your household plan</legend>
-                    <div class="row g-3 mb-3">
-                        @foreach (var plan in Model.Plans)
-                        {
-                            <div class="col-md-4">
-                                <label class="premium-plan d-block">
-                                    <span class="d-flex gap-2 align-items-start">
-                                        <input asp-for="SelectedPlanKey" type="radio" value="@plan.Key" required />
-                                        <span>
-                                            <span class="d-block fw-bold">@plan.Name</span>
-                                            @if (!string.IsNullOrWhiteSpace(plan.PriceLabel))
-                                            {
-                                                <span class="d-block mt-1">@plan.PriceLabel</span>
-                                            }
-                                            @if (!string.IsNullOrWhiteSpace(plan.Description))
-                                            {
-                                                <span class="d-block text-muted small mt-1">@plan.Description</span>
-                                            }
-                                        </span>
-                                    </span>
-                                </label>
-                            </div>
-                        }
+        <section class="premium-preview-section" aria-labelledby="premiumPreviewPrices">
+            <div class="premium-preview-section-heading">
+                <h2 id="premiumPreviewPrices">Premium plans</h2>
+                <p>A first look at our pricing.</p>
+            </div>
+            <div class="row g-3">
+                @foreach (var plan in Model.Prices)
+                {
+                    <div class="col-md-4">
+                        <article class="premium-preview-price-card">
+                            <h3>@plan.Name</h3>
+                            <div class="premium-preview-price">@plan.PriceLabel</div>
+                            <div class="premium-preview-billing">@plan.BillingLabel</div>
+                            <span class="premium-preview-soon">Coming soon</span>
+                        </article>
                     </div>
-                </fieldset>
-                <button type="submit" class="btn btn-primary btn-lg fw-bold" @(Model.Plans.Count == 0 ? "disabled" : null)>Continue to secure checkout</button>
-            </form>
-        }
+                }
+            </div>
+            <p class="premium-preview-footer">Premium isn't available to purchase yet.</p>
+        </section>
     }
-
-    <div class="row g-3 mb-4">
-        <div class="col-md-4"><div class="premium-card"><div class="fs-2 mb-2">📈</div><h2>More useful history</h2><p class="mb-0 text-muted">Keep richer care records and see the patterns that matter across your pets.</p></div></div>
-        <div class="col-md-4"><div class="premium-card"><div class="fs-2 mb-2">👨‍👩‍👧‍👦</div><h2>Shared by the household</h2><p class="mb-0 text-muted">One purchase follows the household, not the individual who paid.</p></div></div>
-        <div class="col-md-4"><div class="premium-card"><div class="fs-2 mb-2">🛡️</div><h2>Billing you can trust</h2><p class="mb-0 text-muted">Stripe confirms payment through a signed webhook before access is granted.</p></div></div>
-    </div>
-
-    <div class="premium-test-link d-flex flex-column flex-md-row justify-content-between gap-3 align-items-md-center">
-        <div>
-            <h2 class="h5 mb-1">Premium access test page</h2>
-            <p class="mb-0 text-muted">This link is server-gated and returns no premium content for a non-premium household.</p>
-        </div>
-        <a class="btn btn-outline-primary" asp-page="/PremiumTest">Open test page</a>
-    </div>
 </div>

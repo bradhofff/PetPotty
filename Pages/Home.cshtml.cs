@@ -90,7 +90,7 @@ namespace PetPotty.Pages
         [BindProperty] public string NewPetType { get; set; } = string.Empty;
         [BindProperty] public string NewPetBreed { get; set; } = string.Empty;
         [BindProperty] public string NewPetAge { get; set; } = string.Empty;
-        [BindProperty] public DateTime NewPetBirthdate { get; set; } = DateTime.Today;
+        [BindProperty] public DateTime? NewPetBirthdate { get; set; }
         [BindProperty] public string NewPetGender { get; set; } = string.Empty;
         [BindProperty] public IFormFile? NewPetImage { get; set; }
 
@@ -100,7 +100,7 @@ namespace PetPotty.Pages
         [BindProperty] public string EditPetType { get; set; } = string.Empty;
         [BindProperty] public string EditPetBreed { get; set; } = string.Empty;
         [BindProperty] public string EditPetAge { get; set; } = string.Empty;
-        [BindProperty] public DateTime EditPetBirthdate { get; set; } = DateTime.Today;
+        [BindProperty] public DateTime? EditPetBirthdate { get; set; }
         [BindProperty] public string EditPetGender { get; set; } = string.Empty;
         [BindProperty] public IFormFile? EditPetImage { get; set; }
 
@@ -152,6 +152,8 @@ namespace PetPotty.Pages
             {
                 petID = _petService.AddPet(UserID, NewPetName, NewPetType, NewPetBreed,
                                            NewPetAge, NewPetBirthdate, NewPetGender);
+                if (petID == 0)
+                    return Forbid();
             }
             catch (Exception ex)
             {
@@ -227,7 +229,7 @@ namespace PetPotty.Pages
             {
                 _petImageStorage.Delete(newImagePath);
                 _logger.LogError(ex, "Could not update pet {PetID} and its profile image", EditPetID);
-                return ShowPetModalError("editPetModal", "The pet photo could not be saved. Please try again.");
+                return ShowPetModalError("editPetModal", "The pet could not be updated. Please try again.");
             }
 
             TempData["StatusMessage"] = $"{EditPetName} has been updated!";
