@@ -28,6 +28,7 @@
                 <div>
                     <h3 class="h5 mb-1">@Model.ActiveHousehold.Name</h3>
                     <span class="badge household-role-badge">Your role: @Model.ActiveHousehold.Role</span>
+                    <a asp-page="/Billing" class="d-block mt-2">View household plan and billing</a>
                 </div>
                 @if (Model.IsOwner)
                 {

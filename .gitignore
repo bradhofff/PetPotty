@@ -1,5 +1,6 @@
 # Secrets — never push these
 appsettings.Development.json
+appsettings.development.json
 publish/
 vet-documents/
 

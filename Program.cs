@@ -7,6 +7,7 @@
 
 using Microsoft.AspNetCore.Authentication.Cookies;
 using PetPotty.Services;
+using PetPotty.Billing;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +19,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorPages();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.Configure<StripeOptions>(builder.Configuration.GetSection("Stripe"));
+builder.Services.AddHttpClient<IStripeGateway, StripeGateway>(client => client.Timeout = TimeSpan.FromSeconds(20));
+builder.Services.AddScoped<IBillingStore, SqlBillingStore>();
+builder.Services.AddScoped<HouseholdBillingService>();
 
 // REQUIRED for session to work — stores session data in memory.
 // In production you'd swap this for Redis or SQL-backed sessions.
@@ -104,5 +110,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapRazorPages();
+// This endpoint uses the raw request body and Stripe's signature, not browser authentication.
+app.MapPost("/stripe/webhook", StripeWebhook.HandleAsync).AllowAnonymous();
 
 app.Run();
