@@ -160,7 +160,7 @@
                     @if (isLoggedIn && !isLandingPage)
                     {
                     <ul class="navbar-nav me-auto ms-lg-4">
-                        @foreach (var item in new[] { (Page: "/Home", Label: "🏠 Dashboard"), (Page: "/Health", Label: "🩺 Health"), (Page: "/Medications", Label: "💊 Medications"), (Page: "/VetVisits", Label: "🏥 Vet Visits"), (Page: "/Premium", Label: "✨ Premium") })
+                        @foreach (var item in new[] { (Page: "/Home", Label: "🏠 Dashboard"), (Page: "/Health", Label: "🩺 Health"), (Page: "/Medications", Label: "💊 Medications"), (Page: "/VetVisits", Label: "🏥 Vet Visits") })
                         {
                             var active = currentPage == item.Page || (currentPage == "/Reports" && item.Page == "/Health");
                             <li class="nav-item"><a class="nav-link @(active ? "active" : "")" aria-current="@(active ? "page" : null)" asp-page="@item.Page">@item.Label</a></li>
@@ -210,7 +210,9 @@
                                     </div>
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" asp-page="/Profile">Edit Profile</a></li>
+                                    <li><a class="dropdown-item" asp-page="/Profile" asp-fragment="account-details">Edit profile</a></li>
+                                    <li><a class="dropdown-item" asp-page="/Profile" asp-fragment="household-settings">Household</a></li>
+                                    <li><a class="dropdown-item" asp-page="/Profile" asp-fragment="premium-settings">Household Premium</a></li>
                                     <li class="@(isLandingPage ? "" : "d-none d-lg-block")">
                                         <form method="post" asp-page="/Theme" class="theme-toggle-form">
                                             <input type="hidden" name="returnUrl" value="@currentUrl" />

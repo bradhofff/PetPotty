@@ -205,7 +205,7 @@
     else
     {
         @* ── MEDICATION CARDS ────────────────────────────────────── *@
-        <div class="row g-3 mb-4">
+        <div class="row g-3 mb-4 app-responsive-card-grid">
             @foreach (var med in Model.Medications)
             {
                 <div class="col-md-6 col-xxl-4">
@@ -326,21 +326,19 @@
                             var scheduleDisplay = s.TimingDoesNotMatter
                                 ? s.ScheduleDate.ToString("MMM d, yyyy")
                                 : s.ScheduleDate.ToString("MMM d, yyyy 'at' h:mm tt");
-                            var isPastDue = s.EffectiveStatus == MedicationDoseStatuses.Missed
-                                || s.DoseStatus == MedicationDoseStatuses.Due && (s.TimingDoesNotMatter
-                                    ? s.ScheduleDate.Date < Model.UserNowLocal.Date
-                                    : s.ScheduleDate < Model.UserNowLocal);
+                            var isPastDue = s.IsLate(Model.UserNowLocal);
+                            var displayStatus = s.DisplayStatus(Model.UserNowLocal);
                             <tr class="@(isPastDue ? "med-schedule-overdue" : null)">
                                 <td class="schedule-medication fw-semibold">@s.MedicationName</td>
                                 <td class="schedule-scheduled">
                                     <span class="d-block">@scheduleDisplay</span>
                                     @if (isPastDue)
                                     {
-                                        <span class="med-overdue-badge">Past due</span>
+                                        <span class="med-overdue-badge">Late</span>
                                     }
                                 </td>
                                 <td class="schedule-status">
-                                    <span class="fw-semibold" style="color: @(s.EffectiveStatus is MedicationDoseStatuses.Taken or MedicationDoseStatuses.TakenLate ? "var(--pet-success)" : s.EffectiveStatus == MedicationDoseStatuses.Due ? "var(--pet-info)" : "#dc3545")">@s.EffectiveStatus</span>
+                                    <span class="med-status @(isPastDue || s.DoseStatus == MedicationDoseStatuses.Missed ? "med-status-late" : s.DoseStatus is MedicationDoseStatuses.Taken or MedicationDoseStatuses.TakenLate ? "med-status-taken" : s.DoseStatus == MedicationDoseStatuses.Skipped ? "med-status-skipped" : "med-status-upcoming")">@displayStatus</span>
                                 </td>
                                 <td class="schedule-confirmed-at" style="color: #666; font-size: 0.9rem;">
                                     <span class="d-block">@(s.ConfirmedAt.HasValue ? s.ConfirmedAt.Value.ToString("MMM d, h:mm tt") : "—")</span>

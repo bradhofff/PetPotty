@@ -33,7 +33,7 @@ public sealed class PremiumService : IPremiumService
     {
         using var connection = new SqlConnection(_connectionString);
         using var command = new SqlCommand("""
-            SELECT h.HouseholdID, h.Name, h.PremiumStatus, h.StripeCustomerID,
+            SELECT h.HouseholdID, h.Name, h.PremiumStatus, h.PremiumPlanType, h.StripeCustomerID,
                    h.StripeSubscriptionID, h.PremiumCurrentPeriodEndUtc,
                    h.PremiumCancelAtPeriodEnd, h.PremiumUpdatedAtUtc
             FROM dbo.Households h
@@ -56,6 +56,7 @@ public sealed class PremiumService : IPremiumService
         int userID,
         HouseholdContext household,
         string priceID,
+        string planType,
         string mode,
         string baseUrl,
         CancellationToken cancellationToken = default)
@@ -63,7 +64,11 @@ public sealed class PremiumService : IPremiumService
         var secretKey = RequiredSetting("Stripe:SecretKey");
         if (string.IsNullOrWhiteSpace(priceID))
             throw new InvalidOperationException("Select a configured Premium plan.");
+        if (planType is not ("monthly" or "yearly" or "lifetime"))
+            throw new InvalidOperationException("The selected Premium plan has an invalid plan type.");
         if (mode is not ("payment" or "subscription"))
+            throw new InvalidOperationException("The selected Premium plan has an invalid checkout mode.");
+        if ((planType == "lifetime") != (mode == "payment"))
             throw new InvalidOperationException("The selected Premium plan has an invalid checkout mode.");
         var existing = GetStatus(userID, household.HouseholdID);
         if (existing == null)
@@ -81,12 +86,14 @@ public sealed class PremiumService : IPremiumService
             ["success_url"] = $"{normalizedBaseUrl}/Premium?checkout=success",
             ["cancel_url"] = $"{normalizedBaseUrl}/Premium?checkout=cancelled",
             ["metadata[household_public_id]"] = household.PublicID.ToString(),
-            ["metadata[purchaser_user_id]"] = userID.ToString(CultureInfo.InvariantCulture)
+            ["metadata[purchaser_user_id]"] = userID.ToString(CultureInfo.InvariantCulture),
+            ["metadata[premium_plan_type]"] = planType
         };
         if (mode == "subscription")
         {
             form["subscription_data[metadata][household_public_id]"] = household.PublicID.ToString();
             form["subscription_data[metadata][purchaser_user_id]"] = userID.ToString(CultureInfo.InvariantCulture);
+            form["subscription_data[metadata][premium_plan_type]"] = planType;
         }
         if (!string.IsNullOrWhiteSpace(existing.StripeCustomerID))
             form["customer"] = existing.StripeCustomerID;
@@ -159,6 +166,9 @@ public sealed class PremiumService : IPremiumService
         JsonElement data)
     {
         var metadata = ReadMetadata(data);
+        var planType = metadata.TryGetValue("premium_plan_type", out var rawPlanType)
+            && rawPlanType is "monthly" or "yearly" or "lifetime"
+                ? rawPlanType : null;
         var householdPublicID = ParseGuid(metadata, "household_public_id");
         if (householdPublicID == null)
             householdPublicID = ParseGuid(data, "client_reference_id");
@@ -169,7 +179,9 @@ public sealed class PremiumService : IPremiumService
         var customerID = ReadString(data, "customer");
         var status = eventType switch
         {
-            "checkout.session.completed" => "active",
+            "checkout.session.completed" when ReadString(data, "mode") == "payment"
+                && ReadString(data, "payment_status") == "paid" => "active",
+            "checkout.session.async_payment_succeeded" when ReadString(data, "mode") == "payment" => "active",
             "customer.subscription.created" or "customer.subscription.updated" or "customer.subscription.deleted"
                 => ReadString(data, "status") ?? "free",
             _ => null
@@ -190,6 +202,7 @@ public sealed class PremiumService : IPremiumService
             EventCreatedAtUtc = eventCreatedAtUtc,
             HouseholdPublicID = householdPublicID,
             UserID = ParseInt(metadata, "purchaser_user_id"),
+            PlanType = status == null ? null : planType,
             CheckoutSessionID = eventType.StartsWith("checkout.session.", StringComparison.Ordinal)
                 ? ReadString(data, "id") : null,
             StripeCustomerID = customerID,
@@ -218,6 +231,7 @@ public sealed class PremiumService : IPremiumService
         };
         command.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID;
         command.Parameters.Add("@UserID", SqlDbType.Int).Value = (object?)stripeEvent.UserID ?? DBNull.Value;
+        AddNullable(command, "@PremiumPlanType", stripeEvent.PlanType, 20);
         command.Parameters.Add("@StripeEventID", SqlDbType.NVarChar, 255).Value = stripeEvent.EventID;
         command.Parameters.Add("@StripeEventType", SqlDbType.NVarChar, 100).Value = stripeEvent.EventType;
         AddNullable(command, "@StripeCheckoutSessionID", stripeEvent.CheckoutSessionID, 255);
@@ -234,9 +248,9 @@ public sealed class PremiumService : IPremiumService
         command.Parameters.Add("@CancelAtPeriodEnd", SqlDbType.Bit).Value = (object?)stripeEvent.CancelAtPeriodEnd ?? DBNull.Value;
 
         connection.Open();
-        command.ExecuteScalar();
-        _logger.LogInformation("Applied Stripe event {EventID} ({EventType}) to household {HouseholdID}",
-            stripeEvent.EventID, stripeEvent.EventType, householdID);
+        var applied = command.ExecuteScalar() is true;
+        _logger.LogInformation("Stripe event {EventID} ({EventType}) for household {HouseholdID}: applied={Applied}",
+            stripeEvent.EventID, stripeEvent.EventType, householdID, applied);
     }
 
     private (int HouseholdID, Guid PublicID)? ResolveHousehold(Guid? publicID, string? subscriptionID, string? customerID)
@@ -264,11 +278,12 @@ public sealed class PremiumService : IPremiumService
         HouseholdID = reader.GetInt32(0),
         HouseholdName = reader.GetString(1),
         Status = reader.GetString(2),
-        StripeCustomerID = reader.IsDBNull(3) ? null : reader.GetString(3),
-        StripeSubscriptionID = reader.IsDBNull(4) ? null : reader.GetString(4),
-        CurrentPeriodEndUtc = reader.IsDBNull(5) ? null : reader.GetDateTime(5),
-        CancelAtPeriodEnd = reader.GetBoolean(6),
-        UpdatedAtUtc = reader.IsDBNull(7) ? null : reader.GetDateTime(7)
+        PlanType = reader.GetString(3),
+        StripeCustomerID = reader.IsDBNull(4) ? null : reader.GetString(4),
+        StripeSubscriptionID = reader.IsDBNull(5) ? null : reader.GetString(5),
+        CurrentPeriodEndUtc = reader.IsDBNull(6) ? null : reader.GetDateTime(6),
+        CancelAtPeriodEnd = reader.GetBoolean(7),
+        UpdatedAtUtc = reader.IsDBNull(8) ? null : reader.GetDateTime(8)
     };
 
     private static Dictionary<string, string> ReadMetadata(JsonElement element)
@@ -353,6 +368,7 @@ public sealed class PremiumService : IPremiumService
         public DateTime EventCreatedAtUtc { get; init; }
         public Guid? HouseholdPublicID { get; init; }
         public int? UserID { get; init; }
+        public string? PlanType { get; init; }
         public string? CheckoutSessionID { get; init; }
         public string? StripeCustomerID { get; init; }
         public string? StripeSubscriptionID { get; init; }

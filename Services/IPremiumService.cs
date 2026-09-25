@@ -9,6 +9,7 @@ public interface IPremiumService
         int userID,
         HouseholdContext household,
         string priceID,
+        string planType,
         string mode,
         string baseUrl,
         CancellationToken cancellationToken = default);

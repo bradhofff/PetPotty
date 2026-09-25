@@ -75,8 +75,15 @@ public class PremiumModel : PageModel
 
         try
         {
+            var planType = selectedPlan.Key.ToLowerInvariant() switch
+            {
+                "month" or "monthly" => "monthly",
+                "year" or "yearly" => "yearly",
+                "lifetime" => "lifetime",
+                _ => throw new InvalidOperationException("The selected Premium plan has an invalid plan type.")
+            };
             var session = await _premium.CreateCheckoutSessionAsync(userID, household,
-                selectedPlan.PriceId, selectedPlan.Mode, baseUrl, HttpContext.RequestAborted);
+                selectedPlan.PriceId, planType, selectedPlan.Mode, baseUrl, HttpContext.RequestAborted);
             return Redirect(session.Url);
         }
         catch (InvalidOperationException ex)

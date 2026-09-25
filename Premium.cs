@@ -5,11 +5,20 @@ public sealed class HouseholdPremiumStatus
     public int HouseholdID { get; init; }
     public string HouseholdName { get; init; } = string.Empty;
     public string Status { get; init; } = "free";
+    public string PlanType { get; init; } = "free";
     public string? StripeCustomerID { get; init; }
     public string? StripeSubscriptionID { get; init; }
     public DateTime? CurrentPeriodEndUtc { get; init; }
     public bool CancelAtPeriodEnd { get; init; }
     public DateTime? UpdatedAtUtc { get; init; }
+
+    public string PlanLabel => PlanType.ToLowerInvariant() switch
+    {
+        "monthly" => "Monthly",
+        "yearly" => "Yearly",
+        "lifetime" => "Lifetime",
+        _ => "Free"
+    };
 
     public bool IsPremium
     {
@@ -30,3 +39,5 @@ public sealed class HouseholdPremiumStatus
 public sealed record PremiumCheckoutSession(string Url);
 
 public sealed record PremiumPlan(string Key, string Name, string PriceLabel, string Description, string PriceId, string Mode);
+
+public sealed record PremiumPreviewPrice(string Key, string Name, string PriceLabel, string BillingLabel);
