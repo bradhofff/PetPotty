@@ -20,8 +20,8 @@ namespace PetPotty.Services
         List<TaskItem> GetTasksByPetIDSince(int userID, int petID, DateTime startDate, out bool hasOlderTasks);
         List<TaskItem> GetLatestActivityTasksByPetID(int userID, int petID);
         Pet? GetPetByID(int userID, int petID);
-        int AddPet(int userID, string name, string type, string breed, string age, DateTime birthdate, string gender);
-        bool EditPet(int userID, int petID, string name, string type, string breed, string age, DateTime birthdate, string gender);
+        int AddPet(int userID, string name, string type, string breed, string age, DateTime? birthdate, string gender);
+        bool EditPet(int userID, int petID, string name, string type, string breed, string age, DateTime? birthdate, string gender);
         bool UpdatePetProfileImagePath(int userID, int petID, string? profileImagePath);
         bool DeletePet(int userID, int petID);
         bool AddTask(int userID, int petID, string taskType, string notes, DateTime createdAt);
