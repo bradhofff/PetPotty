@@ -5,19 +5,28 @@
 }
 
 <div class="simple-auth-page">
-    <div class="row g-0 auth-shell">
-        <div class="col-lg-6 auth-brand-panel">
+    <div class="auth-shell">
+        <aside class="auth-brand-panel" aria-label="About PackTracker">
+            <a asp-page="/Index" class="auth-wordmark"><span class="auth-mark" aria-hidden="true">🐾</span> PackTracker</a>
             <div class="auth-brand-copy">
-                <p class="eyebrow">WELCOME BACK</p>
-                <h1>Your pack is waiting.</h1>
-                <p>Pick up right where you left off with every routine, record, and reminder close at hand.</p>
-                <div class="auth-mini-preview" aria-hidden="true"><span>🐕</span><div><b>Scout's day</b><small>4 of 5 care tasks complete</small><i></i></div></div>
+                <span class="auth-eyebrow">A little more care, every day</span>
+                <h1>Welcome back to your pack.</h1>
+                <p>Keep the little things in one place, so you can spend more time on the moments that matter.</p>
+                <div class="auth-feature-list" aria-hidden="true">
+                    <div><span>✓</span> Stay on top of daily routines</div>
+                    <div><span>✓</span> Keep health details close</div>
+                    <div><span>✓</span> Care together with your household</div>
+                </div>
             </div>
-        </div>
-        <div class="col-lg-6 auth-form-panel">
+            <p class="auth-brand-footer">One happy home for every pet in your care.</p>
+        </aside>
+        <div class="auth-form-panel">
             <div class="auth-form-wrap">
-                <h2>Log in to PackTracker</h2>
-                <p class="text-muted">Enter your account details to continue.</p>
+                <div class="auth-form-heading">
+                    <span class="auth-form-eyebrow">YOUR ACCOUNT</span>
+                    <h2>Log in</h2>
+                    <p>Good to see you again. Enter your details below.</p>
+                </div>
 
                 @if (TempData["LogoutMessage"] != null)
                 {
@@ -35,8 +44,16 @@
                     {
                         <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
                     }
-                    <div class="mb-3"><label asp-for="Username" class="form-label">Username <span class="required-marker" aria-hidden="true">*</span></label><input asp-for="Username" class="form-control" autocomplete="username" placeholder="Enter your username" required /><span asp-validation-for="Username" class="text-danger small"></span></div>
-                    <div class="mb-4"><div class="d-flex justify-content-between"><label asp-for="Password" class="form-label">Password <span class="required-marker" aria-hidden="true">*</span></label></div><input asp-for="Password" type="password" class="form-control" autocomplete="current-password" placeholder="Enter your password" required /><span asp-validation-for="Password" class="text-danger small"></span></div>
+                    <div class="auth-field">
+                        <label asp-for="Username" class="form-label">Username <span class="required-marker" aria-hidden="true">*</span></label>
+                        <input asp-for="Username" class="form-control" autocomplete="username" placeholder="Your username" required aria-required="true" />
+                        <span asp-validation-for="Username" class="text-danger small"></span>
+                    </div>
+                    <div class="auth-field">
+                        <label asp-for="Password" class="form-label">Password <span class="required-marker" aria-hidden="true">*</span></label>
+                        <input asp-for="Password" type="password" class="form-control" autocomplete="current-password" placeholder="Your password" required aria-required="true" />
+                        <span asp-validation-for="Password" class="text-danger small"></span>
+                    </div>
                     <button type="submit" class="btn auth-primary-btn w-100">Log in <span aria-hidden="true">→</span></button>
                 </form>
                 <p class="auth-switch">New to PackTracker? <a asp-page="/Signup" asp-route-invitationToken="@Model.InvitationToken">Create an account</a></p>

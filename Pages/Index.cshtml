@@ -1,100 +1,111 @@
 @page
 @model IndexModel
 @{
-    ViewData["Title"] = "Pet care, all in one place";
+    ViewData["Title"] = "A little more care. A lot less to remember.";
+    var startPage = Model.IsLoggedIn ? "/Home" : "/Signup";
 }
 
-@* Public homepage (/): these previews are static examples, not live pet data.
-   IndexModel.IsLoggedIn selects account links; _Layout supplies navigation and assets.
-   wwwroot/css/site.css supplies the marketing-landing styles. *@
-<div class="marketing-landing" id="top">
-    <!-- Hero -->
-    <section class="pt-hero" aria-labelledby="hero-title">
-        <div class="container">
-            <div class="row align-items-center g-5">
-                <div class="col-lg-6">
-                    <p class="eyebrow"><span aria-hidden="true">✦</span> Thoughtful care, beautifully organized</p>
-                    <h1 id="hero-title">Everything Your Pets Need. <span>All in One Place.</span></h1>
-                    <p class="hero-copy">Track medications, potty breaks, feedings, vaccinations, health records, and daily activities with one simple dashboard.</p>
-                    <div class="d-flex flex-column flex-sm-row gap-3 hero-actions">
-                        @if (Model.IsLoggedIn)
-                        {
-                            <a asp-page="/Home" class="btn pt-btn-primary">Get started <span aria-hidden="true">→</span></a>
-                        }
-                        else
-                        {
-                            <a asp-page="/Signup" class="btn pt-btn-primary">Get started <span aria-hidden="true">→</span></a>
-                            <a asp-page="/Login" class="btn pt-btn-secondary">Log in</a>
-                        }
-                    </div>
-                    <p class="hero-reassurance"><span aria-hidden="true">✓</span> Your pets' routine, always within reach.</p>
-                </div>
-                <div class="col-lg-6">
-                    <div class="browser-mockup hero-mockup" role="img" aria-label="Orange PackTracker dashboard preview">
-                        <div class="browser-bar"><span></span><span></span><span></span><div class="browser-address">packtracker.app/dashboard</div></div>
-                        <div class="dashboard-preview current-dashboard-preview">
-                            <div class="preview-sidebar"><div class="preview-logo">P</div><i></i><i></i><i></i><i></i></div>
-                            <div class="preview-main">
-                                <div class="preview-heading"><div><small>Tuesday, July 22</small><strong>Good morning, Alex</strong></div><div class="preview-avatar">A</div></div>
-                                <div class="preview-section-heading"><b>Your pets</b><span>+ Add pet</span></div>
-                                <div class="preview-pet-cards">
-                                    <div class="preview-pet-card"><div class="preview-pet-heading"><i>🐕</i><span><b>Scout</b><small>Golden Retriever</small></span></div><div class="preview-last-care"><span>💧 Last pee <b>7:15 AM</b></span><span>💩 Last poop <b>6:42 AM</b></span></div><div class="preview-actions"><button>💧 Pee</button><button>💩 Poop</button></div></div>
-                                    <div class="preview-pet-card"><div class="preview-pet-heading"><i>🐈</i><span><b>Juniper</b><small>Domestic shorthair</small></span></div><div class="preview-last-care"><span>💧 Last pee <b>7:05 AM</b></span><span>💩 Last poop <b>6:50 AM</b></span></div><div class="preview-actions"><button>💧 Pee</button><button>💩 Poop</button></div></div>
-                                </div>
-                                <div class="preview-activity"><b>Recent activity</b><span><i>✓</i> Scout · Morning walk <small>7:15 AM</small></span><span><i>✓</i> Juniper · Breakfast <small>7:30 AM</small></span></div>
-                            </div>
-                        </div>
-                    </div>
-                    <p class="mockup-caption">A calmer way to stay on top of their care.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section class="pt-logo-strip" aria-label="PackTracker benefits"><div class="container"><p>One home for every moment of care</p><div class="benefit-pills"><span>Made for multi-pet homes</span><span>Private by design</span><span>Simple daily routines</span><span>Built to grow with your pack</span></div></div></section>
-
-    <!-- Features -->
-    <section class="pt-section" id="features" aria-labelledby="features-title">
-        <div class="container">
-            <div class="section-intro text-center"><p class="eyebrow">THE COMPLETE PET CARE HUB</p><h2 id="features-title">All the details. None of the mental load.</h2><p>Bring every routine, record, and reminder together in one intuitive place.</p></div>
-            <div class="row g-4">
-                <div class="col-md-6 col-lg-4"><article class="feature-card h-100"><div class="feature-icon">🐾</div><h3>Multi-Pet Management</h3><p>Keep every profile, care plan, and important detail neatly organized.</p></article></div>
-                <div class="col-md-6 col-lg-4"><article class="feature-card h-100"><div class="feature-icon">💊</div><h3>Medication Tracking</h3><p>Stay ahead of doses and build a dependable medication routine.</p></article></div>
-                <div class="col-md-6 col-lg-4"><article class="feature-card h-100"><div class="feature-icon">🚽</div><h3>Potty Tracking</h3><p>Spot patterns in daily habits with quick, clear activity logs.</p></article></div>
-                <div class="col-md-6 col-lg-4"><article class="feature-card h-100"><div class="feature-icon">🍽</div><h3>Feeding Schedule</h3><p>Make mealtime simple with a reliable record of every feeding.</p></article></div>
-                <div class="col-md-6 col-lg-4"><article class="feature-card h-100"><div class="feature-icon">📈</div><h3>Health History</h3><p>Keep vaccinations, weights, and health notes ready for every visit.</p></article></div>
-                <div class="col-md-6 col-lg-4"><article class="feature-card h-100"><div class="feature-icon">📅</div><h3>Daily Timeline</h3><p>See the full story of each day at a glance, from walks to wellness.</p></article></div>
-            </div>
-        </div>
-    </section>
-
-    <!-- How it works -->
-    <section class="pt-section pt-section-tint" aria-labelledby="how-title"><div class="container"><div class="section-intro text-center"><p class="eyebrow">START IN MINUTES</p><h2 id="how-title">A better routine starts here.</h2></div><ol class="row g-4 how-steps list-unstyled mb-0"><li class="col-md-4"><article><span class="step-number">01</span><h3>Create your pets</h3><p>Add the companions you care for and their essential details.</p></article></li><li class="col-md-4"><article><span class="step-number">02</span><h3>Track daily care</h3><p>Log routines in seconds, exactly when they happen.</p></article></li><li class="col-md-4"><article><span class="step-number">03</span><h3>Monitor progress</h3><p>Turn everyday information into a clear picture of their health.</p></article></li></ol></div></section>
-
-    <!-- Orange product previews -->
-    <section class="pt-section marketing-showcase" aria-labelledby="showcase-title">
-        <div class="container"><div class="section-intro text-center"><p class="eyebrow">ONE CALM, CONNECTED VIEW</p><h2 id="showcase-title">The little details add up to better care.</h2></div>
-            <div class="row align-items-center g-5"><div class="col-lg-7"><div class="orange-product-shot"><div class="orange-shot-sidebar"><span>P</span><i></i><i></i><i></i></div><div class="orange-shot-main"><small>TODAY'S CARE</small><h3>Everything is on track.</h3><div class="orange-shot-stats"><span><b>4</b> tasks complete</span><span><b>2</b> pets active</span><span><b>12</b> day streak</span></div><div class="orange-shot-rows"><i></i><i></i><i></i></div></div></div></div><div class="col-lg-5"><p class="eyebrow">DASHBOARD</p><h2>Know what needs your attention.</h2><p class="text-muted">A useful daily view brings recent activity and each pet's status into focus—without making you hunt for it.</p></div></div>
-        </div>
-    </section>
-
-    <section class="marketing-cta">
-        <div class="container text-center">
-            <p class="eyebrow">READY WHEN YOU ARE</p>
-            <h2>Give every pet's care a proper home.</h2>
-            <p>Start building a clearer routine for your pack today.</p>
-            <div class="d-flex flex-column flex-sm-row justify-content-center gap-3">
-                @if (Model.IsLoggedIn)
+<div class="pack-landing" id="top">
+    <section class="pack-hero" aria-labelledby="hero-title">
+        <div class="pack-container pack-hero-copy" data-reveal>
+            <p class="pack-eyebrow">EVERY PET. EVERY PERSON. EVERY DAY.</p>
+            <h1 id="hero-title">Big love.<br /><span>Little details, handled.</span></h1>
+            <p class="pack-lead">From the first potty break to the next vet visit.<br class="d-none d-sm-block" /> One home for everything that goes into caring for your pack.</p>
+            <div class="pack-actions">
+                <a asp-page="@startPage" class="pack-button">Get started <span aria-hidden="true">↗</span></a>
+                @if (!Model.IsLoggedIn)
                 {
-                    <a asp-page="/Home" class="btn pt-btn-primary">Get started</a>
-                }
-                else
-                {
-                    <a asp-page="/Signup" class="btn pt-btn-primary">Create an account</a>
-                    <a asp-page="/Login" class="btn pt-btn-secondary">Log in</a>
+                    <a asp-page="/Login" class="pack-text-link">Take a closer look <span aria-hidden="true">↗</span></a>
                 }
             </div>
         </div>
+        <figure class="pack-hero-product pack-container" data-hero-product>
+            <div class="pack-window">
+                <div class="pack-window-bar" aria-hidden="true"><span class="pack-window-dots">● ● ●</span><span>PackTracker / Your daily dashboard</span><span>↗</span></div>
+                <img src="~/images/landing/dashboard.jpg" asp-append-version="true" width="1265" height="712" fetchpriority="high" alt="PackTracker dashboard showing Scout and Juniper, and quick potty logging." />
+            </div>
+            <figcaption>Actual PackTracker screens. A fictional pack, for a little inspiration.</figcaption>
+        </figure>
+        <div class="pack-hero-note"><span aria-hidden="true">↓</span> A closer look at a calmer routine</div>
     </section>
-    <footer class="marketing-footer"><div class="container d-flex flex-column flex-sm-row justify-content-between gap-2"><span>© @DateTime.Now.Year PackTracker</span><span>Thoughtful care for every member of your pack.</span></div></footer>
+
+    <section class="pack-intro pack-container" id="features" aria-labelledby="intro-title">
+        <p class="pack-eyebrow" data-reveal>THE WHOLE PICTURE</p>
+        <h2 id="intro-title" data-reveal>They have your heart.<br /><span>Give their care a home.</span></h2>
+        <p data-reveal>Potty breaks. Medication doses. That thing you wanted to ask the vet. Bring the everyday moments and the important records together, for every pet and everyone who cares for them.</p>
+        <div class="pack-index" aria-label="Explore the app" data-reveal>
+            <a href="#daily-care">01 <span>Daily care</span></a><a href="#health-history">02 <span>Health</span></a><a href="#medication-care">03 <span>Medications</span></a><a href="#vet-care">04 <span>Vet visits</span></a>
+        </div>
+    </section>
+
+    <section class="pack-tour" aria-label="A tour of PackTracker">
+        <div class="pack-tour-inner pack-container">
+            <div class="pack-chapters">
+                <article class="pack-chapter" id="daily-care" data-chapter="0">
+                    <p class="pack-eyebrow">01 / THE EVERYDAY</p>
+                    <h2>Small moments.<br /><span>All accounted for.</span></h2>
+                    <p>See your whole pack at a glance. Log potty breaks, add care notes, and see when each pet last went. Their daily routine, without the guesswork.</p>
+                    <ul><li>Individual profiles for every pet</li><li>Quick pee and poop logging</li><li>Activity history with who recorded it</li></ul>
+                    <img class="pack-mobile-shot" src="~/images/landing/dashboard.jpg" asp-append-version="true" width="1265" height="712" loading="lazy" alt="Daily dashboard with two pet profiles and care activity." />
+                </article>
+                <article class="pack-chapter" id="health-history" data-chapter="1">
+                    <p class="pack-eyebrow">02 / THEIR HEALTH STORY</p>
+                    <h2>Remember the details.<br /><span>See the bigger picture.</span></h2>
+                    <p>Keep symptoms, incidents, medication activity, and vet visits in one health history. Find the details you need by pet, date, or event.</p>
+                    <ul><li>Symptom and incident notes</li><li>Severity, triggers, and recovery details</li><li>Grouped history or a chronological timeline</li></ul>
+                    <img class="pack-mobile-shot" src="~/images/landing/health.jpg" asp-append-version="true" width="1265" height="712" loading="lazy" alt="Scout’s health overview, medication adherence, and health history." />
+                </article>
+                <article class="pack-chapter" id="medication-care" data-chapter="2">
+                    <p class="pack-eyebrow">03 / A STEADIER ROUTINE</p>
+                    <h2>Less “was that given?”<br /><span>More peace of mind.</span></h2>
+                    <p>Keep medication instructions and schedules together. Record taken, skipped, or missed doses, with notes and a clear history of who gave what.</p>
+                    <ul><li>Flexible medication schedules</li><li>Dose status and administration notes</li><li>Adherence at a glance</li></ul>
+                    <img class="pack-mobile-shot" src="~/images/landing/medications.jpg" asp-append-version="true" width="1265" height="712" loading="lazy" alt="Medication schedule showing upcoming doses and recorded doses." />
+                </article>
+                <article class="pack-chapter" id="vet-care" data-chapter="3">
+                    <p class="pack-eyebrow">04 / BEFORE, DURING, AND AFTER</p>
+                    <h2>A better home<br /><span>for every vet visit.</span></h2>
+                    <p>From the appointment to the follow-up, keep the whole visit together. Save clinic details, visit summaries, vaccination records, and documents where you can find them.</p>
+                    <ul><li>Upcoming appointments and reminders</li><li>Visit notes and follow-up instructions</li><li>Invoices, lab results, and other attachments</li></ul>
+                    <img class="pack-mobile-shot" src="~/images/landing/vet-visits.jpg" asp-append-version="true" width="1265" height="712" loading="lazy" alt="Vet visits screen with an upcoming checkup and clinic details." />
+                </article>
+            </div>
+            <div class="pack-stage" aria-hidden="true">
+                <div class="pack-stage-glow"></div>
+                <div class="pack-stage-window">
+                    <div class="pack-window-bar"><span class="pack-window-dots">● ● ●</span><span data-stage-label>Daily care</span><span>PackTracker</span></div>
+                    <div class="pack-stage-images">
+                        <img class="is-active" data-screen="0" src="~/images/landing/dashboard.jpg" asp-append-version="true" width="1265" height="712" alt="" />
+                        <img data-screen="1" src="~/images/landing/health.jpg" asp-append-version="true" width="1265" height="712" loading="lazy" alt="" />
+                        <img data-screen="2" src="~/images/landing/medications.jpg" asp-append-version="true" width="1265" height="712" loading="lazy" alt="" />
+                        <img data-screen="3" src="~/images/landing/vet-visits.jpg" asp-append-version="true" width="1265" height="712" loading="lazy" alt="" />
+                    </div>
+                </div>
+                <div class="pack-stage-status"><span data-stage-count>01 / 04</span><div class="pack-progress"><i data-tour-progress></i></div><span>Made for real life</span></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="pack-reports" aria-labelledby="reports-title">
+        <div class="pack-container">
+            <div class="pack-report-copy" data-reveal><p class="pack-eyebrow">FROM EVERYDAY NOTES TO THE NEXT CONVERSATION</p><h2 id="reports-title">Walk into the vet’s office<br /><span>with the story so far.</span></h2><p>Bring medications, dose history, health events, and past visits into a printable care report. Choose a date range and add the questions you don’t want to forget.</p></div>
+            <figure class="pack-report-visual" data-reveal><img src="~/images/landing/reports.jpg" asp-append-version="true" width="1265" height="712" loading="lazy" alt="Printable care report for Scout, with a date range, medication summary, and questions for the vet." /><figcaption>The details you’ve collected. Ready for a more useful conversation.</figcaption></figure>
+        </div>
+    </section>
+
+    <section class="pack-together pack-container" aria-labelledby="together-title">
+        <div data-reveal><p class="pack-eyebrow">ONE PACK. A SHARED ROUTINE.</p><h2 id="together-title">Care is better<br /><span>when it’s shared.</span></h2><p>Invite your household to care for the same pets from their own accounts. Give members and caregivers the right role, and keep everyone working from the same care history.</p></div>
+        <div class="pack-details" data-reveal>
+            <article><span aria-hidden="true">01</span><div><h3>Every pet belongs.</h3><p>Individual profiles, photos, and records keep a multi-pet household organized.</p></div></article>
+            <article><span aria-hidden="true">02</span><div><h3>Everyone stays in the loop.</h3><p>Shared records and care attribution make handoffs easier.</p></div></article>
+            <article><span aria-hidden="true">03</span><div><h3>Make yourself at home.</h3><p>Light and dark modes, account settings, and a household plan in one place.</p></div></article>
+        </div>
+    </section>
+
+    <section class="pack-final" aria-labelledby="final-title"><div class="pack-container" data-reveal><p class="pack-eyebrow">MORE TIME FOR THE GOOD STUFF</p><h2 id="final-title">A little more together.<br /><span>A lot less to remember.</span></h2><p>Make room for a calmer kind of pet care.</p><a asp-page="@startPage" class="pack-button">Get started <span aria-hidden="true">↗</span></a></div></section>
+    <footer class="pack-footer pack-container"><a href="#top" class="pack-wordmark">🐾 PackTracker</a><p>Thoughtful care. For your whole pack.</p><span>© @DateTime.Now.Year PackTracker</span><a asp-page="/Privacy">Privacy</a></footer>
 </div>
+
+@section Scripts {
+    <script src="~/js/landing.js" asp-append-version="true" defer></script>
+}

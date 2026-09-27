@@ -1,130 +1,109 @@
 @page
 @model PetPotty.Pages.SignupModel
 @{
-    ViewData["Title"] = "Create Account";
+    ViewData["Title"] = "Create account";
 }
 
-<div class="row justify-content-center">
-    <div class="col-md-6 col-lg-5">
-
-        <div class="card border-0 shadow-sm" style="border-radius: 15px; overflow: hidden;">
-            <div class="card-header text-white text-center py-4"
-                 style="background: linear-gradient(135deg, var(--pet-primary), var(--pet-secondary));">
-                <h3 class="mb-0">🐾 Create Account</h3>
-                <small>Join Pack Tracker</small>
+<div class="simple-auth-page auth-signup-page">
+    <div class="auth-shell">
+        <aside class="auth-brand-panel" aria-label="About PackTracker">
+            <a asp-page="/Index" class="auth-wordmark"><span class="auth-mark" aria-hidden="true">🐾</span> PackTracker</a>
+            <div class="auth-brand-copy">
+                <span class="auth-eyebrow">Welcome to the pack</span>
+                <h1>Better care starts here.</h1>
+                <p>Bring routines, health notes, and the people who help into one calm place.</p>
+                <div class="auth-feature-list" aria-hidden="true">
+                    <div><span>✓</span> Plan each pet's day</div>
+                    <div><span>✓</span> Remember the important details</div>
+                    <div><span>✓</span> Share care with your household</div>
+                </div>
             </div>
-
-            <div class="card-body p-4">
-
-                @* Error message *@
+            <p class="auth-brand-footer">A happier routine for you and your pets.</p>
+        </aside>
+        <div class="auth-form-panel">
+            <div class="auth-form-wrap">
+                <div class="auth-form-heading">
+                    <span class="auth-form-eyebrow">GET STARTED</span>
+                    <h2>Create your account</h2>
+                    <p>A few details and you're ready to care together.</p>
+                </div>
                 @if (!string.IsNullOrEmpty(Model.ErrorMessage))
                 {
-                    <div class="alert alert-danger border-2 rounded-3" role="alert">
-                        <strong>⚠️ @Model.ErrorMessage</strong>
-                    </div>
+                    <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
                 }
-
                 <form method="post">
                     <input asp-for="InvitationToken" type="hidden" />
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Full Name <span class="required-marker" aria-hidden="true">*</span></label>
-                        <input asp-for="SignupName" class="form-control" placeholder="e.g. Bradley" required />
+                    <div asp-validation-summary="ModelOnly" class="text-danger small mb-3" role="alert"></div>
+                    <p class="auth-required-note"><span class="required-marker" aria-hidden="true">*</span> Required fields</p>
+                    <div class="auth-field">
+                        <label asp-for="SignupName" class="form-label">Full name <span class="required-marker" aria-hidden="true">*</span></label>
+                        <input asp-for="SignupName" class="form-control" autocomplete="name" placeholder="Your full name" required aria-required="true" />
+                        <span asp-validation-for="SignupName" class="text-danger small"></span>
                     </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Username <span class="required-marker" aria-hidden="true">*</span></label>
-                        <input asp-for="SignupUserName" class="form-control" placeholder="No spaces allowed" required />
+                    <div class="auth-field">
+                        <label asp-for="SignupUserName" class="form-label">Username <span class="required-marker" aria-hidden="true">*</span></label>
+                        <input asp-for="SignupUserName" class="form-control" autocomplete="username" placeholder="Choose a username" aria-describedby="usernameHint" required aria-required="true" />
+                        <small id="usernameHint" class="auth-hint">No spaces in your username.</small>
+                        <span asp-validation-for="SignupUserName" class="text-danger small"></span>
                     </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Email <span class="required-marker" aria-hidden="true">*</span></label>
-                        <input asp-for="SignupEmail" type="email" class="form-control" placeholder="example@email.com" required />
+                    <div class="auth-field">
+                        <label asp-for="SignupEmail" class="form-label">Email address <span class="required-marker" aria-hidden="true">*</span></label>
+                        <input asp-for="SignupEmail" type="email" class="form-control" autocomplete="email" placeholder="you@example.com" required aria-required="true" />
+                        <span asp-validation-for="SignupEmail" class="text-danger small"></span>
                     </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Phone <span class="text-muted fw-normal">(optional)</span></label>
-                        <input asp-for="SignupPhone" type="tel" class="form-control" placeholder="e.g. 555-867-5309" />
+                    <div class="auth-field">
+                        <label asp-for="SignupPhone" class="form-label">Phone number <span class="auth-optional">Optional</span></label>
+                        <input asp-for="SignupPhone" type="tel" class="form-control" autocomplete="tel" placeholder="(555) 123-4567" />
+                        <span asp-validation-for="SignupPhone" class="text-danger small"></span>
                     </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Password <span class="required-marker" aria-hidden="true">*</span></label>
-                        <div class="input-group">
-                            <input asp-for="SignupPass" type="password" class="form-control"
-                                   id="signupPass" placeholder="Create a password" required />
-                            <button type="button" class="btn btn-outline-secondary"
-                                    onclick="togglePassword('signupPass', this)" tabindex="-1">
-                                👁
-                            </button>
+                    <div class="auth-field">
+                        <label asp-for="SignupPass" class="form-label">Password <span class="required-marker" aria-hidden="true">*</span></label>
+                        <div class="auth-password-wrap">
+                            <input asp-for="SignupPass" type="password" class="form-control" autocomplete="new-password" placeholder="Create a password" required aria-required="true" />
+                            <button type="button" class="auth-password-toggle" data-password-toggle="SignupPass" aria-label="Show password" aria-pressed="false">Show</button>
                         </div>
+                        <span asp-validation-for="SignupPass" class="text-danger small"></span>
                     </div>
-
-                    <div class="mb-4">
-                        <label class="form-label fw-semibold">Confirm Password <span class="required-marker" aria-hidden="true">*</span></label>
-                        <div class="input-group">
-                            <input asp-for="SignupConfirmPass" type="password" class="form-control"
-                                   id="signupConfirmPass" placeholder="Re-enter your password" required />
-                            <button type="button" class="btn btn-outline-secondary"
-                                    onclick="togglePassword('signupConfirmPass', this)" tabindex="-1">
-                                👁
-                            </button>
+                    <div class="auth-field">
+                        <label asp-for="SignupConfirmPass" class="form-label">Confirm password <span class="required-marker" aria-hidden="true">*</span></label>
+                        <div class="auth-password-wrap">
+                            <input asp-for="SignupConfirmPass" type="password" class="form-control" autocomplete="new-password" placeholder="Enter your password again" aria-describedby="passMismatch" required aria-required="true" />
+                            <button type="button" class="auth-password-toggle" data-password-toggle="SignupConfirmPass" aria-label="Show confirmation password" aria-pressed="false">Show</button>
                         </div>
-                        @* Client-side password match feedback *@
-                        <small id="passMismatch" class="text-danger d-none">Passwords do not match.</small>
+                        <small id="passMismatch" class="text-danger d-none" aria-live="polite">Passwords do not match.</small>
+                        <span asp-validation-for="SignupConfirmPass" class="text-danger small"></span>
                     </div>
-
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
-                            Create Account
-                        </button>
-                    </div>
+                    <button type="submit" class="btn auth-primary-btn w-100">Create account <span aria-hidden="true">→</span></button>
                 </form>
-
-            </div>
-
-            <div class="card-footer text-center py-3 bg-light">
-                <small>Already have an account? <a asp-page="/Login" asp-route-invitationToken="@Model.InvitationToken" class="fw-bold" style="color: var(--pet-primary);">Log in here</a></small>
+                <p class="auth-switch">Already have an account? <a asp-page="/Login" asp-route-invitationToken="@Model.InvitationToken">Log in</a></p>
+                <a asp-page="/Index" class="auth-back-link">← Back to home</a>
             </div>
         </div>
-
     </div>
 </div>
 
 @section Scripts {
+    <partial name="_ValidationScriptsPartial" />
     <script>
-        // Show/hide password toggle
-        function togglePassword(fieldId, btn) {
-            const field = document.getElementById(fieldId);
-            if (field.type === 'password') {
-                field.type = 'text';
-                btn.textContent = '🙈';
-            } else {
-                field.type = 'password';
-                btn.textContent = '👁';
-            }
-        }
-
-        // Live password match check
-        const passField    = document.getElementById('signupPass');
-        const confirmField = document.getElementById('signupConfirmPass');
-        const mismatchMsg  = document.getElementById('passMismatch');
-        const submitBtn    = document.getElementById('submitBtn');
-
+        document.querySelectorAll('[data-password-toggle]').forEach(button => {
+            button.addEventListener('click', () => {
+                const field = document.getElementById(button.dataset.passwordToggle);
+                const showing = field.type === 'password';
+                field.type = showing ? 'text' : 'password';
+                button.textContent = showing ? 'Hide' : 'Show';
+                button.setAttribute('aria-pressed', String(showing));
+                button.setAttribute('aria-label', `${showing ? 'Hide' : 'Show'} ${field.id === 'SignupPass' ? 'password' : 'confirmation password'}`);
+            });
+        });
+        const password = document.getElementById('SignupPass');
+        const confirmation = document.getElementById('SignupConfirmPass');
+        const mismatch = document.getElementById('passMismatch');
         function checkPasswords() {
-            if (confirmField.value.length === 0) {
-                mismatchMsg.classList.add('d-none');
-                submitBtn.disabled = false;
-                return;
-            }
-            if (passField.value !== confirmField.value) {
-                mismatchMsg.classList.remove('d-none');
-                submitBtn.disabled = true;
-            } else {
-                mismatchMsg.classList.add('d-none');
-                submitBtn.disabled = false;
-            }
+            const different = confirmation.value.length > 0 && password.value !== confirmation.value;
+            mismatch.classList.toggle('d-none', !different);
+            confirmation.setCustomValidity(different ? 'Passwords do not match.' : '');
         }
-
-        passField.addEventListener('input', checkPasswords);
-        confirmField.addEventListener('input', checkPasswords);
+        password.addEventListener('input', checkPasswords);
+        confirmation.addEventListener('input', checkPasswords);
     </script>
 }

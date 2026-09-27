@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Data.SqlClient;
+using System.ComponentModel.DataAnnotations;
 using System.Data;
 using PetPotty.Services;
 
@@ -63,13 +64,20 @@ namespace PetPotty.Pages
             if (string.IsNullOrWhiteSpace(SignupName) ||
                 string.IsNullOrWhiteSpace(SignupUserName) ||
                 string.IsNullOrWhiteSpace(SignupEmail) ||
-                string.IsNullOrWhiteSpace(SignupPass))
+                string.IsNullOrWhiteSpace(SignupPass) ||
+                string.IsNullOrWhiteSpace(SignupConfirmPass))
             {
                 ErrorMessage = "Please fill in all required fields.";
                 return Page();
             }
 
-            if (SignupUserName.Contains(" "))
+            if (!new EmailAddressAttribute().IsValid(SignupEmail.Trim()))
+            {
+                ErrorMessage = "Please enter a valid email address.";
+                return Page();
+            }
+
+            if (SignupUserName.Any(char.IsWhiteSpace))
             {
                 ErrorMessage = "Username cannot contain spaces.";
                 return Page();

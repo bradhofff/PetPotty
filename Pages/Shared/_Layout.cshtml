@@ -5,8 +5,10 @@
     var darkMode = isLoggedIn && Context.Session.GetString("darkMode") == "true";
     var currentUrl = $"{Context.Request.PathBase}{Context.Request.Path}{Context.Request.QueryString}";
     var currentPage = ViewContext.RouteData.Values["page"]?.ToString();
+    var isLanding = currentPage == "/Index";
+    var isAuthPage = currentPage == "/Login" || currentPage == "/Signup";
 }
-<html lang="en" data-bs-theme="@(darkMode ? "dark" : "light")">
+<html lang="en" data-bs-theme="@(darkMode && !isLanding ? "dark" : "light")">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -14,6 +16,15 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/app-ui.css" asp-append-version="true" />
+    @if (isAuthPage)
+    {
+        <link rel="stylesheet" href="~/css/auth.css" asp-append-version="true" />
+    }
+    @if (isLanding)
+    {
+        <meta name="description" content="Bring daily pet care, medications, health history, vet visits, and household sharing together with PackTracker." />
+        <link rel="stylesheet" href="~/css/landing.css" asp-append-version="true" />
+    }
     <style>
         /* ── Jumping paw on navbar brand ── */
         .navbar-brand .paw {
@@ -132,8 +143,23 @@
         }
     </style>
 </head>
-<body class="@(isLoggedIn ? "app-ui" : "")">
+<body class="@(isLanding ? "pack-landing-page" : isLoggedIn ? "app-ui" : "")">
     <a class="skip-link" href="#main-content">Skip to content</a>
+    @if (isLanding)
+    {
+        <header class="pack-nav">
+            <nav class="pack-container" aria-label="Primary navigation">
+                <a class="pack-wordmark" asp-page="/Index"><span aria-hidden="true">🐾</span> PackTracker</a>
+                <div class="pack-nav-links"><a href="#features">Explore the app</a><a href="#together-title">Shared care</a></div>
+                <div class="pack-nav-actions">
+                    @if (!isLoggedIn) { <a asp-page="/Login">Log in</a> }
+                    <a class="pack-button pack-button-small" asp-page="@(isLoggedIn ? "/Home" : "/Signup")">Get started</a>
+                </div>
+            </nav>
+        </header>
+    }
+    else
+    {
     <header>
         <nav class="navbar navbar-expand-lg navbar-dark site-navbar sticky-top" aria-label="Primary navigation">
             <div class="container">
@@ -221,6 +247,7 @@
             </div>
         </nav>
     </header>
+    }
 
     <div class="container main-content mt-3">
         <main role="main" id="main-content" tabindex="-1">
