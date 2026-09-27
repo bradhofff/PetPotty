@@ -27,15 +27,30 @@ html[data-bs-theme="dark"] body.app-ui {
     --app-subtle: #202832;
 }
 body.app-ui > .main-content {
-    max-width: 1200px;
+    max-width: none;
+    width: 100%;
     margin-left: auto;
     margin-right: auto;
-    padding: 1.75rem 1.5rem 3rem;
+    padding: clamp(1.25rem, 2vw, 2.5rem) clamp(1rem, 3vw, 4rem) 3rem;
     background: transparent;
     border-radius: 0;
     box-shadow: none;
 }
 body.app-ui :is(.health-page, .reports-page) { max-width: none; }
+body.app-ui .site-navbar > .container,
+body.app-ui .footer > .container { max-width: none; padding-inline: clamp(1rem, 3vw, 4rem); }
+body.app-ui > .main-content > main { width: 100%; min-width: 0; }
+body.app-ui .app-responsive-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+    gap: 1rem;
+    margin-inline: 0;
+}
+body.app-ui .app-responsive-card-grid > [class*="col-"] {
+    width: auto;
+    max-width: none;
+    padding: 0;
+}
 body.app-ui :is(h1, h2, h3, h4, h5, h6) { font-family: inherit; line-height: 1.25; }
 body.app-ui :is(.app-page-heading, .dashboard-heading) {
     border-bottom: 1px solid var(--app-line);
@@ -43,13 +58,36 @@ body.app-ui :is(.app-page-heading, .dashboard-heading) {
 }
 body.app-ui :is(.app-page-heading, .dashboard-heading) h1 {
     color: var(--app-ink) !important;
-    font-size: clamp(1.8rem, 3vw, 2.25rem) !important;
-    font-weight: 700 !important;
+    font-size: clamp(2.1rem, 3.6vw, 3.5rem) !important;
+    font-weight: 800 !important;
     letter-spacing: -.035em;
 }
 body.app-ui :is(.app-eyebrow, .dashboard-kicker) { font-size: .75rem; letter-spacing: .08em; }
 body.app-ui :is(.app-page-heading, .dashboard-heading) :is(.app-eyebrow, .dashboard-kicker) { margin-bottom: .4rem; color: var(--app-accent) !important; }
-body.app-ui :is(.app-section-heading h2, .dashboard-section-heading h2, .health-section-heading) { font-size: 1.3rem !important; }
+body.app-ui :is(.app-section-heading h2, .dashboard-section-heading h2, .health-section-heading) {
+    font-size: clamp(1.35rem, 1.6vw, 1.75rem) !important;
+    font-weight: 750 !important;
+    letter-spacing: -.035em;
+    color: var(--app-ink) !important;
+}
+body.app-ui :is(.app-page-heading, .dashboard-heading) { position: relative; }
+body.app-ui :is(.app-page-heading, .dashboard-heading)::after {
+    content: "";
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: clamp(4rem, 9vw, 8rem);
+    height: 4px;
+    border-radius: 999px;
+    background: var(--app-accent);
+}
+body.app-ui .med-status { display: inline-block; font-weight: 700; white-space: nowrap; }
+body.app-ui .med-status-upcoming { color: var(--app-accent); }
+body.app-ui .med-status-skipped { color: var(--app-muted); }
+body.app-ui .med-status-taken { color: #19734b; }
+body.app-ui .med-status-late { color: #b42332; }
+html[data-bs-theme="dark"] body.app-ui .med-status-taken { color: #75d9a3; }
+html[data-bs-theme="dark"] body.app-ui .med-status-late { color: #ff8791; }
 body.app-ui :is(.text-secondary, .text-muted, .form-text) { color: var(--app-muted) !important; }
 body.app-ui .small, body.app-ui small { font-size: .875rem; }
 body.app-ui :is(.form-control, .form-select) {

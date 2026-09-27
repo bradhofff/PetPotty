@@ -14,19 +14,22 @@ public sealed class ProfileModel : PageModel
     private readonly IHouseholdContextService _householdContext;
     private readonly IHouseholdInvitationService _invitations;
     private readonly IEmailService _email;
+    private readonly IPremiumService _premium;
 
     public ProfileModel(
         IConfiguration configuration,
         IHouseholdService households,
         IHouseholdContextService householdContext,
         IHouseholdInvitationService invitations,
-        IEmailService email)
+        IEmailService email,
+        IPremiumService premium)
     {
         _configuration = configuration;
         _households = households;
         _householdContext = householdContext;
         _invitations = invitations;
         _email = email;
+        _premium = premium;
     }
 
     [BindProperty] public string ProfileName { get; set; } = string.Empty;
@@ -45,14 +48,24 @@ public sealed class ProfileModel : PageModel
     public IReadOnlyList<HouseholdContext> UserHouseholds { get; private set; } = [];
     public IReadOnlyList<HouseholdMember> Members { get; private set; } = [];
     public IReadOnlyList<HouseholdInvitation> PendingInvitations { get; private set; } = [];
+    public HouseholdPremiumStatus? PremiumStatus { get; private set; }
+    public IReadOnlyList<PremiumPreviewPrice> PremiumPrices { get; private set; } = [];
+    public string? PremiumNotice { get; private set; }
     public bool IsOwner => ActiveHousehold?.Role == HouseholdRole.Owner;
     public bool EmailConfigured => _email.IsConfigured;
 
-    public IActionResult OnGet()
+    public IActionResult OnGet(string? checkout)
     {
         if (!TryGetUserID(out var userID))
             return RedirectToPage("/Login");
         LoadPage(userID);
+        PremiumNotice = checkout switch
+        {
+            "success" when PremiumStatus?.IsPremium == true => "Premium is active for this household.",
+            "success" => "Checkout completed. Premium will appear here after Stripe confirms access.",
+            "cancelled" => "Checkout was cancelled. Your household plan has not changed.",
+            _ => null
+        };
         return Page();
     }
 
@@ -227,6 +240,28 @@ public sealed class ProfileModel : PageModel
             ? _households.GetPendingInvitations(userID, ActiveHousehold.HouseholdID)
             : [];
         HouseholdName = ActiveHousehold.Name;
+        PremiumStatus = _premium.GetStatus(userID, ActiveHousehold.HouseholdID);
+        PremiumPrices = _configuration.GetSection("Stripe:Plans").GetChildren()
+            .Select(section => new PremiumPreviewPrice(
+                section.Key,
+                section["Name"]?.Trim() is { Length: > 0 } name ? name : section.Key,
+                section["PriceLabel"]?.Trim() ?? string.Empty,
+                section.Key.ToLowerInvariant() switch
+                {
+                    "month" or "monthly" => "per month",
+                    "year" or "yearly" => "per year",
+                    "lifetime" => "one time",
+                    _ => string.Empty
+                }))
+            .Where(plan => !string.IsNullOrWhiteSpace(plan.PriceLabel))
+            .OrderBy(plan => plan.Key.ToLowerInvariant() switch
+            {
+                "month" or "monthly" => 0,
+                "year" or "yearly" => 1,
+                "lifetime" => 2,
+                _ => 3
+            })
+            .ToArray();
     }
 
     private void LoadProfile(int userID)

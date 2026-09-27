@@ -2,6 +2,9 @@
 @model PetPotty.Pages.ProfileModel
 @{
     ViewData["Title"] = "My Profile";
+    var premium = Model.PremiumStatus;
+    var hasPremium = premium?.IsPremium == true;
+    var needsPaymentAttention = premium?.Status == "past_due";
 }
 
 @if (TempData["ProfileStatus"] != null)
@@ -20,41 +23,63 @@
 }
 
 <style>
-    .account-layout { align-items: flex-start; display: flex; gap: 2rem; }
-    .profile-sidebar { border-right: 1px solid var(--app-line); flex: 0 0 180px; padding-right: .75rem; }
-    .profile-sidebar .account-tab { border: 0; border-radius: 8px; display: block; width: 100%; }
+    .account-layout { display: grid; grid-template-columns: minmax(200px, 240px) minmax(0, 1fr); align-items: start; gap: clamp(1.5rem, 3vw, 3rem); }
+    .profile-sidebar { position: sticky; top: 1rem; display: flex; flex-direction: column; gap: .5rem; padding: .4rem; border: 1px solid var(--app-line); border-radius: 16px; background: var(--app-surface); }
+    .profile-sidebar .account-tab { display: flex; flex-direction: column; gap: .15rem; width: 100%; border: 0; border-radius: 11px; padding: .85rem 1rem; color: var(--app-ink); font-weight: 750; text-decoration: none; }
+    .profile-sidebar .account-tab small { color: var(--app-muted); font-size: .77rem; font-weight: 500; }
     .profile-sidebar .account-tab:hover, .profile-sidebar .account-tab:focus-visible { background: var(--app-accent-soft); }
-    .profile-content {
-        flex: 1;
-        padding-left: 0;
-        min-width: 0;
-    }
-
-    .field-display {
-        color: #444;
-        font-size: 1rem;
-        padding: 6px 0;
-    }
-
-    @@media (max-width: 768px) {
-        .account-layout { flex-direction: column; gap: 1rem; }
-        .profile-sidebar { border-bottom: 1px solid var(--app-line); border-right: 0; flex-basis: auto; flex-direction: row !important; padding: 0 0 .5rem; width: 100%; }
-        .profile-sidebar .account-tab { width: auto; }
+    .profile-sidebar .account-tab[aria-selected="true"] { background: var(--app-accent-soft); color: var(--app-accent); box-shadow: inset 3px 0 var(--app-accent); }
+    .profile-content { min-width: 0; }
+    .account-panel[hidden] { display: none !important; }
+    .account-panel-intro { margin-bottom: 1.25rem; }
+    .account-panel-intro h2 { margin: 0 0 .35rem; font-size: clamp(1.4rem, 2vw, 1.9rem); font-weight: 750; }
+    .account-panel-intro p:last-child { color: var(--app-muted); margin-bottom: 0; }
+    .account-scope { display: inline-flex; align-items: center; gap: .4rem; border: 1px solid var(--app-line); border-radius: 999px; padding: .3rem .65rem; background: var(--app-surface); color: var(--app-muted); font-size: .78rem; font-weight: 650; }
+    .account-scope-row { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+    .profile-card { max-width: 900px; overflow: hidden; }
+    .profile-card .card-body { padding: clamp(1.25rem, 2vw, 2rem); }
+    .premium-overview { border: 1px solid var(--app-line); border-radius: 18px; background: var(--app-surface); overflow: hidden; }
+    .premium-overview-main { display: flex; align-items: start; justify-content: space-between; flex-wrap: wrap; gap: 1.25rem; padding: clamp(1.35rem, 2.5vw, 2.25rem); }
+    .premium-overview h3 { font-size: clamp(1.5rem, 2.4vw, 2.15rem); font-weight: 800; margin: .2rem 0 .5rem; }
+    .premium-overview p { color: var(--app-muted); margin-bottom: 0; }
+    .premium-status-pill { display: inline-flex; align-items: center; border-radius: 999px; padding: .45rem .8rem; font-size: .84rem; font-weight: 750; white-space: nowrap; }
+    .premium-status-pill.is-active { background: #e8f7ee; color: #176440; }
+    .premium-status-pill.is-attention { background: #fff1da; color: #845008; }
+    .premium-status-pill.is-free { background: var(--app-subtle); color: var(--app-ink); }
+    .premium-overview-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; border-top: 1px solid var(--app-line); background: var(--app-subtle); padding: 1.15rem clamp(1.35rem, 2.5vw, 2.25rem); }
+    .premium-overview-meta small { display: block; color: var(--app-muted); font-size: .76rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    .premium-overview-meta strong { display: block; margin-top: .2rem; font-size: 1rem; }
+    .premium-plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: .8rem; }
+    .premium-plan-preview { border: 1px solid var(--app-line); border-radius: 13px; background: var(--app-surface); padding: 1.15rem; }
+    .premium-plan-preview strong, .premium-plan-preview span { display: block; }
+    .premium-plan-preview strong { color: var(--app-ink); }
+    .premium-plan-preview span { font-size: 1.45rem; font-weight: 800; margin-top: .5rem; }
+    .premium-plan-preview small { color: var(--app-muted); }
+    html[data-bs-theme="dark"] .premium-status-pill.is-active { background: #173a2a; color: #91e4b4; }
+    html[data-bs-theme="dark"] .premium-status-pill.is-attention { background: #49371b; color: #ffd390; }
+    @@media (max-width: 850px) {
+        .account-layout { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
+        .profile-sidebar { position: static; flex-direction: row; overflow-x: auto; }
+        .profile-sidebar .account-tab { min-width: 145px; }
+        .profile-sidebar .account-tab[aria-selected="true"] { box-shadow: inset 0 -3px var(--app-accent); }
     }
 </style>
 
 <header class="app-page-heading mb-4">
     <p class="app-eyebrow mb-1">ACCOUNT</p>
     <h1 class="mb-1">My profile</h1>
-    <p class="text-secondary mb-0">Manage your account and the people who care for your pets.</p>
+    <p class="text-secondary mb-0">Your account, shared household, and Premium access in one place.</p>
+    <div class="account-scope-row"><span class="account-scope">👤 Personal details affect your login</span><span class="account-scope">🏠 Household and Premium are shared with members</span></div>
 </header>
 
 <div class="account-layout">
-    <nav class="profile-sidebar d-flex flex-column gap-1" aria-label="Account settings" role="tablist">
+    <nav class="profile-sidebar" aria-label="Account settings" role="tablist">
         <a id="profileTab" class="account-tab" href="#account-details" data-account-tab="profile" role="tab"
-           aria-controls="account-details" aria-selected="true">👤 Profile</a>
+           aria-controls="account-details" aria-selected="true"><span>👤 Personal account</span><small>Only your login</small></a>
         <a id="householdTab" class="account-tab" href="#household-settings" data-account-tab="household" role="tab"
-           aria-controls="household-settings" aria-selected="false">🏠 Household</a>
+           aria-controls="household-settings" aria-selected="false"><span>🏠 Household</span><small>Shared pets and people</small></a>
+        <a id="premiumTab" class="account-tab" href="#premium-settings" data-account-tab="premium" role="tab"
+           aria-controls="premium-settings" aria-selected="false"><span>✨ Premium</span><small>@(needsPaymentAttention ? "Payment needs attention" : hasPremium ? "Active for household" : "Free household plan")</small></a>
     </nav>
 
 <div class="profile-content">
@@ -69,10 +94,10 @@
 
         @* ─── PROFILE TAB ──────────────────────────────────────── *@
         <section class="account-panel" id="account-details" role="tabpanel" aria-labelledby="profileTab">
-        <div class="card profile-card" style="border: 2px solid var(--pet-secondary); border-radius: 12px; max-width: 760px;">
-            <div class="card-header d-flex justify-content-between align-items-center"
-                 style="background: rgba(244,164,96,0.12); border-bottom: 1px solid rgba(244,164,96,0.4);">
-                <h5 class="mb-0">Account Details</h5>
+        <div class="account-panel-intro"><p class="app-eyebrow mb-1">ONLY YOU</p><h2>Personal account</h2><p>Changes here update your name, sign-in details, and password.</p></div>
+        <div class="card profile-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h3 class="h5 mb-0">Your details</h3>
                 <button type="button" class="btn btn-sm btn-outline-secondary" id="editToggleBtn"
                         onclick="enableEditing()">
                     ✏️ Edit
@@ -154,6 +179,86 @@
             <partial name="_HouseholdManagement" model="Model" />
         </section>
 
+        <section class="account-panel" id="premium-settings" role="tabpanel" aria-labelledby="premiumTab" hidden>
+            @if (!string.IsNullOrWhiteSpace(Model.PremiumNotice))
+            {
+                <div class="alert alert-info" role="status">@Model.PremiumNotice</div>
+            }
+            <div class="account-panel-intro">
+                <p class="app-eyebrow mb-1">SHARED WITH YOUR HOUSEHOLD</p>
+                <h2>Premium</h2>
+                <p>The plan belongs to @Model.ActiveHousehold?.Name. Every active member shares its access.</p>
+            </div>
+
+            @if (premium == null)
+            {
+                <div class="alert alert-warning" role="status">Premium status is unavailable for this household right now.</div>
+            }
+            else
+            {
+                <div class="premium-overview mb-4">
+                    <div class="premium-overview-main">
+                        <div>
+                            <p class="app-eyebrow mb-1">CURRENT HOUSEHOLD PLAN</p>
+                            <h3>@(hasPremium ? premium.PlanType == "free" ? "Premium active" : $"{premium.PlanLabel} Premium" : "Free plan")</h3>
+                            @if (needsPaymentAttention)
+                            {
+                                <p>Payment needs attention. @(hasPremium ? "Premium access is still available through the current paid period." : "Premium access is no longer active.")</p>
+                            }
+                            else if (hasPremium && premium.CancelAtPeriodEnd)
+                            {
+                                <p>Premium is active. Cancellation is scheduled for the end of this period.</p>
+                            }
+                            else if (hasPremium)
+                            {
+                                <p>Premium is active for everyone in this household.</p>
+                            }
+                            else
+                            {
+                                <p>Your household currently has free access.</p>
+                            }
+                        </div>
+                        <span class="premium-status-pill @(needsPaymentAttention ? "is-attention" : hasPremium ? "is-active" : "is-free")">
+                            @(needsPaymentAttention ? "Payment needs attention" : hasPremium ? "Premium active" : "Free access")
+                        </span>
+                    </div>
+                    <div class="premium-overview-meta">
+                        <div><small>Applies to</small><strong>@premium.HouseholdName</strong></div>
+                        <div><small>Plan</small><strong>@(hasPremium ? premium.PlanType == "free" ? "Not recorded" : premium.PlanLabel : "Free")</strong></div>
+                        @if (hasPremium || premium.CurrentPeriodEndUtc.HasValue)
+                        {
+                            <div>
+                                <small>@(premium.CancelAtPeriodEnd ? "Access through" : "Current period ends")</small>
+                                <strong>@(premium.CurrentPeriodEndUtc.HasValue ? premium.CurrentPeriodEndUtc.Value.ToString("MMM d, yyyy") + " UTC" : premium.PlanType == "lifetime" ? "No expiration" : "—")</strong>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                @if (!hasPremium)
+                {
+                    <div class="account-panel-intro">
+                        <p class="app-eyebrow mb-1">COMING SOON</p>
+                        <h2>Explore Premium plans</h2>
+                        <p>Premium purchases are not available yet. These prices are a preview for your household.</p>
+                    </div>
+                    @if (Model.PremiumPrices.Count > 0)
+                    {
+                        <div class="premium-plan-grid">
+                            @foreach (var plan in Model.PremiumPrices)
+                            {
+                                <article class="premium-plan-preview">
+                                    <strong>@plan.Name</strong>
+                                    <span>@plan.PriceLabel</span>
+                                    <small>@plan.BillingLabel</small>
+                                </article>
+                            }
+                        </div>
+                    }
+                }
+            }
+        </section>
+
 </div>
 </div>
 
@@ -194,19 +299,25 @@
         const accountTabs = [...document.querySelectorAll('[data-account-tab]')];
         const accountPanels = {
             profile: document.getElementById('account-details'),
-            household: document.getElementById('household-settings')
+            household: document.getElementById('household-settings'),
+            premium: document.getElementById('premium-settings')
         };
         function selectAccountTab(tabName, updateUrl = true) {
-            const selected = tabName === 'household' ? 'household' : 'profile';
+            const selected = accountPanels[tabName] ? tabName : 'profile';
             accountTabs.forEach(tab => tab.setAttribute('aria-selected', String(tab.dataset.accountTab === selected)));
             Object.entries(accountPanels).forEach(([name, panel]) => { if (panel) panel.hidden = name !== selected; });
-            if (updateUrl) history.replaceState(null, '', `#${selected === 'household' ? 'household-settings' : 'account-details'}`);
+            if (updateUrl) history.replaceState(null, '', `#${accountPanels[selected].id}`);
         }
         accountTabs.forEach(tab => tab.addEventListener('click', event => {
             event.preventDefault();
             selectAccountTab(tab.dataset.accountTab);
         }));
-        selectAccountTab(location.hash === '#household-settings' ? 'household' : 'profile', false);
+        const initialTab = Object.entries(accountPanels).find(([, panel]) => `#${panel.id}` === location.hash)?.[0] ?? 'profile';
+        selectAccountTab(initialTab, false);
+        window.addEventListener('hashchange', () => {
+            const tab = Object.entries(accountPanels).find(([, panel]) => `#${panel.id}` === location.hash)?.[0];
+            if (tab) selectAccountTab(tab, false);
+        });
 
         // If page loaded with an error, re-enable editing automatically
         @if (Model.ErrorMessage != null)

@@ -68,6 +68,12 @@ It does not reinterpret historical local timestamps as UTC. Run
 `Migrationsss/2026-09-10_VerifyHealthHistoryMvp.sql` afterward for read-only
 schema/procedure checks.
 
+If the dashboard fails with `GetTasksByPetID_Recent has too many arguments
+specified`, the database still has the pre-household three-parameter procedure.
+Run `Migrationsss/2026-09-23_FixGetTasksByPetIDRecent.sql` as a targeted repair,
+or rerun the full `Migrationsss/2026-09-20_AlignStoredProcedures.sql` release
+script before restarting the application.
+
 The adherence thresholds are configuration values:
 
 ```json

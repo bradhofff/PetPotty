@@ -18,6 +18,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorPages();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddHttpClient("Stripe", client =>
+{
+    client.BaseAddress = new Uri("https://api.stripe.com/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 
 // REQUIRED for session to work — stores session data in memory.
 // In production you'd swap this for Redis or SQL-backed sessions.
@@ -61,6 +66,7 @@ builder.Services.AddScoped<IHouseholdContextService, HouseholdContextService>();
 builder.Services.AddScoped<IHouseholdAuthorizationService, HouseholdAuthorizationService>();
 builder.Services.AddScoped<IHouseholdService, HouseholdService>();
 builder.Services.AddScoped<IHouseholdInvitationService, HouseholdInvitationService>();
+builder.Services.AddScoped<IPremiumService, PremiumService>();
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddSingleton<IUserTimeZoneService, BrowserTimeZoneService>();
 // One instance for the app lifetime: storage holds paths/loggers, not per-user state.
@@ -102,6 +108,34 @@ app.UseRouting();     // Figures out which page/route handles this request
 app.UseSession();
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.MapPost("/stripe/webhook", async (HttpRequest request, IPremiumService premium, ILoggerFactory loggerFactory) =>
+{
+    using var reader = new StreamReader(request.Body);
+    var payload = await reader.ReadToEndAsync(request.HttpContext.RequestAborted);
+    var signature = request.Headers["Stripe-Signature"].FirstOrDefault();
+
+    try
+    {
+        await premium.ProcessWebhookAsync(payload, signature, request.HttpContext.RequestAborted);
+        return Results.Ok();
+    }
+    catch (InvalidOperationException ex)
+    {
+        loggerFactory.CreateLogger("StripeWebhook").LogWarning(ex, "Rejected Stripe webhook");
+        return Results.BadRequest();
+    }
+    catch (System.Text.Json.JsonException ex)
+    {
+        loggerFactory.CreateLogger("StripeWebhook").LogWarning(ex, "Rejected malformed Stripe webhook");
+        return Results.BadRequest();
+    }
+    catch (Exception ex)
+    {
+        loggerFactory.CreateLogger("StripeWebhook").LogError(ex, "Stripe webhook processing failed");
+        return Results.StatusCode(StatusCodes.Status500InternalServerError);
+    }
+});
 
 app.MapRazorPages();
 

@@ -65,14 +65,14 @@
                     {
                         <form method="post" asp-page="/Health" asp-page-handler="OpenEvent">
                             <input type="hidden" name="healthEventID" value="@item.SourceID" />
-                            <button type="submit" class="health-timeline-action-btn" aria-label="Edit @item.Title">Edit</button>
+                            <button type="submit" class="health-timeline-action-btn rounded-circle" aria-label="Edit @item.Title" title="Edit @item.Title">✏️</button>
                         </form>
                     }
                     else if (item.SourceType == "Medication")
                     {
                         <form method="post" asp-page="/Medications" asp-page-handler="OpenMedication">
                             <input type="hidden" name="petID" value="@item.PetID" />
-                            <button type="submit" class="health-timeline-action-btn" aria-label="Open @item.Title">Open</button>
+                            <button type="submit" class="health-timeline-action-btn rounded-circle" aria-label="View medication activity for @item.PetName" title="View medication activity">↗</button>
                         </form>
                     }
                     else
@@ -80,14 +80,8 @@
                         <form method="post" asp-page="/VetVisits" asp-page-handler="OpenVisit">
                             <input type="hidden" name="petID" value="@item.PetID" />
                             <input type="hidden" name="vetVisitID" value="@item.SourceID" />
-                            <button type="submit" class="health-timeline-action-btn" aria-label="Open @item.Title">Open</button>
-                        </form>
-                    }
-                    @if (isHealthEvent)
-                    {
-                        <form method="post" asp-page-handler="DeleteEvent" onsubmit="return confirm('Remove this health event?');">
-                            <input type="hidden" name="healthEventID" value="@item.SourceID" />
-                            <button type="submit" class="health-timeline-action-btn health-timeline-delete" aria-label="Delete @item.Title">Delete</button>
+                            <input type="hidden" name="openEdit" value="@Model.CanManageCarePlans.ToString().ToLowerInvariant()" />
+                            <button type="submit" class="health-timeline-action-btn rounded-circle" aria-label="@(Model.CanManageCarePlans ? "Edit" : "View") @item.Title" title="@(Model.CanManageCarePlans ? "Edit" : "View") @item.Title">@(Model.CanManageCarePlans ? "✏️" : "↗")</button>
                         </form>
                     }
                 </div>
@@ -155,7 +149,6 @@
     .health-med-doses { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; border-top: 1px solid var(--app-line); border-bottom: 1px solid var(--app-line); padding: .7rem 0; }
     .health-med-dose-label { display: block; color: var(--app-muted); font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-bottom: .3rem; }
     .health-med-dose-when { display: block; color: var(--app-ink); font-size: .84rem; font-weight: 650; margin-bottom: .3rem; }
-    .health-med-view { align-self: flex-start; border-radius: 999px; }
 
     /* Health history — grouped into labeled, collapsible clusters by category (symptoms,
        incidents, medication activity, vet visits) instead of one interleaved feed. */
@@ -182,13 +175,14 @@
     .health-timeline-title { font-weight: 650; color: var(--app-ink); font-size: .92rem; }
     .health-timeline-meta { color: var(--app-muted); font-size: .78rem; margin-top: 1px; }
     .health-timeline-summary { color: var(--app-muted); font-size: .85rem; margin-top: 3px; white-space: pre-wrap; }
-    .health-timeline-actions { display: flex; gap: .3rem; align-items: flex-start; flex-shrink: 0; opacity: 0; transition: opacity .15s ease; }
-    .health-timeline-row:hover .health-timeline-actions,
-    .health-timeline-actions:focus-within { opacity: 1; }
-    .health-timeline-action-btn { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--app-line); background: #fff; color: #768193; display: inline-flex; align-items: center; justify-content: center; font-size: .78rem; text-decoration: none; padding: 0; cursor: pointer; }
-    .health-timeline-action-btn:hover { background: #eef1f5; border-color: #b9c6d6; color: var(--app-ink); }
-    .health-timeline-delete:hover { background: #fdecec; border-color: #f0b4b4; color: #c23b3b; }
-    @@media (hover: none), (pointer: coarse) { .health-timeline-actions { opacity: 1; } }
+    .health-timeline-actions { display: flex; gap: .3rem; align-items: flex-start; flex-shrink: 0; }
+    .health-timeline-action-btn, .health-card-action-btn { width: 32px; height: 32px; min-width: 32px; min-height: 32px; aspect-ratio: 1; border-radius: 50%; border: 1px solid var(--app-line); background: #fff; color: #768193; display: inline-flex; align-items: center; justify-content: center; font-size: .9rem; line-height: 1; text-decoration: none; padding: 0; cursor: pointer; flex: 0 0 32px; }
+    .health-timeline-action-btn:is(:hover, :focus-visible), .health-card-action-btn:is(:hover, :focus-visible) { background: #eef1f5; border-color: #b9c6d6; color: var(--app-ink); }
+    #health-history button.health-timeline-action-btn { box-sizing: border-box; width: 32px; height: 32px; min-width: 32px; max-width: 32px; min-height: 32px; max-height: 32px; border-radius: 50% !important; border-color: #c1cad6; background: #f4f6f9; }
+    #health-history button.health-timeline-action-btn:is(:hover, :focus-visible) { background: var(--app-accent-soft); border-color: var(--app-accent); color: var(--app-accent); }
+    .health-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: .7rem; }
+    .health-card-actions { display: flex; align-items: center; gap: .35rem; flex-shrink: 0; }
+    #editHealthEventForm { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
 
     /* Date presets update the range; Apply filters submits the complete selection. */
     .health-filter { background: #fff; border: 1px solid var(--app-line); border-radius: 13px; padding: 1rem; margin-top: 1rem; }
@@ -200,7 +194,7 @@
     .health-vet-card { border: 1px solid var(--app-line); border-radius: 13px; padding: 1rem 1.1rem; box-shadow: 0 5px 18px rgba(30,41,57,.05); }
     .health-vet-card small { color: var(--app-accent); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; font-size: .68rem; }
     .health-vet-card h3 { font-size: 1rem; margin: .4rem 0 .15rem; color: var(--app-ink); }
-    .health-vet-card p { color: var(--app-muted); font-size: .85rem; margin: 0 0 .8rem; }
+    .health-vet-card p { color: var(--app-muted); font-size: .85rem; margin: 0; }
 
     .empty-health { border: 1px dashed var(--app-line); border-radius: 14px; color: var(--app-muted); padding: 2.3rem 1.2rem; text-align: center; }
 
@@ -240,18 +234,14 @@
         color: #263442 !important;
     }
 
-    /* Same problem, smaller control: the timeline's round Open/Delete icon buttons keep a
+    /* Same problem, smaller control: the round record-action buttons keep a
        white background while the high-contrast rules force their glyph white too. */
-    html[data-bs-theme="dark"] .health-page .health-timeline-action-btn {
+    html[data-bs-theme="dark"] .health-page :is(.health-timeline-action-btn, .health-card-action-btn) {
         background: #111820 !important;
         border-color: #fff !important;
     }
-    html[data-bs-theme="dark"] .health-page .health-timeline-action-btn:hover {
+    html[data-bs-theme="dark"] .health-page :is(.health-timeline-action-btn, .health-card-action-btn):is(:hover, :focus-visible) {
         background: #202832 !important;
-    }
-    html[data-bs-theme="dark"] .health-page .health-timeline-delete:hover {
-        background: #3a1519 !important;
-        border-color: #ff9d9d !important;
     }
 
     html[data-bs-theme="dark"] .health-page .health-section-toggle {
@@ -436,10 +426,26 @@
                     {
                         <div class="col-md-6">
                             <article class="health-med-card">
-                                <div>
-                                    <div class="health-med-name">@med.MedicationName</div>
-                                    <div class="health-med-meta">
-                                        @med.Dosage · @med.FrequencyDisplay@(Model.Pets.Count > 1 ? $" · {med.PetName}" : "")
+                                <div class="health-card-heading">
+                                    <div>
+                                        <div class="health-med-name">@med.MedicationName</div>
+                                        <div class="health-med-meta">
+                                            @med.Dosage · @med.FrequencyDisplay@(Model.Pets.Count > 1 ? $" · {med.PetName}" : "")
+                                        </div>
+                                    </div>
+                                    <div class="health-card-actions">
+                                        <form method="post" asp-page="/Medications" asp-page-handler="OpenMedication">
+                                            <input type="hidden" name="petID" value="@med.PetID" />
+                                            <button type="submit" class="health-card-action-btn" aria-label="View dose schedule for @med.MedicationName" title="View dose schedule">↗</button>
+                                        </form>
+                                        @if (Model.CanManageCarePlans)
+                                        {
+                                            <form method="post" asp-page="/Medications" asp-page-handler="OpenMedication">
+                                                <input type="hidden" name="petID" value="@med.PetID" />
+                                                <input type="hidden" name="medicationID" value="@med.MedID" />
+                                                <button type="submit" class="health-card-action-btn" aria-label="Edit @med.MedicationName" title="Edit @med.MedicationName">✏️</button>
+                                            </form>
+                                        }
                                     </div>
                                 </div>
                                 <div class="health-med-doses">
@@ -468,25 +474,6 @@
                                         }
                                     </div>
                                 </div>
-                                <form method="post" asp-page="/Medications" asp-page-handler="OpenMedication">
-                                    <input type="hidden" name="petID" value="@med.PetID" />
-                                    <button type="submit" class="btn btn-sm btn-outline-primary health-med-view">View dose schedule</button>
-                                </form>
-                                @if (Model.CanManageCarePlans)
-                                {
-                                    <form method="post" asp-page="/Medications" asp-page-handler="OpenMedication">
-                                        <input type="hidden" name="petID" value="@med.PetID" />
-                                        <input type="hidden" name="medicationID" value="@med.MedID" />
-                                        <button type="submit" class="btn btn-sm btn-light health-med-view">Edit medication</button>
-                                    </form>
-                                }
-                                else
-                                {
-                                    <form method="post" asp-page="/Medications" asp-page-handler="OpenMedication">
-                                        <input type="hidden" name="petID" value="@med.PetID" />
-                                        <button type="submit" class="btn btn-sm btn-light health-med-view">View medication</button>
-                                    </form>
-                                }
                             </article>
                         </div>
                     }
@@ -660,29 +647,57 @@
                     @if (Model.NextVetVisit != null)
                     {
                         <article class="health-vet-card">
-                            <small>Next visit</small>
-                            <h3>@Model.NextVetVisit.AppointmentDateTime.ToString(Model.NextVetVisit.IsAllDay ? "MMM d, yyyy" : "MMM d 'at' h:mm tt")</h3>
+                            <div class="health-card-heading">
+                                <div>
+                                    <small>Next visit</small>
+                                    <h3>@Model.NextVetVisit.AppointmentDateTime.ToString(Model.NextVetVisit.IsAllDay ? "MMM d, yyyy" : "MMM d 'at' h:mm tt")</h3>
+                                </div>
+                                <div class="health-card-actions">
+                                    <form method="post" asp-page="/VetVisits" asp-page-handler="OpenVisit">
+                                        <input type="hidden" name="petID" value="@Model.NextVetVisit.PetID" />
+                                        <input type="hidden" name="vetVisitID" value="@Model.NextVetVisit.VetVisitID" />
+                                        <button type="submit" class="health-card-action-btn" aria-label="View next appointment" title="View appointment">↗</button>
+                                    </form>
+                                    @if (Model.CanManageCarePlans)
+                                    {
+                                        <form method="post" asp-page="/VetVisits" asp-page-handler="OpenVisit">
+                                            <input type="hidden" name="petID" value="@Model.NextVetVisit.PetID" />
+                                            <input type="hidden" name="vetVisitID" value="@Model.NextVetVisit.VetVisitID" />
+                                            <input type="hidden" name="openEdit" value="true" />
+                                            <button type="submit" class="health-card-action-btn" aria-label="Edit next visit" title="Edit next visit">✏️</button>
+                                        </form>
+                                    }
+                                </div>
+                            </div>
                             <p>@(selectedPet == null ? $"{Model.Pets.FirstOrDefault(p => p.PetID == Model.NextVetVisit.PetID)?.Name} · " : "")@(string.IsNullOrWhiteSpace(Model.NextVetVisit.VisitReason) ? Model.NextVetVisit.ClinicName : Model.NextVetVisit.VisitReason)</p>
-                            <form method="post" asp-page="/VetVisits" asp-page-handler="OpenVisit">
-                                <input type="hidden" name="petID" value="@Model.NextVetVisit.PetID" />
-                                <input type="hidden" name="vetVisitID" value="@Model.NextVetVisit.VetVisitID" />
-                                <input type="hidden" name="openEdit" value="@Model.CanManageCarePlans.ToString().ToLowerInvariant()" />
-                                <button type="submit" class="btn btn-sm btn-light">@(Model.CanManageCarePlans ? "Edit appointment" : "View appointment")</button>
-                            </form>
                         </article>
                     }
                     @if (Model.RecentVetVisit != null)
                     {
                         <article class="health-vet-card">
-                            <small>Recent visit</small>
-                            <h3>@Model.RecentVetVisit.AppointmentDateTime.ToString("MMM d, yyyy")</h3>
+                            <div class="health-card-heading">
+                                <div>
+                                    <small>Recent visit</small>
+                                    <h3>@Model.RecentVetVisit.AppointmentDateTime.ToString("MMM d, yyyy")</h3>
+                                </div>
+                                <div class="health-card-actions">
+                                    <form method="post" asp-page="/VetVisits" asp-page-handler="OpenVisit">
+                                        <input type="hidden" name="petID" value="@Model.RecentVetVisit.PetID" />
+                                        <input type="hidden" name="vetVisitID" value="@Model.RecentVetVisit.VetVisitID" />
+                                        <button type="submit" class="health-card-action-btn" aria-label="View recent visit" title="View visit">↗</button>
+                                    </form>
+                                    @if (Model.CanManageCarePlans)
+                                    {
+                                        <form method="post" asp-page="/VetVisits" asp-page-handler="OpenVisit">
+                                            <input type="hidden" name="petID" value="@Model.RecentVetVisit.PetID" />
+                                            <input type="hidden" name="vetVisitID" value="@Model.RecentVetVisit.VetVisitID" />
+                                            <input type="hidden" name="openEdit" value="true" />
+                                            <button type="submit" class="health-card-action-btn" aria-label="Edit recent visit" title="Edit recent visit">✏️</button>
+                                        </form>
+                                    }
+                                </div>
+                            </div>
                             <p>@(selectedPet == null ? $"{Model.Pets.FirstOrDefault(p => p.PetID == Model.RecentVetVisit.PetID)?.Name} · " : "")@(string.IsNullOrWhiteSpace(Model.RecentVetVisit.VisitReason) ? Model.RecentVetVisit.ClinicName : Model.RecentVetVisit.VisitReason)</p>
-                            <form method="post" asp-page="/VetVisits" asp-page-handler="OpenVisit">
-                                <input type="hidden" name="petID" value="@Model.RecentVetVisit.PetID" />
-                                <input type="hidden" name="vetVisitID" value="@Model.RecentVetVisit.VetVisitID" />
-                                <input type="hidden" name="openEdit" value="@Model.CanManageCarePlans.ToString().ToLowerInvariant()" />
-                                <button type="submit" class="btn btn-sm btn-light">@(Model.CanManageCarePlans ? "Edit visit" : "View visit")</button>
-                            </form>
                         </article>
                     }
                 </div>
@@ -785,13 +800,14 @@
     @* Editing posts the event ID, stores it briefly in session, and returns to a clean URL. *@
     <div class="modal fade" id="editHealthEventModal" tabindex="-1" aria-labelledby="editHealthEventModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-scrollable modal-lg">
-            <form method="post" asp-page-handler="EditEvent" class="modal-content">
-                <input asp-for="EditEvent.HealthEventID" type="hidden" />
-                <input asp-for="EditEvent.UtcOffsetMinutes" type="hidden" data-utc-offset />
+            <div class="modal-content">
                 <div class="modal-header">
                     <div><p class="app-eyebrow mb-1">EDIT HEALTH EVENT</p><h2 class="modal-title fs-5" id="editHealthEventModalLabel">Edit health event</h2></div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
+                <form method="post" asp-page-handler="EditEvent" id="editHealthEventForm">
+                    <input asp-for="EditEvent.HealthEventID" type="hidden" />
+                    <input asp-for="EditEvent.UtcOffsetMinutes" type="hidden" data-utc-offset />
                 <div class="modal-body">
                     <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
                     <div class="row g-3">
@@ -818,7 +834,11 @@
                     </details>
                 </div>
 
-                @* Delete form outside the edit form, matching the /Medications edit-modal footer. *@
+                </form>
+                @* Separate forms keep Delete independent from edit validation. *@
+                <form method="post" asp-page-handler="DeleteEvent" id="deleteEditedEventForm">
+                    <input type="hidden" name="healthEventID" value="@Model.EditEvent.HealthEventID" />
+                </form>
                 <div class="modal-footer d-flex justify-content-between">
                     <button type="submit" form="deleteEditedEventForm" class="btn btn-danger"
                             onclick="return confirm('Remove this health event?');">
@@ -826,13 +846,10 @@
                     </button>
                     <div>
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save changes</button>
+                        <button type="submit" form="editHealthEventForm" class="btn btn-primary">Save changes</button>
                     </div>
                 </div>
-            </form>
-            <form method="post" asp-page-handler="DeleteEvent" id="deleteEditedEventForm">
-                <input type="hidden" name="healthEventID" value="@Model.EditEvent.HealthEventID" />
-            </form>
+            </div>
         </div>
     </div>
     <datalist id="editHealthEventTypes">@foreach (var type in PetPotty.Pages.HealthModel.SymptomTypes.Concat(PetPotty.Pages.HealthModel.IncidentTypes).Distinct()) { <option value="@type"></option> }</datalist>

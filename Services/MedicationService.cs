@@ -306,8 +306,9 @@ namespace PetPotty.Services
             if (status.Equals(MedicationDoseStatuses.Taken, StringComparison.OrdinalIgnoreCase))
             {
                 administeredAtUtc = _timeZone.ToUtc(administeredAtLocal!.Value, utcOffsetMinutes);
-                if (!target.TimingDoesNotMatter
-                    && administeredAtLocal.Value - logDate > TimeSpan.FromMinutes(_lateAfterMinutes))
+                if (target.TimingDoesNotMatter
+                    ? administeredAtLocal.Value.Date > logDate.Date
+                    : administeredAtLocal.Value - logDate > TimeSpan.FromMinutes(_lateAfterMinutes))
                 {
                     storedStatus = MedicationDoseStatuses.TakenLate;
                 }

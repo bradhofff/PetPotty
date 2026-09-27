@@ -139,7 +139,7 @@ namespace PetPotty.Services
             return GetPetsByUser(userID).FirstOrDefault(pet => pet.PetID == petID);
         }
 
-        public int AddPet(int userID, string name, string type, string breed, string age, DateTime birthdate, string gender)
+        public int AddPet(int userID, string name, string type, string breed, string age, DateTime? birthdate, string gender)
         {
             var household = _householdContext.GetActiveHousehold(userID);
             if (household == null
@@ -161,7 +161,7 @@ namespace PetPotty.Services
             cmd.Parameters.Add("@Breed", SqlDbType.VarChar, 50).Value = CleanOrNull(breed);
             cmd.Parameters.Add("@Age", SqlDbType.Int).Value =
                 int.TryParse(age, out var parsedAge) ? parsedAge : DBNull.Value;
-            cmd.Parameters.Add("@Birthdate", SqlDbType.Date).Value = birthdate == default ? DBNull.Value : birthdate.Date;
+            cmd.Parameters.Add("@Birthdate", SqlDbType.Date).Value = birthdate?.Date ?? (object)DBNull.Value;
             cmd.Parameters.Add("@Gender", SqlDbType.VarChar, 20).Value = CleanOrNull(gender);
             conn.Open();
             var result = cmd.ExecuteScalar();
@@ -171,7 +171,7 @@ namespace PetPotty.Services
             return Convert.ToInt32(result);
         }
 
-        public bool EditPet(int userID, int petID, string name, string type, string breed, string age, DateTime birthdate, string gender)
+        public bool EditPet(int userID, int petID, string name, string type, string breed, string age, DateTime? birthdate, string gender)
         {
             var household = GetAuthorizedHousehold(userID, HouseholdPermission.ManagePets);
             if (household == null)
@@ -186,13 +186,14 @@ namespace PetPotty.Services
             cmd.Parameters.AddWithValue("@petID", petID);
             // Blank form fields arrive as null, and a raw null makes SqlClient omit the parameter
             // ("expects parameter '@x', which was not supplied"), so text goes as "" instead.
-            // Age is the exception: UpdatePet.@age is INT and '' converts to 0 (shown as
-            // "0 yrs"), so a blank age goes as NULL.
+            // Send blank age and birthdate as SQL NULL so editing does not create
+            // a zero-year age or an unintended birthday.
             cmd.Parameters.Add("@name", SqlDbType.NVarChar, 255).Value = name ?? string.Empty;
             cmd.Parameters.Add("@type", SqlDbType.NVarChar, 255).Value = type ?? string.Empty;
             cmd.Parameters.Add("@breed", SqlDbType.NVarChar, 255).Value = breed ?? string.Empty;
-            cmd.Parameters.Add("@age", SqlDbType.NVarChar, 50).Value = CleanOrNull(age);
-            cmd.Parameters.AddWithValue("@birthdate", birthdate);
+            cmd.Parameters.Add("@age", SqlDbType.Int).Value =
+                int.TryParse(age, out var parsedAge) ? parsedAge : DBNull.Value;
+            cmd.Parameters.Add("@birthDate", SqlDbType.Date).Value = birthdate?.Date ?? (object)DBNull.Value;
             cmd.Parameters.Add("@gender", SqlDbType.NVarChar, 50).Value = gender ?? string.Empty;
             conn.Open();
             return OwnedRecordCommand.Execute(cmd, userID, household.HouseholdID, petID, OwnedRecordCommand.Pet);
