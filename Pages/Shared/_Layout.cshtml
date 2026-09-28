@@ -214,16 +214,9 @@
                     </ul>
                     }
 
-                    @if (isLoggedIn && isLandingPage)
-                    {
-                        <div class="site-navbar-actions d-flex flex-column flex-lg-row gap-2 mt-3 mt-lg-0">
-                            <a asp-page="/Home" class="btn pt-btn-primary">Get Started <span aria-hidden="true">→</span></a>
-                        </div>
-                    }
-
                     @if (isLoggedIn)
                     {
-                        <ul class="navbar-nav align-items-lg-center">
+                        <ul class="navbar-nav align-items-lg-center ms-lg-auto">
                             <li class="nav-item profile-dropdown dropdown">
                                 <a class="nav-link dropdown-toggle d-flex align-items-center gap-2 pe-lg-0"
                                    href="#"
@@ -261,8 +254,8 @@
                     else
                     {
                         <div class="site-navbar-actions d-flex flex-column flex-lg-row gap-2 mt-3 mt-lg-0">
-                            <a asp-page="/Signup" class="btn pt-btn-primary">Get Started</a>
-                            <a asp-page="/Login" class="btn pt-btn-secondary">Login</a>
+                            <a asp-page="/Signup" class="btn pt-btn-primary">Sign up</a>
+                            <a asp-page="/Login" class="btn pt-btn-secondary">Sign in</a>
                         </div>
                     }
                 </div>
