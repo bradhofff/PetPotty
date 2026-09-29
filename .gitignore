@@ -2,6 +2,7 @@
 appsettings.Development.json
 publish/
 vet-documents/
+uploads/
 
 # Build output
 bin/

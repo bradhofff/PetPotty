@@ -5,17 +5,10 @@
     var darkMode = isLoggedIn && Context.Session.GetString("darkMode") == "true";
     var currentUrl = $"{Context.Request.PathBase}{Context.Request.Path}{Context.Request.QueryString}";
     var currentPage = ViewContext.RouteData.Values["page"]?.ToString();
-<<<<<<< HEAD
     var isLanding = currentPage == "/Index";
     var isAuthPage = currentPage == "/Login" || currentPage == "/Signup";
 }
 <html lang="en" data-bs-theme="@(darkMode && !isLanding ? "dark" : "light")">
-=======
-    var isLandingPage = currentPage == "/Index";
-    var pageTheme = currentPage == "/Index" ? "light" : (darkMode ? "dark" : "light");
-}
-<html lang="en" data-bs-theme="@pageTheme">
->>>>>>> 4345d9303400adda0cb17d762cdc428ce08210c2
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -175,7 +168,7 @@
                     <span>PackTracker</span>
                 </a>
 
-                @if (!isLandingPage || !isLoggedIn)
+                @if (!isLanding || !isLoggedIn)
                 {
                 <button class="navbar-toggler" type="button"
                         data-bs-toggle="collapse"
@@ -187,8 +180,8 @@
                 </button>
                 }
 
-                <div class="navbar-collapse @(isLandingPage && isLoggedIn ? "" : "collapse")" id="primaryNavigation">
-                    @if (isLoggedIn && !isLandingPage)
+                <div class="navbar-collapse @(isLanding && isLoggedIn ? "" : "collapse")" id="primaryNavigation">
+                    @if (isLoggedIn && !isLanding)
                     {
                     <ul class="navbar-nav me-auto ms-lg-4">
                         @foreach (var item in new[] { (Page: "/Home", Label: "🏠 Dashboard"), (Page: "/Health", Label: "🩺 Health"), (Page: "/Medications", Label: "💊 Medications"), (Page: "/VetVisits", Label: "🏥 Vet Visits") })
@@ -223,7 +216,7 @@
                                    role="button"
                                    data-bs-toggle="dropdown"
                                    aria-expanded="false">
-                                    @if (!isLandingPage)
+                                    @if (!isLanding)
                                     {
                                         <span class="profile-welcome">Welcome, @Context.Session.GetString("name")!</span>
                                     }
@@ -237,7 +230,7 @@
                                     <li><a class="dropdown-item" asp-page="/Profile" asp-fragment="account-details">Edit profile</a></li>
                                     <li><a class="dropdown-item" asp-page="/Profile" asp-fragment="household-settings">Household</a></li>
                                     <li><a class="dropdown-item" asp-page="/Profile" asp-fragment="premium-settings">Household Premium</a></li>
-                                    <li class="@(isLandingPage ? "" : "d-none d-lg-block")">
+                                    <li class="@(isLanding ? "" : "d-none d-lg-block")">
                                         <form method="post" asp-page="/Theme" class="theme-toggle-form">
                                             <input type="hidden" name="returnUrl" value="@currentUrl" />
                                             <button type="submit" class="dropdown-item theme-toggle-button">

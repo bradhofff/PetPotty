@@ -21,6 +21,31 @@
     }
 
     /* ── Pet cards ── */
+    .pet-card-layout { container-type: inline-size; }
+    .pet-card-list {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        gap: 1.375rem;
+    }
+    .pet-card-slot {
+        flex: 1 1 27.25rem;
+        min-width: min(100%, 27.25rem);
+        max-width: 32rem;
+    }
+    .pet-card-identity { min-width: 0; overflow-wrap: anywhere; }
+    /* Four pets keep two even rows until all four can fit side by side. */
+    @@container (min-width: 55.875rem) and (max-width: 113.124rem) {
+        .pet-card-list:has(> .pet-card-slot:nth-child(4):last-child) {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            max-width: 65.375rem;
+        }
+        .pet-card-list:has(> .pet-card-slot:nth-child(4):last-child) .pet-card-slot {
+            width: 100%;
+        }
+    }
+    .home-dashboard .pet-card { padding: 1.5rem; }
     .pet-card {
         border: 2px solid var(--pet-secondary);
         border-radius: 16px;
@@ -194,12 +219,13 @@
         border-top: 1px solid #e4e7eb;
     }
 
-    /* Equal quick-log columns keep long activity labels aligned. */
+    /* Keep each timestamp with its button inside the bordered activity panel. */
     .quick-log-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 8px;
+        gap: .75rem;
     }
+    .home-dashboard .quick-log-form { padding: .75rem .5rem; }
     .quick-log-pill {
         border: 2px solid var(--pet-secondary);
         border-radius: 999px;
@@ -216,7 +242,8 @@
     .quick-log-form {
         align-items: center;
         display: grid;
-        grid-template-rows: minmax(2.4em, auto) 44px;
+        grid-template-rows: minmax(2.4em, 1fr) 44px;
+        row-gap: .4rem;
         min-width: 0;
         width: 100%;
     }
@@ -238,19 +265,16 @@
     .quick-log-pill:active { transform: scale(0.96); }
     .home-dashboard .quick-log-label {
         color: #111;
-        font-size: 0.8rem;
+        font-size: .75rem;
         font-weight: 400;
         line-height: 1.2;
-        align-self: end;
+        align-self: center;
         display: block;
-        margin-bottom: 5px;
         max-width: none;
-        min-height: 2.4em;
         overflow: hidden;
-        overflow-wrap: anywhere;
         text-align: center;
-        text-overflow: clip;
-        white-space: normal;
+        text-overflow: ellipsis;
+        white-space: nowrap;
         width: 100%;
     }
 
@@ -354,7 +378,7 @@
     .log-health-card-btn:active { transform: translateY(0); }
     .pet-quick-actions {
         display: grid;
-        gap: 8px;
+        gap: .75rem;
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
     .care-notifications {
@@ -609,8 +633,9 @@
         .quick-log-grid { gap: 6px; }
         .home-dashboard .quick-log-form { padding: .48rem; }
         .home-dashboard .quick-log-label {
-            font-size: .67rem;
-            line-height: 1.18;
+            overflow-wrap: anywhere;
+            text-overflow: clip;
+            white-space: normal;
         }
         .home-dashboard .quick-log-pill {
             font-size: .78rem;
@@ -674,7 +699,8 @@
 }
 else
 {
-    <div class="row g-3 mb-4 app-responsive-card-grid">
+    <div class="pet-card-layout mb-4">
+        <div class="pet-card-list">
         @foreach (var pet in Model.Pets)
         {
             var petBirthdate = pet.Birthdate == default ? string.Empty : pet.Birthdate.ToString("yyyy-MM-dd");
@@ -694,7 +720,7 @@ else
             string lastPoopLabel = PetPotty.Pages.HomeModel.LastActivityLabel(quickLogTasks, "Poop", Model.UserNowLocal);
             var petImageUrl = Model.PetImageUrl(pet);
 
-            <div class="col-md-6 col-xxl-4">
+            <div class="pet-card-slot">
                 <div class="pet-card">
 
                     @* Hover-reveal edit pencil *@
@@ -736,7 +762,7 @@ else
                                 <span>@petEmoji</span>
                             </div>
                         }
-                        <div>
+                        <div class="pet-card-identity">
                             <div class="d-flex align-items-center gap-2 flex-wrap">
                                 <span class="fw-bold" style="font-size: 1.1rem; color: var(--pet-dark);">@pet.Name</span>
                                 <span class="badge"
@@ -766,7 +792,7 @@ else
                               class="quick-log-form flex-fill">
                             <input type="hidden" name="petID" value="@pet.PetID" />
                             <input type="hidden" name="taskType" value="Pee" />
-                            <div class="quick-log-label">@lastPeeLabel</div>
+                            <div class="quick-log-label" title="@lastPeeLabel">@lastPeeLabel</div>
                             <input type="hidden" name="localTime" />
                             <button type="button" class="quick-log-pill quick-log-trigger w-100"
                                     data-bs-toggle="modal" data-bs-target="#quickLogTimeModal"
@@ -778,7 +804,7 @@ else
                               class="quick-log-form flex-fill">
                             <input type="hidden" name="petID" value="@pet.PetID" />
                             <input type="hidden" name="taskType" value="Poop" />
-                            <div class="quick-log-label">@lastPoopLabel</div>
+                            <div class="quick-log-label" title="@lastPoopLabel">@lastPoopLabel</div>
                             <input type="hidden" name="localTime" />
                             <button type="button" class="quick-log-pill quick-log-trigger w-100"
                                     data-bs-toggle="modal" data-bs-target="#quickLogTimeModal"
@@ -850,6 +876,7 @@ else
                 </div>
             </div>
         }
+        </div>
     </div>
 }
 
