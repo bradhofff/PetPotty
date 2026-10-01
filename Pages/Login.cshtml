@@ -39,6 +39,7 @@
 
                 <form method="post">
                     <input asp-for="InvitationToken" type="hidden" />
+                    <input asp-for="ReturnUrl" type="hidden" />
                     <div asp-validation-summary="ModelOnly" class="text-danger small mb-3" role="alert"></div>
                     @if (!string.IsNullOrEmpty(Model.ErrorMessage))
                     {

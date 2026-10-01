@@ -15,6 +15,13 @@ body.pack-landing-page { --pack-ink: #242620; --pack-muted: #6d7068; --pack-oran
 .pack-nav-links, .pack-nav-actions { display: flex; align-items: center; gap: 30px; }
 .pack-nav :is(.pack-nav-links,.pack-nav-actions) > a:not(.pack-button) { color: #4c5048; text-decoration: none; font-size: 13px; font-weight: 550; }
 .pack-nav :is(.pack-nav-links,.pack-nav-actions) > a:hover { color: var(--pack-orange); }
+.pack-landing-nav > .container { flex-wrap: nowrap; }
+.pack-landing-links { display: flex; align-items: center; gap: 16px; margin-left: clamp(24px, 4vw, 64px); }
+.pack-landing-actions { display: flex; align-items: center; gap: 10px; }
+.pack-landing-nav .profile-dropdown { display: flex; align-items: center; }
+.pack-landing-nav .profile-dropdown > .nav-link { padding: 0; }
+.pack-landing-page .pack-landing-nav a:focus-visible,
+.pack-landing-page .pack-landing-nav button:focus-visible { outline-color: #fff; }
 .pack-landing-page .pack-button { display: inline-flex; align-items: center; justify-content: center; gap: 28px; padding: 15px 26px; min-height: 52px; border-radius: 100px; background: var(--pack-orange); color: #fff; font-size: 15px; font-weight: 650; text-decoration: none; transition: background .2s, transform .2s; }
 .pack-landing-page .pack-button:hover { background: #943b0c; transform: translateY(-2px); }
 .pack-landing-page .pack-button-small { min-height: 40px; padding: 9px 20px; font-size: 12px; }
@@ -81,6 +88,7 @@ body.pack-landing-page { --pack-ink: #242620; --pack-muted: #6d7068; --pack-oran
 .pack-final { text-align: center; padding: 120px 0; background: #eee8dc; }
 .pack-final h2 { margin-top: 26px; }
 .pack-final p:not(.pack-eyebrow) { margin: 26px 0 32px; color: #75786c; font-size: 18px; }
+.pack-final .pack-actions { margin: 0; }
 .pack-footer { display: flex; align-items: center; gap: 25px; padding-block: 40px; font-size: 11px; color: #73776c; }
 .pack-footer .pack-wordmark { font-size: 16px; }
 .pack-footer p { flex: 1; }
@@ -100,6 +108,7 @@ body.pack-landing-page { --pack-ink: #242620; --pack-muted: #6d7068; --pack-oran
     .pack-together { gap: 50px; }
 }
 @media (max-width: 900px) {
+    .pack-landing-links { display: none; }
     .pack-nav-links { display: none; }
     .pack-hero { padding-top: 65px; }
     .pack-tour-inner { display: block; }
@@ -115,6 +124,9 @@ body.pack-landing-page { --pack-ink: #242620; --pack-muted: #6d7068; --pack-oran
     .pack-footer p { flex-basis: 50%; }
 }
 @media (max-width: 575px) {
+    .pack-landing-nav .navbar-brand { font-size: .9rem; gap: 3px; margin-right: 4px; }
+    .pack-landing-actions { gap: 6px; }
+    .pack-landing-actions .btn { min-height: 40px; padding: .5rem .65rem; font-size: .78rem; white-space: nowrap; }
     .pack-container { width: calc(100% - 40px); }
     .pack-nav nav { min-height: 68px; gap: 10px; }
     .pack-wordmark { font-size: 16px; gap: 4px; }

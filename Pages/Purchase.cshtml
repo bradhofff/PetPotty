@@ -1,7 +1,7 @@
 @page
-@model PetPotty.Pages.PremiumModel
+@model PetPotty.Pages.PurchaseModel
 @{
-    ViewData["Title"] = "Premium";
+    ViewData["Title"] = "Purchase Premium";
     var isPremium = Model.Status?.IsPremium == true;
 }
 
@@ -20,7 +20,6 @@
     .premium-card { height: 100%; border: 1px solid #ead8ca; border-radius: 18px; padding: 22px; background: var(--bs-body-bg); }
     .premium-card h2 { font-size: 1.1rem; }
     .premium-check { color: #198754; font-weight: 700; }
-    .premium-test-link { border: 2px dashed var(--pet-secondary); border-radius: 16px; padding: 18px; }
     .premium-plan { border: 1px solid #ead8ca; border-radius: 16px; padding: 16px; height: 100%; cursor: pointer; }
     .premium-plan:has(input:checked) { border: 2px solid #8b4513; background: rgba(217,100,32,.06); }
 </style>
@@ -41,8 +40,16 @@
         <p class="lead mb-4">Premium belongs to the household, so every active family member gets access when one person subscribes.</p>
         <div class="premium-status d-flex flex-column flex-md-row justify-content-between gap-3 align-items-md-center">
             <div>
-                <div class="fw-bold">Household status: @(isPremium ? "Premium active" : "Free plan")</div>
-                @if (isPremium && Model.Status?.CurrentPeriodEndUtc is { } periodEnd)
+                <div class="fw-bold">Household status: @(isPremium ? Model.Status?.PlanType == "free" ? "Premium active" : $"{Model.Status?.PlanLabel} Premium" : "Free plan")</div>
+                @if (Model.Status?.Status == "past_due")
+                {
+                    <small>Payment needs attention. @(isPremium ? "Access continues through the current paid period." : "Premium access is no longer active.")</small>
+                }
+                else if (isPremium && Model.Status?.PlanType == "lifetime")
+                {
+                    <small>Lifetime access for everyone in this household. No recurring payments.</small>
+                }
+                else if (isPremium && Model.Status?.CurrentPeriodEndUtc is { } periodEnd)
                 {
                     <small>Current period ends @periodEnd.ToLocalTime().ToString("MMMM d, yyyy")@(Model.Status.CancelAtPeriodEnd ? " · cancellation scheduled" : "")</small>
                 }
@@ -64,10 +71,14 @@
     {
         @if (Model.Plans.Count == 0)
         {
-            <div class="alert alert-warning" role="status">No Premium prices are configured yet. Add your three Stripe test Price IDs to <code>appsettings.Development.json</code>.</div>
+            <div class="alert alert-warning" role="status">Premium checkout is temporarily unavailable. Please try again later.</div>
         }
         else
         {
+            @if (!Model.CanStartCheckout)
+            {
+                <div class="alert alert-warning" role="status">You can view the plans below. Checkout is temporarily unavailable.</div>
+            }
             <form method="post" asp-page-handler="StartCheckout" class="mb-4">
                 <fieldset>
                     <legend class="h4 mb-3">Choose your household plan</legend>
@@ -77,7 +88,7 @@
                             <div class="col-md-4">
                                 <label class="premium-plan d-block">
                                     <span class="d-flex gap-2 align-items-start">
-                                        <input asp-for="SelectedPlanKey" type="radio" value="@plan.Key" required />
+                                        <input asp-for="SelectedPlanKey" type="radio" value="@plan.Key" required disabled="@(!plan.PriceId.StartsWith("price_", StringComparison.Ordinal))" />
                                         <span>
                                             <span class="d-block fw-bold">@plan.Name</span>
                                             @if (!string.IsNullOrWhiteSpace(plan.PriceLabel))
@@ -95,7 +106,7 @@
                         }
                     </div>
                 </fieldset>
-                <button type="submit" class="btn btn-primary btn-lg fw-bold" @(Model.Plans.Count == 0 ? "disabled" : null)>Continue to secure checkout</button>
+                <button type="submit" class="btn btn-primary btn-lg fw-bold" disabled="@(!Model.CanStartCheckout)">Continue to secure checkout</button>
             </form>
         }
     }
@@ -103,14 +114,7 @@
     <div class="row g-3 mb-4">
         <div class="col-md-4"><div class="premium-card"><div class="fs-2 mb-2">📈</div><h2>More useful history</h2><p class="mb-0 text-muted">Keep richer care records and see the patterns that matter across your pets.</p></div></div>
         <div class="col-md-4"><div class="premium-card"><div class="fs-2 mb-2">👨‍👩‍👧‍👦</div><h2>Shared by the household</h2><p class="mb-0 text-muted">One purchase follows the household, not the individual who paid.</p></div></div>
-        <div class="col-md-4"><div class="premium-card"><div class="fs-2 mb-2">🛡️</div><h2>Billing you can trust</h2><p class="mb-0 text-muted">Stripe confirms payment through a signed webhook before access is granted.</p></div></div>
+        <div class="col-md-4"><div class="premium-card"><div class="fs-2 mb-2">🛡️</div><h2>Secure checkout</h2><p class="mb-0 text-muted">Pay securely with Stripe. Premium activates once your payment is confirmed.</p></div></div>
     </div>
 
-    <div class="premium-test-link d-flex flex-column flex-md-row justify-content-between gap-3 align-items-md-center">
-        <div>
-            <h2 class="h5 mb-1">Premium access test page</h2>
-            <p class="mb-0 text-muted">This link is server-gated and returns no premium content for a non-premium household.</p>
-        </div>
-        <a class="btn btn-outline-primary" asp-page="/PremiumTest">Open test page</a>
-    </div>
 </div>

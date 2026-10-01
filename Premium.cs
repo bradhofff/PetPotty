@@ -39,5 +39,3 @@ public sealed class HouseholdPremiumStatus
 public sealed record PremiumCheckoutSession(string Url);
 
 public sealed record PremiumPlan(string Key, string Name, string PriceLabel, string Description, string PriceId, string Mode);
-
-public sealed record PremiumPreviewPrice(string Key, string Name, string PriceLabel, string BillingLabel);

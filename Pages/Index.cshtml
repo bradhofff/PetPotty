@@ -15,7 +15,7 @@
                 <a asp-page="@startPage" class="pack-button">Get started <span aria-hidden="true">↗</span></a>
                 @if (!Model.IsLoggedIn)
                 {
-                    <a asp-page="/Login" class="pack-text-link">Take a closer look <span aria-hidden="true">↗</span></a>
+                    <a asp-page="/Login" class="pack-text-link">Log in <span aria-hidden="true">↗</span></a>
                 }
             </div>
         </div>
@@ -102,7 +102,20 @@
         </div>
     </section>
 
-    <section class="pack-final" aria-labelledby="final-title"><div class="pack-container" data-reveal><p class="pack-eyebrow">MORE TIME FOR THE GOOD STUFF</p><h2 id="final-title">A little more together.<br /><span>A lot less to remember.</span></h2><p>Make room for a calmer kind of pet care.</p><a asp-page="@startPage" class="pack-button">Get started <span aria-hidden="true">↗</span></a></div></section>
+    <section class="pack-final" aria-labelledby="final-title">
+        <div class="pack-container" data-reveal>
+            <p class="pack-eyebrow">MORE TIME FOR THE GOOD STUFF</p>
+            <h2 id="final-title">A little more together.<br /><span>A lot less to remember.</span></h2>
+            <p>Make room for a calmer kind of pet care.</p>
+            <div class="pack-actions">
+                <a asp-page="@startPage" class="pack-button">Get started <span aria-hidden="true">↗</span></a>
+                @if (!Model.IsLoggedIn)
+                {
+                    <a asp-page="/Login" class="pack-text-link">Log in <span aria-hidden="true">↗</span></a>
+                }
+            </div>
+        </div>
+    </section>
     <footer class="pack-footer pack-container"><a href="#top" class="pack-wordmark">🐾 PackTracker</a><p>Thoughtful care. For your whole pack.</p><span>© @DateTime.Now.Year PackTracker</span><a asp-page="/Privacy">Privacy</a></footer>
 </div>
 

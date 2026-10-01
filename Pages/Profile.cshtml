@@ -2,9 +2,6 @@
 @model PetPotty.Pages.ProfileModel
 @{
     ViewData["Title"] = "My Profile";
-    var premium = Model.PremiumStatus;
-    var hasPremium = premium?.IsPremium == true;
-    var needsPaymentAttention = premium?.Status == "past_due";
 }
 
 @if (TempData["ProfileStatus"] != null)
@@ -38,25 +35,6 @@
     .account-scope-row { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
     .profile-card { max-width: 900px; overflow: hidden; }
     .profile-card .card-body { padding: clamp(1.25rem, 2vw, 2rem); }
-    .premium-overview { border: 1px solid var(--app-line); border-radius: 18px; background: var(--app-surface); overflow: hidden; }
-    .premium-overview-main { display: flex; align-items: start; justify-content: space-between; flex-wrap: wrap; gap: 1.25rem; padding: clamp(1.35rem, 2.5vw, 2.25rem); }
-    .premium-overview h3 { font-size: clamp(1.5rem, 2.4vw, 2.15rem); font-weight: 800; margin: .2rem 0 .5rem; }
-    .premium-overview p { color: var(--app-muted); margin-bottom: 0; }
-    .premium-status-pill { display: inline-flex; align-items: center; border-radius: 999px; padding: .45rem .8rem; font-size: .84rem; font-weight: 750; white-space: nowrap; }
-    .premium-status-pill.is-active { background: #e8f7ee; color: #176440; }
-    .premium-status-pill.is-attention { background: #fff1da; color: #845008; }
-    .premium-status-pill.is-free { background: var(--app-subtle); color: var(--app-ink); }
-    .premium-overview-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; border-top: 1px solid var(--app-line); background: var(--app-subtle); padding: 1.15rem clamp(1.35rem, 2.5vw, 2.25rem); }
-    .premium-overview-meta small { display: block; color: var(--app-muted); font-size: .76rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
-    .premium-overview-meta strong { display: block; margin-top: .2rem; font-size: 1rem; }
-    .premium-plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: .8rem; }
-    .premium-plan-preview { border: 1px solid var(--app-line); border-radius: 13px; background: var(--app-surface); padding: 1.15rem; }
-    .premium-plan-preview strong, .premium-plan-preview span { display: block; }
-    .premium-plan-preview strong { color: var(--app-ink); }
-    .premium-plan-preview span { font-size: 1.45rem; font-weight: 800; margin-top: .5rem; }
-    .premium-plan-preview small { color: var(--app-muted); }
-    html[data-bs-theme="dark"] .premium-status-pill.is-active { background: #173a2a; color: #91e4b4; }
-    html[data-bs-theme="dark"] .premium-status-pill.is-attention { background: #49371b; color: #ffd390; }
     @@media (max-width: 850px) {
         .account-layout { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
         .profile-sidebar { position: static; flex-direction: row; overflow-x: auto; }
@@ -68,8 +46,8 @@
 <header class="app-page-heading mb-4">
     <p class="app-eyebrow mb-1">ACCOUNT</p>
     <h1 class="mb-1">My profile</h1>
-    <p class="text-secondary mb-0">Your account, shared household, and Premium access in one place.</p>
-    <div class="account-scope-row"><span class="account-scope">👤 Personal details affect your login</span><span class="account-scope">🏠 Household and Premium are shared with members</span></div>
+    <p class="text-secondary mb-0">Your personal account and shared household settings.</p>
+    <div class="account-scope-row"><span class="account-scope">👤 Personal details affect your login</span><span class="account-scope">🏠 Household settings are shared with members</span></div>
 </header>
 
 <div class="account-layout">
@@ -78,8 +56,7 @@
            aria-controls="account-details" aria-selected="true"><span>👤 Personal account</span><small>Only your login</small></a>
         <a id="householdTab" class="account-tab" href="#household-settings" data-account-tab="household" role="tab"
            aria-controls="household-settings" aria-selected="false"><span>🏠 Household</span><small>Shared pets and people</small></a>
-        <a id="premiumTab" class="account-tab" href="#premium-settings" data-account-tab="premium" role="tab"
-           aria-controls="premium-settings" aria-selected="false"><span>✨ Premium</span><small>@(needsPaymentAttention ? "Payment needs attention" : hasPremium ? "Active for household" : "Free household plan")</small></a>
+
     </nav>
 
 <div class="profile-content">
@@ -179,85 +156,7 @@
             <partial name="_HouseholdManagement" model="Model" />
         </section>
 
-        <section class="account-panel" id="premium-settings" role="tabpanel" aria-labelledby="premiumTab" hidden>
-            @if (!string.IsNullOrWhiteSpace(Model.PremiumNotice))
-            {
-                <div class="alert alert-info" role="status">@Model.PremiumNotice</div>
-            }
-            <div class="account-panel-intro">
-                <p class="app-eyebrow mb-1">SHARED WITH YOUR HOUSEHOLD</p>
-                <h2>Premium</h2>
-                <p>The plan belongs to @Model.ActiveHousehold?.Name. Every active member shares its access.</p>
-            </div>
 
-            @if (premium == null)
-            {
-                <div class="alert alert-warning" role="status">Premium status is unavailable for this household right now.</div>
-            }
-            else
-            {
-                <div class="premium-overview mb-4">
-                    <div class="premium-overview-main">
-                        <div>
-                            <p class="app-eyebrow mb-1">CURRENT HOUSEHOLD PLAN</p>
-                            <h3>@(hasPremium ? premium.PlanType == "free" ? "Premium active" : $"{premium.PlanLabel} Premium" : "Free plan")</h3>
-                            @if (needsPaymentAttention)
-                            {
-                                <p>Payment needs attention. @(hasPremium ? "Premium access is still available through the current paid period." : "Premium access is no longer active.")</p>
-                            }
-                            else if (hasPremium && premium.CancelAtPeriodEnd)
-                            {
-                                <p>Premium is active. Cancellation is scheduled for the end of this period.</p>
-                            }
-                            else if (hasPremium)
-                            {
-                                <p>Premium is active for everyone in this household.</p>
-                            }
-                            else
-                            {
-                                <p>Your household currently has free access.</p>
-                            }
-                        </div>
-                        <span class="premium-status-pill @(needsPaymentAttention ? "is-attention" : hasPremium ? "is-active" : "is-free")">
-                            @(needsPaymentAttention ? "Payment needs attention" : hasPremium ? "Premium active" : "Free access")
-                        </span>
-                    </div>
-                    <div class="premium-overview-meta">
-                        <div><small>Applies to</small><strong>@premium.HouseholdName</strong></div>
-                        <div><small>Plan</small><strong>@(hasPremium ? premium.PlanType == "free" ? "Not recorded" : premium.PlanLabel : "Free")</strong></div>
-                        @if (hasPremium || premium.CurrentPeriodEndUtc.HasValue)
-                        {
-                            <div>
-                                <small>@(premium.CancelAtPeriodEnd ? "Access through" : "Current period ends")</small>
-                                <strong>@(premium.CurrentPeriodEndUtc.HasValue ? premium.CurrentPeriodEndUtc.Value.ToString("MMM d, yyyy") + " UTC" : premium.PlanType == "lifetime" ? "No expiration" : "—")</strong>
-                            </div>
-                        }
-                    </div>
-                </div>
-
-                @if (!hasPremium)
-                {
-                    <div class="account-panel-intro">
-                        <p class="app-eyebrow mb-1">COMING SOON</p>
-                        <h2>Explore Premium plans</h2>
-                        <p>Premium purchases are not available yet. These prices are a preview for your household.</p>
-                    </div>
-                    @if (Model.PremiumPrices.Count > 0)
-                    {
-                        <div class="premium-plan-grid">
-                            @foreach (var plan in Model.PremiumPrices)
-                            {
-                                <article class="premium-plan-preview">
-                                    <strong>@plan.Name</strong>
-                                    <span>@plan.PriceLabel</span>
-                                    <small>@plan.BillingLabel</small>
-                                </article>
-                            }
-                        </div>
-                    }
-                }
-            }
-        </section>
 
 </div>
 </div>
@@ -296,11 +195,12 @@
             document.getElementById('passwordSection').classList.add('d-none');
         }
 
+        if (location.hash === '#premium-settings') location.replace('/Purchase');
+
         const accountTabs = [...document.querySelectorAll('[data-account-tab]')];
         const accountPanels = {
             profile: document.getElementById('account-details'),
-            household: document.getElementById('household-settings'),
-            premium: document.getElementById('premium-settings')
+            household: document.getElementById('household-settings')
         };
         function selectAccountTab(tabName, updateUrl = true) {
             const selected = accountPanels[tabName] ? tabName : 'profile';

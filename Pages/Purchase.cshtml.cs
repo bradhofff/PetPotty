@@ -5,20 +5,23 @@ using PetPotty.Services;
 
 namespace PetPotty.Pages;
 
-public class PremiumModel : PageModel
+public class PurchaseModel : PageModel
 {
     private readonly IHouseholdContextService _householdContext;
     private readonly IPremiumService _premium;
     private readonly IConfiguration _configuration;
+    private readonly IWebHostEnvironment _environment;
 
-    public PremiumModel(
+    public PurchaseModel(
         IHouseholdContextService householdContext,
         IPremiumService premium,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IWebHostEnvironment environment)
     {
         _householdContext = householdContext;
         _premium = premium;
         _configuration = configuration;
+        _environment = environment;
     }
 
     public HouseholdContext? Household { get; private set; }
@@ -26,13 +29,33 @@ public class PremiumModel : PageModel
     public string? ErrorMessage { get; private set; }
     public string? StatusMessage { get; private set; }
     public IReadOnlyList<PremiumPlan> Plans { get; private set; } = [];
+    public bool CanStartCheckout => CheckoutConfigured
+        && Plans.Any(plan => plan.PriceId.StartsWith("price_", StringComparison.Ordinal));
+    public bool CheckoutConfigured
+    {
+        get
+        {
+            var key = _configuration["Stripe:SecretKey"]?.Trim();
+            var baseUrl = _configuration["App:BaseUrl"];
+            if (string.IsNullOrWhiteSpace(key)
+                || string.IsNullOrWhiteSpace(_configuration["Stripe:WebhookSecret"]))
+                return false;
+            if (!_environment.IsProduction())
+                return key.StartsWith("sk_test_", StringComparison.Ordinal)
+                    || key.StartsWith("rk_test_", StringComparison.Ordinal);
+            return (key.StartsWith("sk_live_", StringComparison.Ordinal)
+                    || key.StartsWith("rk_live_", StringComparison.Ordinal))
+                && Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri)
+                && uri.Scheme == Uri.UriSchemeHttps;
+        }
+    }
     [BindProperty]
     public string? SelectedPlanKey { get; set; }
 
     public IActionResult OnGet(string? checkout, bool locked = false)
     {
         if (!TryGetUserID(out var userID))
-            return RedirectToPage("/Login", new { returnUrl = "/Premium" });
+            return RedirectToPage("/Login", new { returnUrl = "/Purchase" });
 
         Load(userID);
         if (Household == null || Status == null)
@@ -43,7 +66,7 @@ public class PremiumModel : PageModel
         else if (checkout == "success")
             StatusMessage = Status.IsPremium
                 ? "Premium is active for this household."
-                : "Payment received. Premium will unlock as soon as Stripe confirms the subscription.";
+                : "Checkout completed. Premium will unlock after Stripe confirms payment.";
         else if (checkout == "cancelled")
             StatusMessage = "Checkout was cancelled. No changes were made.";
 
@@ -53,7 +76,7 @@ public class PremiumModel : PageModel
     public async Task<IActionResult> OnPostStartCheckoutAsync()
     {
         if (!TryGetUserID(out var userID))
-            return RedirectToPage("/Login", new { returnUrl = "/Premium" });
+            return RedirectToPage("/Login", new { returnUrl = "/Purchase" });
 
         var household = _householdContext.GetActiveHousehold(userID);
         if (household == null)
@@ -62,10 +85,11 @@ public class PremiumModel : PageModel
         LoadPlans();
         var selectedPlan = Plans.FirstOrDefault(plan =>
             string.Equals(plan.Key, SelectedPlanKey, StringComparison.OrdinalIgnoreCase));
-        if (selectedPlan == null)
+        if (selectedPlan == null || !CheckoutConfigured
+            || !selectedPlan.PriceId.StartsWith("price_", StringComparison.Ordinal))
         {
             Load(userID);
-            ErrorMessage = "Choose one of the configured Premium plans.";
+            ErrorMessage = "Premium checkout is temporarily unavailable. Please try again later.";
             return Page();
         }
 
@@ -111,7 +135,14 @@ public class PremiumModel : PageModel
                 section["Description"]?.Trim() ?? string.Empty,
                 section["PriceId"]?.Trim() ?? string.Empty,
                 ResolveCheckoutMode(section)))
-            .Where(plan => !string.IsNullOrWhiteSpace(plan.PriceId))
+            .Where(plan => !string.IsNullOrWhiteSpace(plan.PriceLabel))
+            .OrderBy(plan => plan.Key.ToLowerInvariant() switch
+            {
+                "month" or "monthly" => 0,
+                "year" or "yearly" => 1,
+                "lifetime" => 2,
+                _ => 3
+            })
             .ToArray();
     }
 

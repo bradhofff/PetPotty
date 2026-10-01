@@ -62,6 +62,7 @@ public sealed class PremiumService : IPremiumService
         CancellationToken cancellationToken = default)
     {
         var secretKey = RequiredSetting("Stripe:SecretKey");
+        RequiredSetting("Stripe:WebhookSecret");
         if (string.IsNullOrWhiteSpace(priceID))
             throw new InvalidOperationException("Select a configured Premium plan.");
         if (planType is not ("monthly" or "yearly" or "lifetime"))
@@ -83,8 +84,8 @@ public sealed class PremiumService : IPremiumService
             ["line_items[0][price]"] = priceID,
             ["line_items[0][quantity]"] = "1",
             ["client_reference_id"] = household.PublicID.ToString(),
-            ["success_url"] = $"{normalizedBaseUrl}/Premium?checkout=success",
-            ["cancel_url"] = $"{normalizedBaseUrl}/Premium?checkout=cancelled",
+            ["success_url"] = $"{normalizedBaseUrl}/Purchase?checkout=success",
+            ["cancel_url"] = $"{normalizedBaseUrl}/Purchase?checkout=cancelled",
             ["metadata[household_public_id]"] = household.PublicID.ToString(),
             ["metadata[purchaser_user_id]"] = userID.ToString(CultureInfo.InvariantCulture),
             ["metadata[premium_plan_type]"] = planType
@@ -94,6 +95,11 @@ public sealed class PremiumService : IPremiumService
             form["subscription_data[metadata][household_public_id]"] = household.PublicID.ToString();
             form["subscription_data[metadata][purchaser_user_id]"] = userID.ToString(CultureInfo.InvariantCulture);
             form["subscription_data[metadata][premium_plan_type]"] = planType;
+        }
+        else if (string.IsNullOrWhiteSpace(existing.StripeCustomerID))
+        {
+            // Keep the customer on the household for receipts and future billing support.
+            form["customer_creation"] = "always";
         }
         if (!string.IsNullOrWhiteSpace(existing.StripeCustomerID))
             form["customer"] = existing.StripeCustomerID;
@@ -133,6 +139,16 @@ public sealed class PremiumService : IPremiumService
 
         using var document = JsonDocument.Parse(payload);
         var root = document.RootElement;
+        var secretKey = RequiredSetting("Stripe:SecretKey");
+        var liveMode = secretKey.StartsWith("sk_live_", StringComparison.Ordinal)
+            || secretKey.StartsWith("rk_live_", StringComparison.Ordinal);
+        var testMode = secretKey.StartsWith("sk_test_", StringComparison.Ordinal)
+            || secretKey.StartsWith("rk_test_", StringComparison.Ordinal);
+        if ((!liveMode && !testMode)
+            || !root.TryGetProperty("livemode", out var eventMode)
+            || eventMode.ValueKind is not (JsonValueKind.True or JsonValueKind.False)
+            || (eventMode.GetBoolean() != liveMode))
+            throw new InvalidOperationException("Stripe event mode does not match the configured API key.");
         var eventID = RequiredString(root, "id");
         var eventType = RequiredString(root, "type");
         var eventCreatedAtUtc = FromUnixSeconds(root.TryGetProperty("created", out var created)
@@ -187,10 +203,21 @@ public sealed class PremiumService : IPremiumService
             _ => null
         };
 
-        DateTime? currentPeriodEnd = null;
-        if (data.TryGetProperty("current_period_end", out var currentPeriodEndValue)
-            && currentPeriodEndValue.ValueKind == JsonValueKind.Number)
-            currentPeriodEnd = FromUnixSeconds(currentPeriodEndValue.GetInt64());
+        DateTime? currentPeriodEnd = ReadUnixDate(data, "current_period_end");
+        // Stripe API versions from 2025-03-31 onward put the billing period on
+        // subscription items. The older top-level field is still accepted.
+        if (currentPeriodEnd == null && eventType.StartsWith("customer.subscription.", StringComparison.Ordinal)
+            && data.TryGetProperty("items", out var items)
+            && items.TryGetProperty("data", out var itemData)
+            && itemData.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in itemData.EnumerateArray())
+            {
+                var itemEnd = ReadUnixDate(item, "current_period_end");
+                if (itemEnd.HasValue && (!currentPeriodEnd.HasValue || itemEnd > currentPeriodEnd))
+                    currentPeriodEnd = itemEnd;
+            }
+        }
 
         var cancelAtPeriodEnd = data.TryGetProperty("cancel_at_period_end", out var cancelValue)
             && cancelValue.ValueKind == JsonValueKind.True;
@@ -306,6 +333,10 @@ public sealed class PremiumService : IPremiumService
         element.TryGetProperty(propertyName, out var value)
             && value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out var number)
             ? number : null;
+
+    private static DateTime? ReadUnixDate(JsonElement element, string propertyName) =>
+        ReadLong(element, propertyName) is { } seconds && seconds > 0
+            ? FromUnixSeconds(seconds) : null;
 
     private static Guid? ParseGuid(IReadOnlyDictionary<string, string> metadata, string key) =>
         metadata.TryGetValue(key, out var value) && Guid.TryParse(value, out var parsed) ? parsed : null;

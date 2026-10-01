@@ -3,13 +3,14 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace PetPotty.Pages;
 
-public class PremiumComingSoonModel : PageModel
+public class PremiumRedirectModel : PageModel
 {
-    public IActionResult OnGet(string? checkout)
+    public IActionResult OnGet(string? checkout, bool locked = false)
     {
-        if (!int.TryParse(HttpContext.Session.GetString("userID"), out _))
-            return RedirectToPage("/Login", new { returnUrl = "/Premium" });
-        var checkoutQuery = checkout is "success" or "cancelled" ? $"?checkout={checkout}" : string.Empty;
-        return Redirect($"/Profile{checkoutQuery}#premium-settings");
+        return RedirectToPage("/Purchase", new
+        {
+            checkout = checkout is "success" or "cancelled" ? checkout : null,
+            locked = locked ? true : (bool?)null
+        });
     }
 }

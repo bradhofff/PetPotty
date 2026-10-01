@@ -25,23 +25,22 @@ public class LoginModel : PageModel
     [BindProperty]
     public string InvitationToken { get; set; } = string.Empty;
 
+    [BindProperty(SupportsGet = true)]
+    public string? ReturnUrl { get; set; }
+
     public IActionResult OnGet(string? invitationToken)
     {
         InvitationToken = invitationToken?.Trim() ?? string.Empty;
         if (!IsAuthenticated())
             return Page();
-        return string.IsNullOrWhiteSpace(InvitationToken)
-            ? RedirectToPage("/Home")
-            : RedirectToPage("/HouseholdInvitation", new { token = InvitationToken });
+        return RedirectAfterLogin();
     }
 
     public IActionResult OnPost()
     {
         if (IsAuthenticated())
         {
-            return string.IsNullOrWhiteSpace(InvitationToken)
-                ? RedirectToPage("/Home")
-                : RedirectToPage("/HouseholdInvitation", new { token = InvitationToken });
+            return RedirectAfterLogin();
         }
 
         if (string.IsNullOrWhiteSpace(Username) || string.IsNullOrWhiteSpace(Password))
@@ -99,9 +98,7 @@ public class LoginModel : PageModel
 
                     _households.EnsurePersonalHousehold(Convert.ToInt32(userID));
 
-                    return string.IsNullOrWhiteSpace(InvitationToken)
-                        ? RedirectToPage("/Home")
-                        : RedirectToPage("/HouseholdInvitation", new { token = InvitationToken });
+                    return RedirectAfterLogin();
                 }
                 else
                 {
@@ -115,6 +112,15 @@ public class LoginModel : PageModel
                 return Page();
             }
         }
+    }
+
+    private IActionResult RedirectAfterLogin()
+    {
+        if (!string.IsNullOrWhiteSpace(InvitationToken))
+            return RedirectToPage("/HouseholdInvitation", new { token = InvitationToken });
+        return !string.IsNullOrWhiteSpace(ReturnUrl) && Url.IsLocalUrl(ReturnUrl)
+            ? LocalRedirect(ReturnUrl)
+            : RedirectToPage("/Home");
     }
 
     private bool IsAuthenticated()

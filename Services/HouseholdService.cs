@@ -55,14 +55,13 @@ public sealed class HouseholdService : IHouseholdService
         }
 
         using var create = new SqlCommand("""
-            DECLARE @Name nvarchar(150) =
-                CONCAT(COALESCE(NULLIF(LTRIM(RTRIM(CONVERT(nvarchar(100), u.name))), N''),
-                                NULLIF(LTRIM(RTRIM(CONVERT(nvarchar(100), u.userName))), N''),
-                                N'My'), N' Household');
-
             INSERT dbo.Households (PublicID, Name, CreatedByUserID, CreatedAtUtc, UpdatedAtUtc)
             OUTPUT INSERTED.HouseholdID, INSERTED.PublicID, INSERTED.Name
-            SELECT NEWID(), LEFT(@Name, 150), u.userID, SYSUTCDATETIME(), SYSUTCDATETIME()
+            SELECT NEWID(),
+                   LEFT(CONCAT(COALESCE(NULLIF(LTRIM(RTRIM(CONVERT(nvarchar(100), u.name))), N''),
+                                        NULLIF(LTRIM(RTRIM(CONVERT(nvarchar(100), u.userName))), N''),
+                                        N'My'), N' Household'), 150),
+                   u.userID, SYSUTCDATETIME(), SYSUTCDATETIME()
             FROM dbo.Users u
             WHERE u.userID = @UserID;
             """, connection, transaction);

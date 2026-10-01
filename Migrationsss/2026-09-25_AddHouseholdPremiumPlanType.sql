@@ -354,7 +354,7 @@ BEGIN
                 WHEN @PremiumPlanType = N'lifetime'
                     THEN NULL
 
-                WHEN @EntitlementStatus IS NULL
+                WHEN @CurrentPeriodEndUtc IS NULL
                     THEN h.PremiumCurrentPeriodEndUtc
 
                 ELSE @CurrentPeriodEndUtc
@@ -384,6 +384,17 @@ BEGIN
 
     FROM dbo.Households h
     WHERE h.HouseholdID = @HouseholdID
+      -- A later webhook from an old subscription cannot revoke a lifetime purchase.
+      AND (h.PremiumPlanType <> N'lifetime' OR @PremiumPlanType = N'lifetime')
+      -- Once a replacement subscription is active, ignore events from the old one.
+      AND (
+          @StripeSubscriptionID IS NULL
+          OR h.StripeSubscriptionID IS NULL
+          OR h.StripeSubscriptionID = @StripeSubscriptionID
+          OR h.PremiumStatus IN (N'free', N'canceled', N'unpaid', N'incomplete_expired')
+          OR (h.PremiumStatus = N'past_due'
+              AND h.PremiumCurrentPeriodEndUtc <= SYSUTCDATETIME())
+      )
       AND
       (
           @EntitlementStatus IS NULL

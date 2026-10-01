@@ -147,13 +147,52 @@
     <a class="skip-link" href="#main-content">Skip to content</a>
     @if (isLanding)
     {
-        <header class="pack-nav">
-            <nav class="pack-container" aria-label="Primary navigation">
-                <a class="pack-wordmark" asp-page="/Index"><span aria-hidden="true">🐾</span> PackTracker</a>
-                <div class="pack-nav-links"><a href="#features">Explore the app</a><a href="#together-title">Shared care</a></div>
-                <div class="pack-nav-actions">
-                    @if (!isLoggedIn) { <a asp-page="/Login">Log in</a> }
-                    <a class="pack-button pack-button-small" asp-page="@(isLoggedIn ? "/Home" : "/Signup")">Get started</a>
+        <header class="sticky-top">
+            <nav class="navbar navbar-dark site-navbar pack-landing-nav" aria-label="Primary navigation">
+                <div class="container">
+                    <a class="navbar-brand" asp-page="/Index">
+                        <span class="paw" aria-hidden="true">🐾</span>
+                        <span>PackTracker</span>
+                    </a>
+                    <div class="pack-landing-links">
+                        <a class="nav-link" href="#features">Explore the app</a>
+                        <a class="nav-link" href="#together-title">Shared care</a>
+                    </div>
+                    @if (isLoggedIn)
+                    {
+                        <div class="profile-dropdown dropdown ms-auto">
+                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"
+                               aria-expanded="false" aria-label="Account menu">
+                                <span class="profile-avatar" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+                                    </svg>
+                                </span>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" asp-page="/Profile" asp-fragment="account-details">Edit profile</a></li>
+                                <li><a class="dropdown-item" asp-page="/Profile" asp-fragment="household-settings">Household</a></li>
+                                <li><a class="dropdown-item" asp-page="/Purchase">Household Premium</a></li>
+                                <li>
+                                    <form method="post" asp-page="/Theme" class="theme-toggle-form">
+                                        <input type="hidden" name="returnUrl" value="@currentUrl" />
+                                        <button type="submit" class="dropdown-item theme-toggle-button">
+                                            @(darkMode ? "☀️ Light mode" : "🌙 Dark mode")
+                                        </button>
+                                    </form>
+                                </li>
+                                <li><hr class="dropdown-divider" /></li>
+                                <li><a class="dropdown-item dropdown-logout" asp-page="/Logout">Logout</a></li>
+                            </ul>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="pack-landing-actions ms-auto">
+                            <a class="btn pt-btn-primary" asp-page="/Signup">Get Started</a>
+                            <a class="btn pt-btn-secondary" asp-page="/Login">Log in</a>
+                        </div>
+                    }
                 </div>
             </nav>
         </header>
@@ -229,7 +268,7 @@
                                 <ul class="dropdown-menu dropdown-menu-end">
                                     <li><a class="dropdown-item" asp-page="/Profile" asp-fragment="account-details">Edit profile</a></li>
                                     <li><a class="dropdown-item" asp-page="/Profile" asp-fragment="household-settings">Household</a></li>
-                                    <li><a class="dropdown-item" asp-page="/Profile" asp-fragment="premium-settings">Household Premium</a></li>
+                                    <li><a class="dropdown-item" asp-page="/Purchase">Household Premium</a></li>
                                     <li class="@(isLanding ? "" : "d-none d-lg-block")">
                                         <form method="post" asp-page="/Theme" class="theme-toggle-form">
                                             <input type="hidden" name="returnUrl" value="@currentUrl" />
