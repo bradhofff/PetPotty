@@ -6,6 +6,8 @@ public interface IPremiumService
 {
     bool BillingPortalConfigured { get; }
     HouseholdPremiumStatus? GetStatus(int userID, int householdID);
+    Task<HouseholdPremiumStatus?> RefreshStatusAsync(int userID, int householdID,
+        CancellationToken cancellationToken = default);
     Task<string> CreateBillingPortalSessionAsync(int userID, int householdID, string baseUrl,
         CancellationToken cancellationToken = default);
     Task<PremiumCheckoutSession> CreateCheckoutSessionAsync(

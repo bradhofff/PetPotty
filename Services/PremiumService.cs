@@ -76,6 +76,95 @@ public sealed class PremiumService : IPremiumService
         return MapStatus(reader);
     }
 
+    public async Task<HouseholdPremiumStatus?> RefreshStatusAsync(int userID, int householdID,
+        CancellationToken cancellationToken = default)
+    {
+        var status = GetStatus(userID, householdID);
+        if (status?.CanManageBilling(userID) != true)
+            return status;
+
+        var secretKey = RequiredSetting("Stripe:SecretKey");
+        var liveMode = secretKey.StartsWith("sk_live_", StringComparison.Ordinal)
+            || secretKey.StartsWith("rk_live_", StringComparison.Ordinal);
+        var testMode = secretKey.StartsWith("sk_test_", StringComparison.Ordinal)
+            || secretKey.StartsWith("rk_test_", StringComparison.Ordinal);
+        if (_environment.IsProduction() ? !liveMode : !testMode)
+            throw new InvalidOperationException("Billing refresh credentials do not match the app environment.");
+
+        // Use a whole-second watermark, like Stripe event timestamps. Older delayed
+        // webhooks must not undo the subscription snapshot retrieved on return.
+        var refreshStartedAtUtc = FromUnixSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        using var request = new HttpRequestMessage(HttpMethod.Get,
+            $"{StripeApiBase}/subscriptions/{Uri.EscapeDataString(status.StripeSubscriptionID!)}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", secretKey);
+        var client = _httpClientFactory.CreateClient("Stripe");
+        using var response = await client.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("Stripe billing refresh failed with {StatusCode} for household {HouseholdID}",
+                response.StatusCode, householdID);
+            throw new InvalidOperationException("Stripe could not refresh billing status.");
+        }
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+        var subscription = document.RootElement;
+        if (ReadString(subscription, "id") != status.StripeSubscriptionID
+            || ReadString(subscription, "customer") != status.StripeCustomerID
+            || !subscription.TryGetProperty("livemode", out var mode)
+            || mode.ValueKind is not (JsonValueKind.True or JsonValueKind.False)
+            || mode.GetBoolean() != liveMode)
+            throw new InvalidOperationException("Stripe returned an unexpected subscription.");
+
+        // Share the webhook parser so classic and flexible billing cancellation
+        // dates, including item-level billing periods, behave identically.
+        var snapshot = ParseStripeEvent(string.Empty, "customer.subscription.updated", refreshStartedAtUtc, subscription);
+        if (snapshot.EntitlementStatus is not ("active" or "trialing" or "past_due" or "unpaid"
+            or "incomplete" or "incomplete_expired" or "paused" or "canceled")
+            || (snapshot.CancelAtPeriodEnd == true && snapshot.CurrentPeriodEndUtc == null))
+            throw new InvalidOperationException("Stripe returned an incomplete billing status.");
+
+        using var connection = new SqlConnection(_connectionString);
+        using var command = new SqlCommand("""
+            UPDATE h
+            SET PremiumStatus = @Status,
+                PremiumCurrentPeriodEndUtc = @PeriodEnd,
+                PremiumCancelAtPeriodEnd = @CancelAtPeriodEnd,
+                PremiumUpdatedAtUtc = SYSUTCDATETIME(),
+                PremiumLastStripeEventCreatedUtc = @RefreshStartedAtUtc
+            FROM dbo.Households h
+            WHERE h.HouseholdID = @HouseholdID
+              AND h.StripeSubscriptionID = @SubscriptionID AND h.StripeCustomerID = @CustomerID
+              AND h.PremiumPlanType = @OriginalPlanType AND h.PremiumPlanType <> N'lifetime'
+              AND h.PremiumStatus = @OriginalStatus AND h.PremiumCancelAtPeriodEnd = @OriginalCancel
+              AND (h.PremiumCurrentPeriodEndUtc = @OriginalPeriodEnd
+                   OR (h.PremiumCurrentPeriodEndUtc IS NULL AND @OriginalPeriodEnd IS NULL))
+              AND (h.PremiumUpdatedAtUtc = @OriginalUpdatedAtUtc
+                   OR (h.PremiumUpdatedAtUtc IS NULL AND @OriginalUpdatedAtUtc IS NULL))
+              AND (h.PremiumLastStripeEventCreatedUtc IS NULL
+                   OR h.PremiumLastStripeEventCreatedUtc <= @RefreshStartedAtUtc)
+              AND EXISTS (SELECT 1 FROM dbo.HouseholdMembers hm
+                          WHERE hm.HouseholdID = h.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active');
+            """, connection);
+        command.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID;
+        command.Parameters.Add("@UserID", SqlDbType.Int).Value = userID;
+        AddNullable(command, "@SubscriptionID", status.StripeSubscriptionID, 255);
+        AddNullable(command, "@CustomerID", status.StripeCustomerID, 255);
+        AddNullable(command, "@Status", snapshot.EntitlementStatus, 20);
+        command.Parameters.Add("@PeriodEnd", SqlDbType.DateTime2).Value = (object?)snapshot.CurrentPeriodEndUtc ?? DBNull.Value;
+        command.Parameters.Add("@CancelAtPeriodEnd", SqlDbType.Bit).Value = snapshot.CancelAtPeriodEnd!.Value;
+        command.Parameters.Add("@RefreshStartedAtUtc", SqlDbType.DateTime2).Value = refreshStartedAtUtc;
+        AddNullable(command, "@OriginalPlanType", status.PlanType, 20);
+        AddNullable(command, "@OriginalStatus", status.Status, 20);
+        command.Parameters.Add("@OriginalCancel", SqlDbType.Bit).Value = status.CancelAtPeriodEnd;
+        command.Parameters.Add("@OriginalPeriodEnd", SqlDbType.DateTime2).Value = (object?)status.CurrentPeriodEndUtc ?? DBNull.Value;
+        command.Parameters.Add("@OriginalUpdatedAtUtc", SqlDbType.DateTime2).Value = (object?)status.UpdatedAtUtc ?? DBNull.Value;
+        await connection.OpenAsync(cancellationToken);
+        await command.ExecuteNonQueryAsync(cancellationToken);
+        // A concurrent webhook or household change wins over this refresh.
+        // Reconciliation updates entitlement only; the signed event ledger stays intact.
+        return GetStatus(userID, householdID);
+    }
+
     public async Task<string> CreateBillingPortalSessionAsync(int userID, int householdID, string baseUrl,
         CancellationToken cancellationToken = default)
     {

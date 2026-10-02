@@ -153,6 +153,15 @@ Stripe Customer Portal session. It returns to
 `/Profile?billing=return#premium-settings`. Browser-supplied customer IDs and
 return URLs are not accepted.
 
+On return, the server retrieves the purchaser's stored subscription from Stripe
+and refreshes its status, cancellation flag, and period end before rendering the
+Premium tab. This also works when a webhook is delayed or the local Stripe CLI
+listener is stopped. Failed refreshes leave the stored status intact and show a
+retry message. The refresh checks active membership and the subscription's
+customer and mode, preserves concurrent household/webhook changes, and does not
+insert synthetic events into the signed transaction ledger. Older delayed
+webhooks cannot overwrite the refresh snapshot.
+
 Create a dedicated portal configuration separately in the sandbox and live mode:
 
 - Enable subscription cancellation with mode `at_period_end`.

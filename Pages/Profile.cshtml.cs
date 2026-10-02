@@ -59,15 +59,28 @@ public sealed class ProfileModel : PageModel
     }}:PriceLabel"];
     public IReadOnlyList<(string Name, string Price, string Billing)> PremiumPlans { get; private set; } = [];
 
-    public IActionResult OnGet(string? checkout, string? billing)
+    public async Task<IActionResult> OnGetAsync(string? checkout, string? billing)
     {
         if (!TryGetUserID(out var userID))
             return RedirectToPage("/Login");
         if (checkout is "success" or "cancelled")
             return RedirectToPage("/Purchase", new { checkout });
-        if (billing == "return")
-            TempData["PremiumMessage"] = "Your household billing status is shown below. Changes made in Stripe may take a moment to appear.";
         LoadPage(userID);
+        if (billing == "return" && CanManageBilling && ActiveHousehold != null)
+        {
+            try
+            {
+                PremiumStatus = await _premium.RefreshStatusAsync(userID, ActiveHousehold.HouseholdID,
+                    HttpContext.RequestAborted);
+                CanManageBilling = PremiumStatus?.CanManageBilling(userID) == true;
+                TempData["PremiumMessage"] = "Your household billing status has been updated.";
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException
+                or TaskCanceledException or System.Text.Json.JsonException)
+            {
+                TempData["PremiumError"] = "We couldn't refresh your billing status from Stripe. Please reload this page to try again.";
+            }
+        }
         return Page();
     }
 
