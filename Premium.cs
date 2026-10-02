@@ -11,6 +11,14 @@ public sealed class HouseholdPremiumStatus
     public DateTime? CurrentPeriodEndUtc { get; init; }
     public bool CancelAtPeriodEnd { get; init; }
     public DateTime? UpdatedAtUtc { get; init; }
+    public int? BillingManagerUserID { get; init; }
+
+    public bool HasBillingSubscription => PlanType != "lifetime"
+        && !string.IsNullOrWhiteSpace(StripeCustomerID)
+        && !string.IsNullOrWhiteSpace(StripeSubscriptionID)
+        && Status is "active" or "trialing" or "past_due" or "unpaid" or "incomplete" or "paused";
+
+    public bool CanManageBilling(int userID) => HasBillingSubscription && BillingManagerUserID == userID;
 
     public string PlanLabel => PlanType.ToLowerInvariant() switch
     {
@@ -24,6 +32,8 @@ public sealed class HouseholdPremiumStatus
     {
         get
         {
+            if (CancelAtPeriodEnd && CurrentPeriodEndUtc is { } end && end <= DateTime.UtcNow)
+                return false;
             if (Status is "active" or "trialing")
                 return true;
 

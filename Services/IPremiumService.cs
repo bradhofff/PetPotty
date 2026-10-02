@@ -4,7 +4,10 @@ namespace PetPotty.Services;
 
 public interface IPremiumService
 {
+    bool BillingPortalConfigured { get; }
     HouseholdPremiumStatus? GetStatus(int userID, int householdID);
+    Task<string> CreateBillingPortalSessionAsync(int userID, int householdID, string baseUrl,
+        CancellationToken cancellationToken = default);
     Task<PremiumCheckoutSession> CreateCheckoutSessionAsync(
         int userID,
         HouseholdContext household,

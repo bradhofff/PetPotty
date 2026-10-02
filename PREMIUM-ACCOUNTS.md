@@ -45,8 +45,13 @@ Stripe__WebhookSecret=whsec_...
 App__BaseUrl=https://your-production-domain.example
 ```
 
-The standalone `/Purchase` page supports multiple selectable plans and opens
-from **Household Premium** in the profile icon menu. For local testing, use **test-mode** keys and
+The **Household Premium** item in the profile icon menu opens the Premium
+information tab at `/Profile#premium-settings`, alongside Personal account and
+Household. Free households see prices and a button to the standalone `/Purchase`
+page for Stripe Checkout. Premium households see their current plan, its price,
+renewal or cancellation date, and billing FAQs. `/Purchase` redirects active
+Premium households and households with an existing billing subscription to this
+tab. For local testing, use **test-mode** keys and
 Prices in the ignored `appsettings.Development.json` file. For example:
 
 ```json
@@ -133,6 +138,44 @@ paid period (`PremiumCurrentPeriodEndUtc`) while Stripe retries payment. A
 `deleted` subscription immediately becomes non-premium. This policy can be
 changed in `HouseholdPremiumStatus.IsPremium` without changing the schema.
 
+## Manage billing and cancellation
+
+Only the subscription purchaser can open **Manage billing**. The app resolves
+that purchaser from signed Stripe events in `HouseholdPremiumTransactions` for
+the household's current subscription. Active membership is required and checked
+again on every portal request. Other members can view the household's status but
+cannot open billing or see payment methods and invoices. Missing purchaser
+records fail closed; use support reconciliation for historic subscriptions.
+
+The button posts to `/Profile?handler=ManageBilling` with antiforgery protection.
+The server reads the customer ID from the household and creates a short-lived
+Stripe Customer Portal session. It returns to
+`/Profile?billing=return#premium-settings`. Browser-supplied customer IDs and
+return URLs are not accepted.
+
+Create a dedicated portal configuration separately in the sandbox and live mode:
+
+- Enable subscription cancellation with mode `at_period_end`.
+- Enable payment-method updates and invoice history.
+- Disable subscription plan changes and the public portal login page.
+
+Set its returned `bpc_...` ID as `Stripe:BillingPortalConfigurationId`. The local
+sandbox ID is in ignored `appsettings.Development.json`. On the VPS set
+`Stripe__BillingPortalConfigurationId` in `/etc/petpotty/petpotty.env` to the live
+configuration ID. Before opening a session, the app validates that cancellation
+is enabled at period end and plan switching is disabled. Missing settings disable
+the button. Production requires live credentials and an HTTPS app URL.
+
+The subscription-update webhook records scheduled cancellation and its date.
+Premium continues through that paid period. The subscription-deleted webhook
+removes access when the subscription ends. Scheduled cancellation also stops
+access locally at its recorded end date if the final webhook is delayed. The
+parser supports both `cancel_at_period_end` and flexible billing's `cancel_at`.
+Lifetime has no recurring subscription or cancellation action.
+
+See [Stripe portal integration](https://docs.stripe.com/customer-management/integrate-customer-portal)
+and [portal configuration API](https://docs.stripe.com/api/customer_portal/configurations/create).
+
 ## Live rollout check
 
 1. Create the three live Prices with the intended amounts and billing intervals.
@@ -144,6 +187,8 @@ changed in `HouseholdPremiumStatus.IsPremium` without changing the schema.
    environment. Restart the app.
 4. In Stripe live mode, register `/stripe/webhook` for the events above and
    confirm the endpoint is enabled.
+   Create the live portal configuration described above and set its
+   `Stripe__BillingPortalConfigurationId` on the VPS.
 5. Complete one authorized live purchase. Confirm the corresponding webhook
    delivery succeeded, `Households.PremiumStatus` is `active`, the plan type is
    correct, and `/PremiumTest` opens for an active member of that household.
@@ -188,10 +233,24 @@ Testing also exposed and fixed an unbound SQL table alias in
 personal household from being created. Fresh test households now create
 successfully.
 
+## Billing management verification completed October 1, 2026
+
+The sandbox portal was configured for payment-method updates, invoice history,
+and cancellation at the end of the paid period. The actual **Manage billing**
+button opened Stripe's hosted test portal for the isolated Yearly purchaser;
+it showed the scheduled October 1, 2027 cancellation and returned to the
+Premium tab. No additional subscription changes were made during this check.
+
+Service checks using the signed transaction ledger and a stub Stripe HTTP
+handler verified purchaser access; member, non-member, Free, and Lifetime
+denials; rejection of unsafe portal settings and redirect URLs; use of the
+household's customer ID; the Premium return URL; production rejection of test
+credentials; and access before and after a scheduled cancellation's expiry.
+These checks do not verify a live portal configuration or VPS deployment.
+
 ## Follow-up operations
 
-- Add a Billing Portal action for owners and a support/admin reconciliation
-  view using the transaction ledger.
+- Add a support/admin reconciliation view using the transaction ledger.
 - Add a scheduled reconciliation job that retrieves active subscriptions from
   Stripe and repairs any missed webhook state.
 - Add an explicit refund/chargeback policy and decide whether `past_due` keeps

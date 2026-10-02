@@ -14,19 +14,22 @@ public sealed class ProfileModel : PageModel
     private readonly IHouseholdContextService _householdContext;
     private readonly IHouseholdInvitationService _invitations;
     private readonly IEmailService _email;
+    private readonly IPremiumService _premium;
 
     public ProfileModel(
         IConfiguration configuration,
         IHouseholdService households,
         IHouseholdContextService householdContext,
         IHouseholdInvitationService invitations,
-        IEmailService email)
+        IEmailService email,
+        IPremiumService premium)
     {
         _configuration = configuration;
         _households = households;
         _householdContext = householdContext;
         _invitations = invitations;
         _email = email;
+        _premium = premium;
     }
 
     [BindProperty] public string ProfileName { get; set; } = string.Empty;
@@ -47,15 +50,53 @@ public sealed class ProfileModel : PageModel
     public IReadOnlyList<HouseholdInvitation> PendingInvitations { get; private set; } = [];
     public bool IsOwner => ActiveHousehold?.Role == HouseholdRole.Owner;
     public bool EmailConfigured => _email.IsConfigured;
+    public HouseholdPremiumStatus? PremiumStatus { get; private set; }
+    public bool CanManageBilling { get; private set; }
+    public bool BillingPortalConfigured => _premium.BillingPortalConfigured;
+    public string? PremiumPriceLabel => _configuration[$"Stripe:Plans:{PremiumStatus?.PlanType switch
+    {
+        "monthly" => "Month", "yearly" => "Year", "lifetime" => "Lifetime", _ => string.Empty
+    }}:PriceLabel"];
+    public IReadOnlyList<(string Name, string Price, string Billing)> PremiumPlans { get; private set; } = [];
 
-    public IActionResult OnGet(string? checkout)
+    public IActionResult OnGet(string? checkout, string? billing)
     {
         if (!TryGetUserID(out var userID))
             return RedirectToPage("/Login");
         if (checkout is "success" or "cancelled")
             return RedirectToPage("/Purchase", new { checkout });
+        if (billing == "return")
+            TempData["PremiumMessage"] = "Your household billing status is shown below. Changes made in Stripe may take a moment to appear.";
         LoadPage(userID);
         return Page();
+    }
+
+    public async Task<IActionResult> OnPostManageBillingAsync()
+    {
+        if (!TryGetUserID(out var userID))
+            return RedirectToPage("/Login", new { returnUrl = "/Profile#premium-settings" });
+        var household = _householdContext.GetActiveHousehold(userID);
+        if (household == null)
+            return StatusCode(StatusCodes.Status403Forbidden);
+        var baseUrl = _configuration["App:BaseUrl"]?.TrimEnd('/');
+        if (string.IsNullOrWhiteSpace(baseUrl))
+            baseUrl = $"{Request.Scheme}://{Request.Host}{Request.PathBase}";
+        try
+        {
+            var url = await _premium.CreateBillingPortalSessionAsync(userID, household.HouseholdID,
+                baseUrl, HttpContext.RequestAborted);
+            return Redirect(url);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or TaskCanceledException)
+        {
+            TempData["PremiumError"] = ex is InvalidOperationException ? ex.Message
+                : "Stripe could not open billing management. Please try again.";
+            return RedirectToPage("/Profile", pageHandler: null, routeValues: null, fragment: "premium-settings");
+        }
     }
 
     public IActionResult OnPostUpdateProfile()
@@ -229,6 +270,20 @@ public sealed class ProfileModel : PageModel
             ? _households.GetPendingInvitations(userID, ActiveHousehold.HouseholdID)
             : [];
         HouseholdName = ActiveHousehold.Name;
+        PremiumStatus = _premium.GetStatus(userID, ActiveHousehold.HouseholdID);
+        CanManageBilling = PremiumStatus?.CanManageBilling(userID) == true;
+        PremiumPlans = new[] { "Month", "Year", "Lifetime" }
+            .Select(key => (
+                Name: _configuration[$"Stripe:Plans:{key}:Name"] ?? key,
+                Price: _configuration[$"Stripe:Plans:{key}:PriceLabel"] ?? string.Empty,
+                Billing: key switch
+                {
+                    "Month" => "Renews each month.",
+                    "Year" => "Renews each year.",
+                    _ => "One payment. No recurring charges."
+                }))
+            .Where(plan => !string.IsNullOrWhiteSpace(plan.Price))
+            .ToArray();
     }
 
     private void LoadProfile(int userID)

@@ -159,7 +159,7 @@
                             <ul class="dropdown-menu dropdown-menu-end">
                                 <li><a class="dropdown-item" asp-page="/Profile" asp-fragment="account-details">Edit profile</a></li>
                                 <li><a class="dropdown-item" asp-page="/Profile" asp-fragment="household-settings">Household</a></li>
-                                <li><a class="dropdown-item" asp-page="/Purchase">Household Premium</a></li>
+                                <li><a class="dropdown-item" asp-page="/Profile" asp-fragment="premium-settings">Household Premium</a></li>
                                 <li>
                                     <form method="post" asp-page="/Theme" class="theme-toggle-form">
                                         <input type="hidden" name="returnUrl" value="@currentUrl" />
@@ -255,7 +255,7 @@
                                 <ul class="dropdown-menu dropdown-menu-end">
                                     <li><a class="dropdown-item" asp-page="/Profile" asp-fragment="account-details">Edit profile</a></li>
                                     <li><a class="dropdown-item" asp-page="/Profile" asp-fragment="household-settings">Household</a></li>
-                                    <li><a class="dropdown-item" asp-page="/Purchase">Household Premium</a></li>
+                                    <li><a class="dropdown-item" asp-page="/Profile" asp-fragment="premium-settings">Household Premium</a></li>
                                     <li class="@(isLanding ? "" : "d-none d-lg-block")">
                                         <form method="post" asp-page="/Theme" class="theme-toggle-form">
                                             <input type="hidden" name="returnUrl" value="@currentUrl" />

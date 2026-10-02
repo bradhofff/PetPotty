@@ -16,17 +16,36 @@ public sealed class PremiumService : IPremiumService
     private readonly IConfiguration _configuration;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<PremiumService> _logger;
+    private readonly IWebHostEnvironment _environment;
 
     public PremiumService(
         IConfiguration configuration,
         IHttpClientFactory httpClientFactory,
-        ILogger<PremiumService> logger)
+        ILogger<PremiumService> logger,
+        IWebHostEnvironment environment)
     {
         _configuration = configuration;
         _httpClientFactory = httpClientFactory;
         _logger = logger;
+        _environment = environment;
         _connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+    }
+
+    public bool BillingPortalConfigured
+    {
+        get
+        {
+            var key = _configuration["Stripe:SecretKey"]?.Trim() ?? string.Empty;
+            var validKey = _environment.IsProduction()
+                ? key.StartsWith("sk_live_", StringComparison.Ordinal) || key.StartsWith("rk_live_", StringComparison.Ordinal)
+                : key.StartsWith("sk_test_", StringComparison.Ordinal) || key.StartsWith("rk_test_", StringComparison.Ordinal);
+            return validKey
+                && !string.IsNullOrWhiteSpace(_configuration["Stripe:WebhookSecret"])
+                && (_configuration["Stripe:BillingPortalConfigurationId"]?.StartsWith("bpc_", StringComparison.Ordinal) == true)
+                && (!_environment.IsProduction() || (Uri.TryCreate(_configuration["App:BaseUrl"], UriKind.Absolute, out var uri)
+                    && uri.Scheme == Uri.UriSchemeHttps));
+        }
     }
 
     public HouseholdPremiumStatus? GetStatus(int userID, int householdID)
@@ -35,7 +54,12 @@ public sealed class PremiumService : IPremiumService
         using var command = new SqlCommand("""
             SELECT h.HouseholdID, h.Name, h.PremiumStatus, h.PremiumPlanType, h.StripeCustomerID,
                    h.StripeSubscriptionID, h.PremiumCurrentPeriodEndUtc,
-                   h.PremiumCancelAtPeriodEnd, h.PremiumUpdatedAtUtc
+                   h.PremiumCancelAtPeriodEnd, h.PremiumUpdatedAtUtc,
+                   (SELECT TOP (1) t.UserID FROM dbo.HouseholdPremiumTransactions t
+                    WHERE t.HouseholdID = h.HouseholdID AND t.StripeSubscriptionID = h.StripeSubscriptionID
+                      AND t.UserID IS NOT NULL
+                      AND t.StripeEventType IN (N'checkout.session.completed', N'customer.subscription.created', N'customer.subscription.updated')
+                    ORDER BY t.EventCreatedAtUtc DESC, t.HouseholdPremiumTransactionID DESC) AS BillingManagerUserID
             FROM dbo.Households h
             INNER JOIN dbo.HouseholdMembers hm ON hm.HouseholdID = h.HouseholdID
             WHERE h.HouseholdID = @HouseholdID
@@ -50,6 +74,61 @@ public sealed class PremiumService : IPremiumService
             return null;
 
         return MapStatus(reader);
+    }
+
+    public async Task<string> CreateBillingPortalSessionAsync(int userID, int householdID, string baseUrl,
+        CancellationToken cancellationToken = default)
+    {
+        // Recheck active membership and the purchaser on every request. Never accept a customer ID from the browser.
+        var status = GetStatus(userID, householdID);
+        if (status?.CanManageBilling(userID) != true)
+            throw new UnauthorizedAccessException("Only the subscription purchaser can manage billing.");
+        if (!BillingPortalConfigured)
+            throw new InvalidOperationException("Billing management is temporarily unavailable. Please contact support.");
+        if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri)
+            || (baseUri.Scheme != Uri.UriSchemeHttps && !(_environment.IsDevelopment() && baseUri.IsLoopback && baseUri.Scheme == Uri.UriSchemeHttp)))
+            throw new InvalidOperationException("Billing management is temporarily unavailable. Please contact support.");
+
+        var secretKey = RequiredSetting("Stripe:SecretKey");
+        var configurationID = RequiredSetting("Stripe:BillingPortalConfigurationId");
+        var client = _httpClientFactory.CreateClient("Stripe");
+        using var configurationRequest = new HttpRequestMessage(HttpMethod.Get,
+            $"{StripeApiBase}/billing_portal/configurations/{Uri.EscapeDataString(configurationID)}");
+        configurationRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", secretKey);
+        using var configurationResponse = await client.SendAsync(configurationRequest, cancellationToken);
+        if (!configurationResponse.IsSuccessStatusCode)
+            throw new InvalidOperationException("Billing management is temporarily unavailable. Please contact support.");
+        using var configuration = JsonDocument.Parse(await configurationResponse.Content.ReadAsStringAsync(cancellationToken));
+        var portal = configuration.RootElement;
+        var features = portal.GetProperty("features");
+        var cancel = features.GetProperty("subscription_cancel");
+        if (!portal.GetProperty("active").GetBoolean() || !cancel.GetProperty("enabled").GetBoolean()
+            || ReadString(cancel, "mode") != "at_period_end"
+            || features.GetProperty("subscription_update").GetProperty("enabled").GetBoolean())
+            throw new InvalidOperationException("Billing management is temporarily unavailable. Please contact support.");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{StripeApiBase}/billing_portal/sessions")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["customer"] = status.StripeCustomerID!,
+                ["configuration"] = configurationID,
+                ["return_url"] = $"{baseUrl.TrimEnd('/')}/Profile?billing=return#premium-settings"
+            })
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", secretKey);
+        using var response = await client.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogError("Stripe billing portal session creation failed with {StatusCode}", response.StatusCode);
+            throw new InvalidOperationException("Stripe could not open billing management. Please try again.");
+        }
+        using var session = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+        var url = ReadString(session.RootElement, "url");
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var portalUri) || portalUri.Scheme != Uri.UriSchemeHttps
+            || portalUri.Host != "billing.stripe.com" || !string.IsNullOrEmpty(portalUri.UserInfo) || !portalUri.IsDefaultPort)
+            throw new InvalidOperationException("Stripe returned an invalid billing URL.");
+        return url!;
     }
 
     public async Task<PremiumCheckoutSession> CreateCheckoutSessionAsync(
@@ -74,8 +153,8 @@ public sealed class PremiumService : IPremiumService
         var existing = GetStatus(userID, household.HouseholdID);
         if (existing == null)
             throw new InvalidOperationException("The selected household is not available.");
-        if (existing.IsPremium)
-            throw new InvalidOperationException("This household already has Premium.");
+        if (existing.IsPremium || existing.HasBillingSubscription)
+            throw new InvalidOperationException("This household already has a Premium plan. Manage its billing before purchasing another.");
 
         var normalizedBaseUrl = baseUrl.TrimEnd('/');
         var form = new Dictionary<string, string>
@@ -221,6 +300,13 @@ public sealed class PremiumService : IPremiumService
 
         var cancelAtPeriodEnd = data.TryGetProperty("cancel_at_period_end", out var cancelValue)
             && cancelValue.ValueKind == JsonValueKind.True;
+        // Flexible billing can represent a scheduled cancellation through cancel_at instead.
+        var cancelAt = ReadUnixDate(data, "cancel_at");
+        if (cancelAt.HasValue)
+        {
+            cancelAtPeriodEnd = true;
+            currentPeriodEnd = cancelAt;
+        }
 
         return new StripeEvent
         {
@@ -310,7 +396,8 @@ public sealed class PremiumService : IPremiumService
         StripeSubscriptionID = reader.IsDBNull(5) ? null : reader.GetString(5),
         CurrentPeriodEndUtc = reader.IsDBNull(6) ? null : reader.GetDateTime(6),
         CancelAtPeriodEnd = reader.GetBoolean(7),
-        UpdatedAtUtc = reader.IsDBNull(8) ? null : reader.GetDateTime(8)
+        UpdatedAtUtc = reader.IsDBNull(8) ? null : reader.GetDateTime(8),
+        BillingManagerUserID = reader.IsDBNull(9) ? null : reader.GetInt32(9)
     };
 
     private static Dictionary<string, string> ReadMetadata(JsonElement element)

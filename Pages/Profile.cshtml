@@ -2,6 +2,12 @@
 @model PetPotty.Pages.ProfileModel
 @{
     ViewData["Title"] = "My Profile";
+    var premium = Model.PremiumStatus;
+    var isPremium = premium?.IsPremium == true;
+    var hasBilling = premium?.HasBillingSubscription == true;
+    var premiumLabel = isPremium
+        ? premium!.PlanType == "free" ? "Premium active" : $"{premium.PlanLabel} Premium"
+        : hasBilling ? $"{premium!.PlanLabel} subscription" : "Free plan";
 }
 
 @if (TempData["ProfileStatus"] != null)
@@ -35,6 +41,15 @@
     .account-scope-row { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
     .profile-card { max-width: 900px; overflow: hidden; }
     .profile-card .card-body { padding: clamp(1.25rem, 2vw, 2rem); }
+    .premium-plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
+    .premium-plan-summary { border: 1px solid var(--app-line); border-radius: 14px; padding: 1.25rem; background: var(--app-surface); }
+    .premium-plan-summary h3 { font-size: 1.1rem; font-weight: 750; }
+    .premium-plan-summary .premium-price { font-size: 1.2rem; font-weight: 750; }
+    html[data-bs-theme="dark"] .premium-plan-summary { background: #111820 !important; border-color: #fff; color: #fff; }
+    html[data-bs-theme="dark"] .premium-plan-summary .premium-price { color: #fff !important; }
+    .premium-faq details { padding: 1rem 0; border-bottom: 1px solid var(--app-line); }
+    .premium-faq summary { cursor: pointer; font-weight: 650; }
+    .premium-faq p { margin: .75rem 0 0; color: var(--app-muted); }
     @@media (max-width: 850px) {
         .account-layout { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
         .profile-sidebar { position: static; flex-direction: row; overflow-x: auto; }
@@ -46,7 +61,7 @@
 <header class="app-page-heading mb-4">
     <p class="app-eyebrow mb-1">ACCOUNT</p>
     <h1 class="mb-1">My profile</h1>
-    <p class="text-secondary mb-0">Your personal account and shared household settings.</p>
+    <p class="text-secondary mb-0">Your personal account, shared household settings, and Premium plan.</p>
     <div class="account-scope-row"><span class="account-scope">👤 Personal details affect your login</span><span class="account-scope">🏠 Household settings are shared with members</span></div>
 </header>
 
@@ -56,7 +71,8 @@
            aria-controls="account-details" aria-selected="true"><span>👤 Personal account</span><small>Only your login</small></a>
         <a id="householdTab" class="account-tab" href="#household-settings" data-account-tab="household" role="tab"
            aria-controls="household-settings" aria-selected="false"><span>🏠 Household</span><small>Shared pets and people</small></a>
-
+        <a id="premiumTab" class="account-tab" href="#premium-settings" data-account-tab="premium" role="tab"
+           aria-controls="premium-settings" aria-selected="false"><span>✨ Household Premium</span><small>Your plan and billing information</small></a>
     </nav>
 
 <div class="profile-content">
@@ -155,9 +171,92 @@
         <section class="account-panel" id="household-settings" role="tabpanel" aria-labelledby="householdTab" hidden>
             <partial name="_HouseholdManagement" model="Model" />
         </section>
-
-
-
+        <section class="account-panel" id="premium-settings" role="tabpanel" aria-labelledby="premiumTab" hidden>
+            @if (TempData["PremiumMessage"] is string premiumMessage)
+            {
+                <div class="alert alert-info" role="status">@premiumMessage</div>
+            }
+            @if (TempData["PremiumError"] is string premiumError)
+            {
+                <div class="alert alert-danger" role="alert">@premiumError</div>
+            }
+            <div class="account-panel-intro">
+                <p class="app-eyebrow mb-1">SHARED WITH YOUR HOUSEHOLD</p>
+                <h2>Household Premium</h2>
+                <p>One plan covers every active member of @(Model.ActiveHousehold?.Name ?? "your household").</p>
+            </div>
+            <div class="card profile-card mb-4">
+                <div class="card-body">
+                    <p class="text-secondary small mb-1">CURRENT HOUSEHOLD PLAN</p>
+                    <h3 class="h4 mb-2">@premiumLabel</h3>
+                    @if ((isPremium || hasBilling) && !string.IsNullOrWhiteSpace(Model.PremiumPriceLabel))
+                    {
+                        <p class="premium-price fw-semibold">@Model.PremiumPriceLabel</p>
+                    }
+                    @if (premium?.Status is "past_due" or "unpaid" or "incomplete" or "paused")
+                    {
+                        <p class="text-secondary">Payment needs attention. @(isPremium ? "Access continues through the current paid period." : "Premium access is no longer active.")</p>
+                    }
+                    else if (isPremium && premium?.PlanType == "lifetime")
+                    {
+                        <p class="text-secondary">Lifetime access for this household, with no recurring payments.</p>
+                    }
+                    @if (hasBilling && premium?.CurrentPeriodEndUtc is { } periodEnd)
+                    {
+                        <p class="text-secondary">@(premium.CancelAtPeriodEnd ? "Premium access ends" : premium.Status is "active" or "trialing" ? "Renews" : "Current billing period ends") @periodEnd.ToLocalTime().ToString("MMMM d, yyyy").</p>
+                        @if (premium.CancelAtPeriodEnd)
+                        {
+                            <p class="text-secondary">Cancellation is scheduled. There will be no further renewals. @(isPremium ? "Everyone in this household keeps Premium until that date." : "Premium access has ended.")</p>
+                        }
+                    }
+                    @if (Model.CanManageBilling)
+                    {
+                        <p class="text-secondary small">Billing managed by you.</p>
+                        <form method="post" asp-page-handler="ManageBilling">
+                            <button type="submit" class="btn btn-primary" disabled="@(!Model.BillingPortalConfigured)">Manage billing</button>
+                        </form>
+                        <p class="text-secondary small mt-3 mb-0">@(Model.BillingPortalConfigured
+                            ? "Manage payment methods, invoices, and cancellation securely through Stripe. Cancellation stops renewal at the end of your paid period."
+                            : "Billing management is temporarily unavailable. Please contact support.")</p>
+                    }
+                    else if (hasBilling)
+                    {
+                        <p class="text-secondary mb-0">Billing is managed by the household member who purchased this subscription.</p>
+                    }
+                    else if (isPremium)
+                    {
+                        <p class="text-secondary mb-0">There is no recurring subscription to cancel.</p>
+                    }
+                    else
+                    {
+                        <p class="text-secondary">Choose Monthly, Yearly, or Lifetime Premium for your household.</p>
+                        <a class="btn btn-primary" asp-page="/Purchase">Choose a Premium plan</a>
+                    }
+                </div>
+            </div>
+            @if (!isPremium && !hasBilling)
+            {
+                <h3 class="h5 mb-3">Premium plan options</h3>
+                <div class="premium-plan-grid mb-4">
+                    @foreach (var plan in Model.PremiumPlans)
+                    {
+                        <div class="premium-plan-summary">
+                            <h3>@plan.Name</h3>
+                            <p class="premium-price mb-2">@plan.Price</p>
+                            <p class="text-secondary small mb-0">@plan.Billing</p>
+                        </div>
+                    }
+                </div>
+            }
+            <div class="premium-faq">
+                <h3 class="h5">About household Premium</h3>
+                <details><summary>Who is covered by the plan?</summary><p>Every active member of the household shares its Premium access. Each person keeps their own account, and one household purchase covers everyone.</p></details>
+                <details><summary>What happens when I switch households?</summary><p>Premium follows the household selected in your account. A Premium plan in one household does not upgrade your other households.</p></details>
+                <details><summary>How do the plans differ?</summary><p>Monthly and Yearly are recurring subscriptions. Lifetime is a single payment with no recurring subscription or subscription expiry.</p></details>
+                <details><summary>How do I purchase Premium?</summary><p>Any active household member can choose a plan on the Purchase page and pay securely with Stripe. Premium activates after payment is confirmed.</p></details>
+                <details><summary>How do I cancel?</summary><p>The person who purchased Monthly or Yearly Premium can select Manage billing and cancel through Stripe. Premium stays active for the household through the paid period, then returns to Free. Lifetime has no recurring subscription to cancel.</p></details>
+            </div>
+        </section>
 </div>
 </div>
 
@@ -195,12 +294,11 @@
             document.getElementById('passwordSection').classList.add('d-none');
         }
 
-        if (location.hash === '#premium-settings') location.replace('/Purchase');
-
         const accountTabs = [...document.querySelectorAll('[data-account-tab]')];
         const accountPanels = {
             profile: document.getElementById('account-details'),
-            household: document.getElementById('household-settings')
+            household: document.getElementById('household-settings'),
+            premium: document.getElementById('premium-settings')
         };
         function selectAccountTab(tabName, updateUrl = true) {
             const selected = accountPanels[tabName] ? tabName : 'profile';

@@ -61,6 +61,14 @@ public class PurchaseModel : PageModel
         if (Household == null || Status == null)
             return RedirectToPage("/Home");
 
+        if (Status.IsPremium || Status.HasBillingSubscription)
+        {
+            if (checkout == "success")
+                TempData["PremiumMessage"] = Status.IsPremium ? "Premium is active for this household."
+                    : "Checkout completed. Billing status will update after Stripe confirms payment.";
+            return RedirectToPage("/Profile", pageHandler: null, routeValues: null, fragment: "premium-settings");
+        }
+
         if (locked)
             StatusMessage = "Premium is required for that feature. Upgrade this household to unlock it.";
         else if (checkout == "success")
