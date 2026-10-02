@@ -280,14 +280,14 @@
                 <h2 class="mb-0 fw-semibold" style="color: var(--pet-dark); font-size: 1.2rem;">
                     📅 Medication Schedule
                 </h2>
-                <div class="seg-toggle" role="group" aria-label="Medication schedule range">
+                <div class="seg-toggle @(Model.ShowAllTime ? "is-all-time" : "")" role="group" aria-label="Medication schedule range">
                     <form method="post" asp-page-handler="SetScheduleView">
                         <input type="hidden" name="showAllTime" value="false" />
-                        <button type="submit" class="seg-option @(!Model.ShowAllTime ? "seg-active" : "")">Next 2 Months</button>
+                        <button type="submit" class="seg-option @(!Model.ShowAllTime ? "seg-active" : "")" aria-pressed="@((!Model.ShowAllTime).ToString().ToLowerInvariant())">Next 2 Months</button>
                     </form>
                     <form method="post" asp-page-handler="SetScheduleView">
                         <input type="hidden" name="showAllTime" value="true" />
-                        <button type="submit" class="seg-option @(Model.ShowAllTime ? "seg-active" : "")">All Time</button>
+                        <button type="submit" class="seg-option @(Model.ShowAllTime ? "seg-active" : "")" aria-pressed="@(Model.ShowAllTime.ToString().ToLowerInvariant())">All Time</button>
                     </form>
                 </div>
             </div>

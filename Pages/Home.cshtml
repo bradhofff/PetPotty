@@ -225,7 +225,12 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: .75rem;
     }
-    .home-dashboard .quick-log-form { padding: .75rem .5rem; }
+    .home-dashboard .quick-log-form {
+        background: var(--app-surface, #fff);
+        border: 1px solid var(--pet-secondary);
+        border-radius: 10px;
+        padding: .75rem .5rem;
+    }
     .quick-log-pill {
         border: 2px solid var(--pet-secondary);
         border-radius: 999px;
@@ -527,14 +532,49 @@
     }
 
     /* Individual task row */
-    .task-row {
-        display: flex;
+    .home-dashboard .task-row {
+        display: grid;
+        grid-template-columns: 31px minmax(0, 1fr) 30px;
         align-items: flex-start;
-        gap: 10px;
-        padding: 7px 0;
-        border-bottom: 1px solid rgba(244,164,96,0.18);
+        gap: 8px;
+        padding: 5px 0;
+        border-bottom: 1px solid var(--app-line, #eee9e4);
+        line-height: 1.25;
     }
     .task-row:last-child { border-bottom: none; }
+    .task-content {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        align-items: center;
+        gap: 0 8px;
+        min-width: 0;
+        min-height: 31px;
+    }
+    .task-title {
+        color: var(--pet-dark);
+        font-size: .92rem;
+        font-weight: 600;
+        overflow-wrap: anywhere;
+    }
+    .task-meta {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 2px 6px;
+        min-width: 0;
+        font-size: .78rem;
+        text-align: right;
+    }
+    .task-time { white-space: nowrap; }
+    .task-logger { overflow-wrap: anywhere; }
+    .task-notes {
+        grid-column: 1 / -1;
+        margin: 10px 0 4px;
+        font-size: .8rem;
+        line-height: 1.5;
+        overflow-wrap: anywhere;
+        white-space: pre-line;
+    }
 
     /* Task icon circle */
     .task-icon {
@@ -884,14 +924,14 @@ else
 <div class="d-flex align-items-center justify-content-between dashboard-section-heading task-log-heading mb-3" id="task-log">
     <div class="d-flex align-items-center gap-3 flex-wrap">
         <div><p class="dashboard-kicker mb-1">WHAT JUST HAPPENED</p><h2 class="mb-0 fw-semibold">Recent activity</h2></div>
-        <div class="seg-toggle" role="group" aria-label="Task log range">
+        <div class="seg-toggle @(Model.ShowAllTime ? "is-all-time" : "")" role="group" aria-label="Task log range">
             <form method="post" asp-page-handler="SetTaskView">
                 <input type="hidden" name="showAllTime" value="false" />
-                <button type="submit" class="seg-option @(!Model.ShowAllTime ? "seg-active" : "")">Recent</button>
+                <button type="submit" class="seg-option @(!Model.ShowAllTime ? "seg-active" : "")" aria-pressed="@((!Model.ShowAllTime).ToString().ToLowerInvariant())">Recent</button>
             </form>
             <form method="post" asp-page-handler="SetTaskView">
                 <input type="hidden" name="showAllTime" value="true" />
-                <button type="submit" class="seg-option @(Model.ShowAllTime ? "seg-active" : "")">All Time</button>
+                <button type="submit" class="seg-option @(Model.ShowAllTime ? "seg-active" : "")" aria-pressed="@(Model.ShowAllTime.ToString().ToLowerInvariant())">All Time</button>
             </form>
         </div>
         @if (Model.ShowAllTime)
@@ -969,39 +1009,31 @@ else
 
                                     <div class="task-row">
                                         <div class="task-icon">@taskEmoji</div>
-                                        <div class="flex-grow-1 min-width-0">
-                                            <div class="d-flex align-items-center justify-content-between gap-2">
-                                                <span class="fw-semibold" style="font-size: 0.92rem; color: var(--pet-dark);">
-                                                    @task.TaskType
-                                                </span>
-                                                <div class="d-flex align-items-center gap-2 flex-shrink-0">
-                                                    <span class="text-muted" style="font-size: 0.82rem; white-space: nowrap;">
-                                                        @task.CreatedAt.ToString("h:mm tt")
-                                                        @if (!string.IsNullOrWhiteSpace(task.RecordedByName))
-                                                        {
-                                                            <text> · @task.RecordedByName</text>
-                                                        }
-                                                    </span>
-                                                    <button class="edit-task-btn"
-                                                            data-bs-toggle="modal"
-                                                            data-bs-target="#editTaskModal"
-                                                            data-task-id="@task.TaskID"
-                                                            data-task-type="@task.TaskType"
-                                                            data-task-notes="@task.Notes"
-                                                            data-task-created="@createdAtInputValue"
-                                                            aria-label="Edit @task.TaskType task from @taskTimeLabel"
-                                                            title="Edit task">
-                                                        ✏️
-                                                    </button>
-                                                </div>
+                                        <div class="task-content">
+                                            <span class="task-title">@task.TaskType</span>
+                                            <div class="task-meta text-muted">
+                                                <time class="task-time" datetime="@task.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss")">@taskTimeLabel</time>
+                                                @if (!string.IsNullOrWhiteSpace(task.RecordedByName))
+                                                {
+                                                    <span class="task-logger">· @task.RecordedByName</span>
+                                                }
                                             </div>
                                             @if (!string.IsNullOrWhiteSpace(task.Notes))
                                             {
-                                                <div class="text-muted" style="font-size: 0.8rem; margin-top: 2px;">
-                                                    @task.Notes
-                                                </div>
+                                                <div class="task-notes text-muted">@task.Notes</div>
                                             }
                                         </div>
+                                        <button class="edit-task-btn"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#editTaskModal"
+                                                data-task-id="@task.TaskID"
+                                                data-task-type="@task.TaskType"
+                                                data-task-notes="@task.Notes"
+                                                data-task-created="@createdAtInputValue"
+                                                aria-label="Edit @task.TaskType task from @taskTimeLabel"
+                                                title="Edit task">
+                                            ✏️
+                                        </button>
                                     </div>
                                 }
                             }

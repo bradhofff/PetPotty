@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 @{
     // Shared navbar/account links and Bootstrap theme use the current session.
     var isLoggedIn = Context.Session.GetString("userID") != null;
@@ -26,19 +26,6 @@
         <link rel="stylesheet" href="~/css/landing.css" asp-append-version="true" />
     }
     <style>
-        /* ── Jumping paw on navbar brand ── */
-        .navbar-brand .paw {
-            display: inline-block;
-            animation: pawJump 1.2s ease-in-out infinite;
-            margin-right: 6px;
-        }
-
-        @@keyframes pawJump {
-            0%, 100% { transform: translateY(0)    rotate(0deg);  }
-            30%       { transform: translateY(-6px) rotate(-8deg); }
-            60%       { transform: translateY(-3px) rotate(4deg);  }
-        }
-
         /* ── Profile dropdown ── */
         .profile-dropdown .dropdown-toggle::after {
             display: none;

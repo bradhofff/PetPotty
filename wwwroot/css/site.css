@@ -152,7 +152,15 @@ body {
     letter-spacing: -.035em;
 }
 
-.site-navbar .navbar-brand::before { content: none; }
+.site-navbar .navbar-brand::before {
+    content: none !important;
+    display: none;
+    animation: none;
+}
+.site-navbar .navbar-brand .paw {
+    display: inline-block;
+    animation: pawJump 1.2s ease-in-out infinite;
+}
 .site-navbar .navbar-brand:hover { color: #fff; }
 .site-navbar .navbar-toggler { border-color: rgba(255,255,255,.55); }
 .site-navbar .navbar-toggler:focus { box-shadow: 0 0 0 .2rem rgba(255,255,255,.2); }

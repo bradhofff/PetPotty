@@ -135,6 +135,66 @@ body.app-ui .site-navbar .nav-link.active { background: rgba(0, 0, 0, .22); box-
 .skip-link { position: fixed; left: 1rem; top: -6rem; z-index: 1100; background: #fff; color: #202939 !important; border: 2px solid #337cc3; border-radius: 8px; padding: .75rem 1rem; }
 .skip-link:focus { top: 1rem; }
 
+/* Shared range sliders for dashboard history and medication schedules. */
+body.app-ui .seg-toggle {
+    --toggle-thumb: var(--app-accent, #d96420);
+    --toggle-active-text: #fff;
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: var(--range-toggle-width, 240px);
+    max-width: 100%;
+    flex-shrink: 0;
+    padding: 3px;
+    gap: 0;
+    border: 1px solid var(--app-line, #dce2e9);
+    border-radius: 999px;
+    background: var(--app-accent-soft, #fff0e6);
+    isolation: isolate;
+}
+body.app-ui .seg-toggle::before {
+    content: "";
+    position: absolute;
+    inset: 3px auto 3px 3px;
+    width: calc((100% - 6px) / 2);
+    border-radius: inherit;
+    background: var(--toggle-thumb);
+    transition: transform .18s ease;
+    z-index: -1;
+}
+body.app-ui .seg-toggle.is-all-time::before { transform: translateX(100%); }
+body.app-ui .seg-toggle form { margin: 0; min-width: 0; }
+body.app-ui .seg-toggle .seg-option {
+    width: 100%;
+    min-height: 34px;
+    padding: 5px 10px;
+    background: transparent !important;
+    border: 0;
+    border-radius: 999px;
+    box-shadow: none !important;
+    color: var(--app-muted, #697386) !important;
+    font: inherit;
+    font-size: .82rem;
+    font-weight: 600;
+    line-height: 1.2;
+    transition: color .18s ease;
+}
+body.app-ui .seg-toggle .seg-option.seg-active {
+    color: var(--toggle-active-text) !important;
+}
+html[data-bs-theme="dark"] body.app-ui .seg-toggle {
+    --toggle-thumb: #fff;
+    --toggle-active-text: #090d12;
+}
+body.app-ui .home-dashboard .seg-toggle { --range-toggle-width: 196px; }
+html[data-bs-theme="dark"] body.app-ui .seg-toggle .seg-option {
+    background: transparent !important;
+    color: #fff !important;
+}
+html[data-bs-theme="dark"] body.app-ui .seg-toggle .seg-option.seg-active {
+    color: var(--toggle-active-text) !important;
+}
+
 /* Health: readable summaries, visible actions, and a clearly bounded history. */
 body.app-ui .account-tabs { border-bottom: 1px solid var(--app-line); display: flex; flex-wrap: wrap; gap: .35rem; }
 body.app-ui .account-tab { border-bottom: 2px solid transparent; color: var(--app-muted); font-size: .9375rem; padding: .65rem .8rem; text-decoration: none; }
