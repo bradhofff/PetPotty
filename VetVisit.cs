@@ -159,6 +159,21 @@ namespace PetPotty.Models
 
     public class DashboardCareItem
     {
+        public int ScheduleID { get; set; }
+        public int ReminderCount { get; set; }
+        public string? RecordedDoseStatus { get; set; }
+        public DateTime? ReminderAt { get; set; }
+        public string? ReminderStatus { get; set; }
+        public string VisitStatus { get; set; } = "Scheduled";
+        public bool IsEligibleVisit(DateTime localNow) => (VisitStatus is "Scheduled" or "Confirmed" or "Rescheduled")
+            && ReminderStatus != "Dismissed"
+            && (TimingDoesNotMatter || TimeUnknown ? DueAt.Date >= localNow.Date : DueAt >= localNow)
+            && (DueAt.Date < localNow.Date.AddDays(4) || ReminderAt <= localNow);
+        public int RecordID { get; set; }
+        public string PetName { get; set; } = string.Empty;
+        public string Dosage { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public bool TimeUnknown { get; set; }
         public int PetID { get; set; }
         public DateTime DueAt { get; set; }
         public string Kind { get; set; } = string.Empty;

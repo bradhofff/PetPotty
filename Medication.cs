@@ -50,7 +50,9 @@ namespace PetPotty.Models
 
     public class MedSchedule
     {
+        public int PetID { get; set; }
         public int ScheduleID { get; set; }
+        public int ReminderCount { get; set; }
         public int MedID { get; set; }
         public string MedicationName { get; set; } = string.Empty;
         public string Dosage { get; set; } = string.Empty;
@@ -70,18 +72,27 @@ namespace PetPotty.Models
 
         public bool IsResolved => EffectiveStatus != MedicationDoseStatuses.Due;
 
+        public bool IsGiven => DoseStatus is MedicationDoseStatuses.Taken or MedicationDoseStatuses.TakenLate;
+
         // An unresolved dose is late at its scheduled time, or after its scheduled
         // calendar day when the time of day does not matter.
         public bool IsLate(DateTime localNow) =>
-            DoseStatus == MedicationDoseStatuses.Due
+            !IsGiven
             && (TimingDoesNotMatter ? ScheduleDate.Date < localNow.Date : ScheduleDate < localNow);
 
         public string DisplayStatus(DateTime localNow)
         {
             if (DoseStatus != MedicationDoseStatuses.Due)
                 return DoseStatus;
-            if (IsLate(localNow))
-                return "Late";
+            return DueText(localNow);
+        }
+
+        public string DueText(DateTime localNow)
+        {
+            if (IsLate(localNow)) {
+                var days = (localNow.Date - ScheduleDate.Date).Days;
+                return days == 0 ? "Past due" : $"{days} {(days == 1 ? "day" : "days")} past due";
+            }
 
             var daysUntilDue = (ScheduleDate.Date - localNow.Date).Days;
             return daysUntilDue switch

@@ -444,14 +444,17 @@ namespace PetPotty.Services
             using var connection = OpenConnection();
             const string sql = """
                 SELECT v.VetVisitID, v.PetID, v.VisitDate, v.VisitTime, v.IsAllDay,
-                       v.VisitReason, v.ClinicName
+                       v.VisitReason, v.ClinicName, v.Status AS VisitStatus, r.ReminderAt, r.Status AS ReminderStatus
                 FROM dbo.VetVisits v
                 INNER JOIN dbo.Pets p ON p.petID = v.PetID
                 INNER JOIN dbo.HouseholdMembers hm
                   ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
+                LEFT JOIN dbo.VetVisitReminders r ON r.VetVisitID = v.VetVisitID
                 WHERE p.HouseholdID = @HouseholdID AND v.IsDeleted = 0
                   AND v.Status IN (N'Scheduled', N'Confirmed', N'Rescheduled')
-                  AND v.VisitDate >= @StartDate AND v.VisitDate < @EndDate
+                  AND v.VisitDate >= @StartDate
+                  AND (v.VisitDate < @EndDate OR r.ReminderAt <= @NowLocal)
+                  AND (r.Status IS NULL OR r.Status <> N'Dismissed')
                 ORDER BY v.VisitDate, CASE WHEN v.VisitTime IS NULL THEN 1 ELSE 0 END, v.VisitTime;
                 """;
             using var command = new SqlCommand(sql, connection);
@@ -459,6 +462,7 @@ namespace PetPotty.Services
             command.Parameters.Add("@HouseholdID", SqlDbType.Int).Value = householdID.Value;
             command.Parameters.Add("@StartDate", SqlDbType.Date).Value = startDate.Date;
             command.Parameters.Add("@EndDate", SqlDbType.Date).Value = endDate.Date;
+            command.Parameters.Add("@NowLocal", SqlDbType.DateTime2).Value = startDate;
             using var reader = command.ExecuteReader();
 
             var items = new List<DashboardCareItem>();
@@ -469,17 +473,20 @@ namespace PetPotty.Services
                     ? (TimeSpan?)null
                     : reader.GetTimeSpan(reader.GetOrdinal("VisitTime"));
                 var allDay = reader.GetBoolean(reader.GetOrdinal("IsAllDay"));
-                var dueAt = visitDate + (visitTime ?? TimeSpan.FromHours(9));
-                if (!allDay && visitTime.HasValue && dueAt < DateTime.Now)
-                    continue;
+                var dueAt = visitDate + (visitTime ?? TimeSpan.Zero);
                 var reason = GetString(reader, "VisitReason");
                 items.Add(new DashboardCareItem
                 {
+                    VisitStatus = GetString(reader, "VisitStatus"),
+                    ReminderAt = GetNullableDateTime(reader, "ReminderAt"),
+                    ReminderStatus = GetNullableString(reader, "ReminderStatus"),
                     PetID = reader.GetInt32(reader.GetOrdinal("PetID")),
                     DueAt = dueAt,
                     Kind = "VetVisit",
-                    Text = allDay ? $"Vet visit (all day) — {reason}" : $"Vet visit — {reason}",
-                    IsOverdue = !allDay && dueAt < DateTime.Now
+                    Text = reason,
+                    RecordID = reader.GetInt32(reader.GetOrdinal("VetVisitID")),
+                    TimingDoesNotMatter = allDay,
+                    TimeUnknown = !visitTime.HasValue
                 });
             }
             return items;

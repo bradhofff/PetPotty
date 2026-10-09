@@ -1,0 +1,14 @@
+@model List<PetPotty.Models.DashboardCareItem>
+@foreach (var item in Model.Take(4))
+{
+    <partial name="_DashboardCareRow" model="item" />
+}
+@if (Model.Count > 4)
+{
+    <details class="care-more"><summary>Show @(@Model.Count - 4) more</summary>
+    @foreach (var item in Model.Skip(4))
+    {
+        <partial name="_DashboardCareRow" model="item" />
+    }
+    </details>
+}

@@ -62,6 +62,8 @@ builder.Services.AddScoped<IPetService, PetService>();
 builder.Services.AddScoped<IMedicationService, MedicationService>();
 builder.Services.AddScoped<IVetVisitService, VetVisitService>();
 builder.Services.AddScoped<IHealthService, HealthService>();
+builder.Services.AddScoped<IPetWeightService, PetWeightService>();
+builder.Services.AddScoped<IPetCareService, PetCareService>();
 builder.Services.AddScoped<IHouseholdContextService, HouseholdContextService>();
 builder.Services.AddScoped<IHouseholdAuthorizationService, HouseholdAuthorizationService>();
 builder.Services.AddScoped<IHouseholdService, HouseholdService>();

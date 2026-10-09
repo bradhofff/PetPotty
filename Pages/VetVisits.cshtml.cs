@@ -7,7 +7,6 @@ namespace PetPotty.Pages
 {
     public class VetVisitsModel : PageModel
     {
-        private const string SelectedPetSessionKey = "vet-visits-selected-pet";
         private const string FocusVisitSessionKey = "vet-visits-focus-visit";
         private const string OpenAddSessionKey = "vet-visits-open-add";
         private const string OpenEditVisitSessionKey = "vet-visits-open-edit";
@@ -90,14 +89,20 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
-            var requestedPetID = HttpContext.Session.GetInt32(SelectedPetSessionKey);
+            var requestedVisitID = HttpContext.Session.GetInt32(FocusVisitSessionKey);
+            HttpContext.Session.Remove(FocusVisitSessionKey);
+            if (requestedVisitID.HasValue)
+            {
+                var requestedVisit = _vetVisitService.GetVisit(userID, requestedVisitID.Value);
+                if (requestedVisit == null || !SelectedPetPreference.TrySelect(HttpContext.Session, _petService.GetPetsByUser(userID), requestedVisit.PetID))
+                    return NotFound();
+            }
+            var requestedPetID = SelectedPetPreference.Get(HttpContext.Session, _petService.GetPetsByUser(userID));
             var requestedSort = HttpContext.Session.GetString(SortSessionKey);
             Sort = requestedSort is "Newest" or "Oldest" ? requestedSort : "Soonest";
             LoadPageData(requestedPetID);
 
-            var requestedVisitID = HttpContext.Session.GetInt32(FocusVisitSessionKey);
             FocusVisitID = Visits.Any(visit => visit.VetVisitID == requestedVisitID) ? requestedVisitID : null;
-            HttpContext.Session.Remove(FocusVisitSessionKey);
 
             OpenAddModal = CanManageCarePlans
                 && HttpContext.Session.GetString(OpenAddSessionKey) == "true"
@@ -159,20 +164,18 @@ namespace PetPotty.Pages
             if (!TryGetUserID(out var userID))
                 return RedirectToPage("/Login");
 
+            if (ModelState.TryGetValue("selectedPetID", out var selectionState) && selectionState.Errors.Count > 0)
+                return NotFound();
             UserID = userID;
             LoadPets();
-            if (selectedPetID.HasValue && Pets.All(pet => pet.PetID != selectedPetID.Value))
+            if (Request.Form.ContainsKey("selectedPetID")
+                && !SelectedPetPreference.TrySelect(HttpContext.Session, Pets, selectedPetID))
                 return NotFound();
-
-            if (selectedPetID.HasValue)
-                HttpContext.Session.SetInt32(SelectedPetSessionKey, selectedPetID.Value);
-            else
-                HttpContext.Session.Remove(SelectedPetSessionKey);
 
             HttpContext.Session.SetString(
                 SortSessionKey,
                 sort is "Newest" or "Oldest" ? sort : "Soonest");
-            if (add && selectedPetID.HasValue)
+            if (add && selectedPetID > 0)
                 HttpContext.Session.SetString(OpenAddSessionKey, "true");
 
             return RedirectToPage();
@@ -579,7 +582,7 @@ namespace PetPotty.Pages
             SelectedPetID = requestedPetID.HasValue && Pets.Any(pet => pet.PetID == requestedPetID.Value)
                 ? requestedPetID
                 : null;
-            Visits = _vetVisitService.GetVisits(UserID, SelectedPetID);
+            Visits = SelectedPetID.HasValue ? _vetVisitService.GetVisits(UserID, SelectedPetID) : [];
             var clinicVisits = SelectedPetID.HasValue
                 ? _vetVisitService.GetVisits(UserID)
                 : Visits;
@@ -633,6 +636,7 @@ namespace PetPotty.Pages
         private PageResult ShowModal(string modalID, int? petID)
         {
             ModalToOpen = modalID;
+            SelectedPetPreference.TrySelect(HttpContext.Session, _petService.GetPetsByUser(UserID), petID);
             LoadPageData(petID);
             return Page();
         }
@@ -691,7 +695,7 @@ namespace PetPotty.Pages
         private RedirectToPageResult RedirectToVetVisits(int? petID, int? visitID = null, bool openEdit = false)
         {
             if (petID.HasValue)
-                HttpContext.Session.SetInt32(SelectedPetSessionKey, petID.Value);
+                SelectedPetPreference.TrySelect(HttpContext.Session, _petService.GetPetsByUser(int.Parse(HttpContext.Session.GetString("userID")!)), petID);
             if (visitID.HasValue)
                 HttpContext.Session.SetInt32(FocusVisitSessionKey, visitID.Value);
             if (openEdit)

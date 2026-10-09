@@ -45,6 +45,17 @@
             width: 100%;
         }
     }
+    /* Desktop cards and matching activity columns share all available space. */
+    @@media (min-width: 992px) {
+        body:has(.home-dashboard) > .main-content { max-width: none; }
+        .home-dashboard .pet-card-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(27.25rem, 1fr));
+            max-width: none;
+        }
+        .home-dashboard .pet-card-list:has(> .pet-card-slot:nth-child(4):last-child) { max-width: none; }
+        .home-dashboard .pet-card-slot { min-width: 0; max-width: none; }
+    }
     .home-dashboard .pet-card { padding: 1.5rem; }
     .pet-card {
         border: 2px solid var(--pet-secondary);
@@ -694,6 +705,41 @@
         font-size: 0.88rem;
         padding: 14px 0 4px;
     }
+    body.app-ui .home-dashboard .home-welcome h1 { font-size: clamp(1.5rem, 2.4vw, 2rem) !important; }
+    body.app-ui .home-dashboard .dashboard-heading { padding: 0 0 .8rem; margin-bottom: 1rem !important; }
+    .home-dashboard .dashboard-section-heading { margin-top: 1.25rem; }
+    .home-dashboard .pet-card { padding: 1.15rem; }
+    .home-dashboard .pet-card-identity { padding-right: 1.8rem; }
+    .home-dashboard .pet-card-edit-btn { opacity: 1; }
+    .home-dashboard .task-notes { white-space: pre-wrap; overflow-wrap: anywhere; }
+    .home-dashboard .today-care { border: 1px solid var(--app-line); border-radius: 16px; padding: 1.25rem; background: var(--app-surface); }
+    .care-heading { display: flex; justify-content: space-between; gap: 1rem; align-items: center; flex-wrap: wrap; }
+    .care-heading h2 { margin: 0; font-size: 1.4rem; font-weight: 700; }
+    .care-history-link, .care-schedules summary, .care-upcoming summary { color: var(--app-accent); }
+    .care-window { font-size: .8rem; color: var(--app-muted); margin: .4rem 0 1rem; }
+    .care-group-title { font-size: .9rem; font-weight: 700; margin: 1rem 0 .25rem; }
+    .care-group-title span { color: var(--app-muted); margin-left: .3rem; }
+    .care-row { display: flex; align-items: center; gap: 1rem; justify-content: space-between; border-bottom: 1px solid var(--app-line); padding: .7rem 0; }
+    .care-body { min-width: 0; overflow-wrap: anywhere; }
+    .care-pet { font-size: .75rem; color: var(--app-muted); font-weight: 700; }
+    .care-title { font-weight: 600; }
+    .care-meta { font-size: .8rem; color: var(--app-muted); }
+    .care-status { font-weight: 700; color: var(--app-ink); }
+    .care-row.is-overdue .care-status { color: var(--app-accent); }
+    .care-actions { display: flex; flex-shrink: 0; gap: .4rem; align-items: center; }
+    .care-actions .btn, .care-schedule-links .btn { min-height: 44px; }
+    .care-empty { color: var(--app-muted); margin-bottom: .5rem; }
+    .care-upcoming, .care-schedules, .care-more { margin-top: .8rem; }
+    .today-care summary { cursor: pointer; padding: .35rem 0; font-size: .875rem; font-weight: 600; }
+    .care-schedule-links > div { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; padding-top: .6rem; }
+    .home-dashboard :focus-visible { outline: 3px solid var(--app-accent); outline-offset: 3px; }
+    @@media (max-width: 575.98px) {
+        .care-row { align-items: flex-start; flex-direction: column; gap: .5rem; }
+        .care-actions { width: 100%; }
+        .care-actions .btn { flex: 1; }
+        .home-dashboard .today-care { padding: 1rem; }
+        .home-welcome h1 { font-size: 1.6rem; }
+    }
 </style>
 
 @* TempData supplies success messages after POST/redirect; session supplies the greeting. *@
@@ -701,20 +747,20 @@
 
 @if (TempData["StatusMessage"] != null)
 {
-    <div class="alert alert-success alert-dismissible fade show status-auto-dismiss" role="alert">
+    <div class="alert alert-success alert-dismissible fade show status-auto-dismiss" role="status">
         @TempData["StatusMessage"]
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 }
 
 @* ── WELCOME HEADER ───────────────────────────────────────── *@
-<div class="home-welcome dashboard-heading mb-4">
+<div class="home-welcome dashboard-heading mb-3">
     <div>
         <p class="dashboard-kicker">Your care dashboard</p>
         <h1>Good to see you, @Model.UserName.</h1>
         <p>Everything your pets need today, in one calm view.</p>
     </div>
-    <div class="dashboard-date">@DateTime.Today.ToString("dddd, MMMM d")</div>
+    <div class="dashboard-date">@Model.UserNowLocal.ToString("dddd, MMMM d")</div>
 </div>
 
 @* ── YOUR PETS ────────────────────────────────────────────── *@
@@ -778,7 +824,7 @@ else
                             data-pet-gender="@pet.Gender"
                             data-pet-image="@petImageUrl"
                             data-pet-emoji="@petEmoji"
-                            title="Edit @pet.Name">
+                            aria-label="Edit @pet.Name" title="Edit @pet.Name">
                         ✏️
                     </button>
                     }
@@ -854,6 +900,8 @@ else
                         </form>
                     </div>
 
+                    <partial name="_PetCardReminders" model='new PetPotty.Models.PetCardReminders(pet.PetID, Model.CareItems.Where(i => i.PetID == pet.PetID).ToList(), Model.CareLoadFailed, Model.CarePetID == pet.PetID ? Math.Clamp(Model.CareOffset, 0, int.MaxValue - 8) : 0)' />
+
                     @* Compact pet-specific quick actions. Health logging lives on /Health now —
                        "Pet Details" links there instead of opening a dashboard quick-add modal,
                        so all of a pet's medications, history, and vet care are one click away. *@
@@ -872,46 +920,6 @@ else
                         </form>
                     </div>
 
-                    @{
-                        var careItems = Model.PetCareItems.GetValueOrDefault(pet.PetID)
-                            ?? new List<PetPotty.Models.DashboardCareItem>();
-                    }
-                    @if (careItems.Count > 0)
-                    {
-                        <div class="care-notifications">
-                            <div class="care-notifications-label">Care reminders</div>
-                            @foreach (var item in careItems.Take(3))
-                            {
-                                @if (item.Kind == "VetVisit")
-                                {
-                                <form method="post" asp-page="/VetVisits">
-                                    <input type="hidden" name="selectedPetID" value="@pet.PetID" />
-                                    <button type="submit" class="care-notification-link @(item.IsOverdue ? "is-overdue" : "")">
-                                        <span aria-hidden="true">🏥</span>
-                                        <span>@PetPotty.Pages.HomeModel.CareItemLabel(item, Model.UserNowLocal)</span>
-                                    </button>
-                                </form>
-                                }
-                                else
-                                {
-                                <form method="post" asp-page="/Medications" asp-page-handler="OpenMedication">
-                                    <input type="hidden" name="petID" value="@pet.PetID" />
-                                    <button type="submit" class="care-notification-link @(item.IsOverdue ? "is-overdue" : "")">
-                                        <span aria-hidden="true">💊</span>
-                                        <span>@PetPotty.Pages.HomeModel.CareItemLabel(item, Model.UserNowLocal)</span>
-                                    </button>
-                                </form>
-                                }
-                            }
-                            @if (careItems.Count > 3)
-                            {
-                                <form method="post" asp-page="/Health" asp-page-handler="SelectPet">
-                                    <input type="hidden" name="selectedPetID" value="@pet.PetID" />
-                                    <button type="submit" class="care-view-all">View all @careItems.Count items →</button>
-                                </form>
-                            }
-                        </div>
-                    }
 
                 </div>
             </div>
@@ -947,7 +955,7 @@ else
 }
 else
 {
-    <div class="row g-3">
+    <div class="pet-card-layout"><div class="pet-card-list">
         @foreach (var pet in Model.Pets)
         {
             string petLogEmoji = pet.Type?.ToLower() switch {
@@ -960,24 +968,24 @@ else
             var tasks = Model.PetTasks[pet.PetID];
             var taskLogCollapseId = $"taskLog{pet.PetID}";
 
-            <div class="col-md-6">
+            <div class="pet-card-slot">
                 <div class="task-log-card">
                     <div class="task-log-card-header">
-                        <button class="task-log-toggle"
+                        <button class="task-log-toggle collapsed"
                                 type="button"
                                 data-bs-toggle="collapse"
                                 data-bs-target="#@taskLogCollapseId"
-                                aria-expanded="true"
+                                aria-expanded="false"
                                 aria-controls="@taskLogCollapseId">
-                            <span>@petLogEmoji @pet.Name's log</span>
+                            <span>@petLogEmoji @pet.Name’s log</span>
                             <span class="task-log-caret" aria-hidden="true">^</span>
                         </button>
                     </div>
-                    <div id="@taskLogCollapseId" class="collapse show">
+                    <div id="@taskLogCollapseId" class="collapse">
                         <div class="task-log-card-body">
                             @if (tasks.Count == 0)
                             {
-                                <p class="task-empty">No tasks logged yet.</p>
+                                <p class="task-empty">No activity in this period.</p>
                             }
                             else
                             {
@@ -988,7 +996,7 @@ else
                                     bool isNewDay = prevDate == null || task.CreatedAt.Date != prevDate.Value.Date;
                                     if (isNewDay)
                                     {
-                                        var dayLabel = task.CreatedAt.ToString("dddd, MMM d");
+                                        var dayLabel = task.CreatedAt.Date == Model.UserNowLocal.Date ? "Today" : task.CreatedAt.Date == Model.UserNowLocal.Date.AddDays(-1) ? "Yesterday" : task.CreatedAt.ToString("dddd, MMM d");
 
                                         <div><span class="task-date-pill" data-task-date="@taskDateValue">@dayLabel</span></div>
                                     }
@@ -1044,25 +1052,29 @@ else
         }
     </div>
 
-    @if (Model.ShowAllTime)
-    {
+    </div>
         <div class="task-history-more">
-            @if (Model.HasOlderTasks)
+            @if (!Model.ShowAllTime || Model.HasOlderTasks)
             {
                 <form method="post" asp-page-handler="ShowMoreTasks">
                     <button type="submit" class="task-history-more-button">
-                        @Model.ShowMoreTaskHistoryLabel
+                        @(Model.ShowAllTime ? Model.ShowMoreTaskHistoryLabel : "Show more history")
                     </button>
                 </form>
-                <span class="task-history-complete">@Model.TaskHistoryRangeLabel</span>
+                @if (Model.ShowAllTime)
+                {
+                    <span class="task-history-complete">@Model.TaskHistoryRangeLabel</span>
+                }
             }
             else
             {
                 <span class="task-history-complete">All available task history is shown.</span>
             }
         </div>
-    }
 }
+
+
+
 
 </div>
 
@@ -1070,6 +1082,7 @@ else
 @* _Layout renders dialogs outside the main wrapper. Each asp-page-handler connects
    a form to HomeModel.OnPost[Handler][Async]; asp-for connects inputs to bound properties. *@
 @section Modals {
+    <partial name="_DoseModals" />
 
     @* ADD PET MODAL *@
     <div class="modal fade" id="addPetModal" tabindex="-1" aria-labelledby="addPetModalLabel" aria-hidden="true">
@@ -1749,31 +1762,6 @@ else
             return formatLocalDateKey(date) + 'T' + time + seconds;
         }
 
-        document.querySelectorAll('.task-date-pill[data-task-date]').forEach(pill => {
-            const taskDate = pill.dataset.taskDate;
-            const today = new Date();
-            const yesterday = new Date(today);
-            yesterday.setDate(today.getDate() - 1);
-
-            if (taskDate === formatLocalDateKey(today)) {
-                pill.textContent = 'Today';
-                return;
-            }
-
-            if (taskDate === formatLocalDateKey(yesterday)) {
-                pill.textContent = 'Yesterday';
-                return;
-            }
-
-            const [year, month, day] = taskDate.split('-').map(Number);
-            const localDate = new Date(year, month - 1, day);
-            pill.textContent = localDate.toLocaleDateString(undefined, {
-                weekday: 'long',
-                month: 'short',
-                day: 'numeric'
-            });
-        });
-
         // ── Quick log — choose a preset or exact client-local time ──
         const quickLogTimeModalElement = document.getElementById('quickLogTimeModal');
         const quickLogTimeModal = bootstrap.Modal.getOrCreateInstance(quickLogTimeModalElement);
@@ -1791,11 +1779,10 @@ else
         });
 
         function submitQuickLog(date) {
-            if (!activeQuickLogForm || Number.isNaN(date.getTime())) return;
+            if (!activeQuickLogForm || activeQuickLogForm.dataset.saving || Number.isNaN(date.getTime())) return;
             activeQuickLogForm.querySelector('input[name="localTime"]').value =
                 formatLocalDateTime(date, true);
-            quickLogTimeModal.hide();
-            activeQuickLogForm.requestSubmit();
+            saveDashboardForm(activeQuickLogForm, quickLogTimeModalElement);
         }
 
         document.querySelectorAll('.quick-log-time-option').forEach(button => {
@@ -1811,6 +1798,12 @@ else
             submitQuickLog(new Date(quickLogCustomTime.value));
         });
 
+        quickLogTimeModalElement.addEventListener('hide.bs.modal', event => {
+            if (activeQuickLogForm?.dataset.saving) event.preventDefault();
+        });
+        quickLogTimeModalElement.addEventListener('show.bs.modal', () => {
+            quickLogTimeModalElement.querySelector('[data-save-feedback]')?.remove();
+        });
         quickLogTimeModalElement.addEventListener('hidden.bs.modal', () => {
             activeQuickLogForm = null;
         });
@@ -1871,4 +1864,5 @@ else
         });
 
     </script>
+    <script src="~/js/dashboard-care.js" asp-append-version="true"></script>
 }

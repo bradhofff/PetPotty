@@ -1,0 +1,34 @@
+@model PetPotty.Pages.HealthModel
+<section class="mt-4 health-upcoming" id="upcoming-care" aria-labelledby="upcomingCareHeading">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+        <div><h2 class="health-section-heading" id="upcomingCareHeading">Upcoming care</h2><p class="text-secondary small mb-0">Scheduled medications and vet appointments · next 2 months</p></div>
+        <div class="d-flex flex-wrap gap-2">
+            <form method="post" asp-page="/Medications" asp-page-handler="OpenMedication"><input type="hidden" name="petID" value="@Model.PetID" /><button class="btn btn-sm btn-outline-secondary">Medications</button></form>
+            <form method="post" asp-page="/VetVisits"><input type="hidden" name="selectedPetID" value="@Model.PetID" /><button class="btn btn-sm btn-outline-secondary">Vet visits</button></form>
+        </div>
+    </div>
+    @if (Model.UpcomingCare.Count == 0) {
+        <p class="health-empty-note">@(Model.UpcomingPage > 1 ? "No more upcoming care on this page. Use Previous to return." : "No medication doses or vet appointments recorded for the next 2 months.")</p>
+    } else {
+        <ul class="health-upcoming-list">
+        @foreach (var item in Model.UpcomingCare) {
+            <li>
+                <div><span class="small text-secondary">@(item.Kind == "Medication" ? "Medication" : "Vet appointment") · @item.At.ToString("ddd, MMM d, yyyy") · @item.Timing</span>
+                    <div class="fw-semibold">@item.Title</div><div class="small text-secondary">@item.Detail</div></div>
+                <form method="post" asp-page="@(item.Kind == "Medication" ? "/Medications" : "/VetVisits")" asp-page-handler="@(item.Kind == "Medication" ? "ReviewDose" : "OpenVisit")">
+                    <input type="hidden" name="petID" value="@item.PetID" />
+                    <input type="hidden" name="@(item.Kind == "Medication" ? "scheduleID" : "vetVisitID")" value="@item.RecordID" />
+                    <button class="btn btn-sm btn-outline-secondary" aria-label="View @item.Title on @item.At.ToString("MMM d")">@(item.Kind == "Medication" ? "View dose" : "View appointment")</button>
+                </form>
+            </li>
+        }
+        </ul>
+    }
+    @if (Model.UpcomingCount > PetPotty.Pages.HealthModel.UpcomingPageSize || Model.UpcomingPage > 1) {
+        <nav class="d-flex flex-wrap align-items-center gap-3 small" aria-label="Upcoming care pages">
+            @if (Model.UpcomingPage > 1) { <a asp-page="/Health" asp-route-upcomingPage="@(Model.UpcomingPage - 1)" asp-route-historyPage="@Model.HistoryPage" asp-fragment="upcoming-care">Previous</a> }
+            <span>@(Model.UpcomingCare.Count > 0 ? $"Showing {(Model.UpcomingPage - 1) * PetPotty.Pages.HealthModel.UpcomingPageSize + 1}–{(Model.UpcomingPage - 1) * PetPotty.Pages.HealthModel.UpcomingPageSize + Model.UpcomingCare.Count} of {Model.UpcomingCount}" : "End of upcoming care")</span>
+            @if (Model.UpcomingPage * PetPotty.Pages.HealthModel.UpcomingPageSize < Model.UpcomingCount) { <a asp-page="/Health" asp-route-upcomingPage="@(Model.UpcomingPage + 1)" asp-route-historyPage="@Model.HistoryPage" asp-fragment="upcoming-care">Show more</a> }
+        </nav>
+    }
+</section>

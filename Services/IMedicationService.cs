@@ -7,6 +7,7 @@ namespace PetPotty.Services
         bool OwnsMedication(int userID, int medID);
         List<Medication> GetMedicationsByPetID(int userID, int petID);
         List<MedSchedule> GetScheduleByPetID(int userID, int petID, bool showAllTime, int utcOffsetMinutes = 0);
+        List<MedSchedule> GetDashboardSchedule(int userID, DateTime start, DateTime end, int utcOffsetMinutes, int? pagePetID = null, int offset = 0);
         bool AddMedication(int userID, int petID, string medicationName, string dosage,
                            string frequencyType, int? frequencyInterval, bool timingDoesNotMatter,
                            DateTime startDate, DateTime? endDate, string notes);

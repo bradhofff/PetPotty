@@ -73,6 +73,8 @@ public class LoginModel : PageModel
                     string userID = reader.GetInt32(reader.GetOrdinal("userID")).ToString();
                     string name = reader["name"].ToString() ?? string.Empty;
 
+                    PetPotty.Services.SelectedPetPreference.Clear(HttpContext.Session);
+
                     // Session
                     HttpContext.Session.SetString("userID", userID);
                     HttpContext.Session.SetString("name", name);

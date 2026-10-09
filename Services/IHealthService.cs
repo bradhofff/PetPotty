@@ -16,5 +16,5 @@ public interface IHealthService
         DateTime endUtc,
         int utcOffsetMinutes,
         string? sourceType,
-        bool oldestFirst);
+        bool oldestFirst, string? search = null, int offset = 0, int? pageSize = null);
 }

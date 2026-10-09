@@ -240,6 +240,8 @@ namespace PetPotty.Services
                 DELETE v FROM dbo.VetVisits v
                 INNER JOIN dbo.Pets p ON p.petID = v.PetID
                 WHERE p.petID = @petID;
+                IF OBJECT_ID(N'dbo.PetWeights', N'U') IS NOT NULL
+                    DELETE FROM dbo.PetWeights WHERE PetID = @petID;
                 DELETE FROM dbo.Pets WHERE petID = @petID;
                 """, conn);
             cmd.Parameters.AddWithValue("@petID", petID);

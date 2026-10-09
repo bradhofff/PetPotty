@@ -1,0 +1,34 @@
+@model PetPotty.Pages.HealthModel
+@using PetPotty.Models
+@{ var pet = Model.Pets.Single(p => p.PetID == Model.PetID); }
+<section class="pet-care mt-3" id="pet-care" aria-label="Pet care information">
+    <div class="d-flex align-items-center gap-3 mb-3">
+        @if (!string.IsNullOrWhiteSpace(pet.ProfileImagePath)) {
+            <img src="@Model.CarePetImage(pet)" alt="@pet.Name" class="care-photo" />
+        } else { <span class="care-pet-icon" aria-hidden="true">@(pet.Type == "Cat" ? "🐱" : "🐶")</span> }
+        <div><h2 class="h5 mb-1">@pet.Name’s health &amp; everyday care</h2>
+            <div class="small text-muted">@string.Join(" · ", new[] { pet.Type, pet.Breed, string.IsNullOrWhiteSpace(pet.Age) ? null : pet.Age + " years", pet.Gender }.Where(s => !string.IsNullOrWhiteSpace(s)))</div>
+        </div>
+    </div>
+    <div id="care-save-status" role="status" class="small mb-2"></div>
+    @if (Model.CareError != null) { <div class="alert alert-warning" role="alert">@Model.CareError Existing health records are available below.</div> }
+    else {
+        <div class="care-section-grid">
+        @foreach (var section in new[] { "Important", "Routine", "Contacts" }) {
+            <details class="care-section" id="care-section-@(section)">
+                <summary><strong>@PetCareProfile.SectionTitle(section)</strong><span class="care-preview">@Model.CareProfile.Preview(section)</span></summary>
+                <div class="care-section-body">
+                    <dl class="care-fields">
+                    @foreach (var field in PetCareProfile.Fields.Where(f => f.Section == section)) {
+                        <div><dt>@field.Label</dt><dd data-care-value="@field.Name">@(Model.CareProfile[field.Name] ?? "Not recorded")</dd></div>
+                    }
+                    </dl>
+                    @if (Model.CanManageCarePlans) {
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#care-edit-@(section)">Edit <span class="visually-hidden">@PetCareProfile.SectionTitle(section) for @pet.Name</span></button>
+                    }
+                </div>
+            </details>
+        }
+        </div>
+    }
+</section>

@@ -1,0 +1,43 @@
+@model PetPotty.Models.DashboardCareItem
+@{
+    var timing = Model.TimingDoesNotMatter
+        ? (Model.Kind == "Medication" ? (Model.Status == "Due today" ? "Any time today" : "Any time") : "All day")
+        : Model.TimeUnknown ? "Time TBD" : Model.DueAt.ToString("h:mm tt");
+    var dueDisplay = $"{Model.DueAt:ddd, MMM d} · {timing}";
+    var medicationDisplay = $"{Model.PetName} · {Model.Text} {Model.Dosage}";
+}
+<div class="care-row @(Model.IsOverdue ? "is-overdue" : "")">
+    <div class="care-body">
+        
+        <div class="care-title">@Model.Text · <span class="care-status">@Model.Status</span></div>
+        <div class="care-meta">@dueDisplay @if (!string.IsNullOrWhiteSpace(Model.Dosage)) { <span>· @Model.Dosage</span> }</div>
+    </div>
+    <div class="care-actions">
+    @if (Model.Kind == "Medication" && Model.RecordedDoseStatus is "Skipped" or "Missed")
+    {
+        <span class="small">Recorded @Model.RecordedDoseStatus.ToLowerInvariant()</span>
+        <form method="post" asp-page="/Medications" asp-page-handler="ReviewDose">
+            <input type="hidden" name="petID" value="@Model.PetID" />
+            <input type="hidden" name="scheduleID" value="@Model.ScheduleID" />
+            <button class="btn btn-sm btn-outline-secondary">Review / correct</button>
+        </form>
+    }
+    else if (Model.Kind == "Medication")
+    {
+        <button type="button" class="btn btn-sm btn-primary confirm-dose-btn" data-bs-toggle="modal" data-bs-target="#confirmDoseModal"
+                data-pet-id="@Model.PetID" data-med-id="@Model.RecordID" data-log-date="@Model.DueAt.ToString("yyyy-MM-ddTHH:mm:ss")"
+                data-med-name="@medicationDisplay" data-scheduled-display="@dueDisplay">Record dose</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary record-dose-btn" data-bs-toggle="modal" data-bs-target="#recordDoseModal"
+                data-pet-id="@Model.PetID" data-med-id="@Model.RecordID" data-log-date="@Model.DueAt.ToString("yyyy-MM-ddTHH:mm:ss")"
+                data-med-name="@medicationDisplay" data-scheduled-display="@dueDisplay" aria-label="Record skipped or missed dose for @Model.PetName, @Model.Text">Skip / missed</button>
+    }
+    else
+    {
+        <form method="post" asp-page="/VetVisits" asp-page-handler="OpenVisit">
+            <input type="hidden" name="petID" value="@Model.PetID" />
+            <input type="hidden" name="vetVisitID" value="@Model.RecordID" />
+            <button type="submit" class="btn btn-sm btn-outline-secondary">Open visit</button>
+        </form>
+    }
+    </div>
+</div>

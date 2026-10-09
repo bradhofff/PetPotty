@@ -1,0 +1,46 @@
+.pet-care { color: var(--app-ink); }
+.care-photo { width: 58px; height: 58px; border-radius: 50%; object-fit: cover; }
+.care-pet-icon { font-size: 2.4rem; }
+.care-section { background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 12px; margin-bottom: .65rem; }
+.care-section summary { padding: .8rem 1rem; cursor: pointer; }
+.care-preview { display: block; font-size: .8rem; color: var(--app-muted); margin: .25rem 0 0 1rem; overflow-wrap: anywhere; }
+.care-section[open] .care-preview { display: none; }
+.care-section-body { padding: 0 1rem 1rem; }
+.care-fields { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .75rem 1.2rem; margin-bottom: .6rem; }
+.care-fields dt { font-size: .75rem; color: var(--app-muted); }
+.care-fields dd { margin: .15rem 0 0; font-size: .9rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.care-edit-form { display: flex; flex-direction: column; overflow: hidden; }
+.care-edit-form .modal-body { overflow-y: auto; }
+@media(max-width: 640px) { .care-fields { grid-template-columns: 1fr; } }
+/* Keep the new edit controls readable under the application's high-contrast dark rules. */
+html[data-bs-theme="dark"] .pet-care .btn-outline-secondary {
+    background: #111820 !important;
+    color: #fff !important;
+}
+html[data-bs-theme="dark"] .pet-care .btn-outline-secondary:is(:hover, :focus-visible) {
+    background: #273344 !important;
+    color: #fff !important;
+    border-color: #fff;
+}
+
+/* Important instructions remain visible; supporting care sections share a row. */
+.care-section-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; align-items: start; }
+.care-section-grid .care-section { margin-bottom: 0; min-width: 0; }
+#care-section-Important { grid-column: 1 / -1; }
+.care-section-grid #care-section-Routine .care-fields,
+.care-section-grid #care-section-Contacts .care-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 767px) {
+    .care-section-grid { grid-template-columns: 1fr; }
+    .care-section-grid #care-section-Routine .care-fields,
+    .care-section-grid #care-section-Contacts .care-fields { grid-template-columns: 1fr; }
+}
+.health-range-toggle form { display: flex; flex-wrap: wrap; gap: .5rem; }
+.health-upcoming-list { list-style: none; margin: .8rem 0; padding: 0; border: 1px solid var(--app-line); border-radius: 12px; background: var(--app-surface, #fff); }
+.health-upcoming-list li { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .8rem 1rem; border-bottom: 1px solid var(--app-line); }
+.health-upcoming-list li:last-child { border-bottom: 0; }
+.health-upcoming-list li > div { min-width: 0; overflow-wrap: anywhere; }
+.health-upcoming-list form { flex-shrink: 0; }
+html[data-bs-theme="dark"] .health-upcoming-list { background: #111820; color: #fff; }
+html[data-bs-theme="dark"] :is(.health-range-toggle, .health-upcoming) .btn-outline-secondary { background: #111820 !important; color: #fff !important; }
+html[data-bs-theme="dark"] :is(.health-range-toggle, .health-upcoming) .btn-outline-secondary:is(:hover, :focus-visible) { background: #273344 !important; }
+@media(max-width: 575px) { .health-upcoming-list li { align-items: flex-start; flex-direction: column; gap: .5rem; } }

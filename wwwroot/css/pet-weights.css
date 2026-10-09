@@ -1,0 +1,22 @@
+.weight-overview-card { width: 100%; text-align: left; }
+.weight-editor { border: 1px solid var(--app-line); border-radius: 10px; }
+.weight-editor > summary { padding: .8rem 1rem; color: var(--app-accent); font-weight: 700; cursor: pointer; }
+.weight-editor .validation-summary-valid { display: none; }
+.weight-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem 3rem; }
+.weight-latest { font-size: 1.5rem; font-weight: 750; letter-spacing: -.04em; line-height: 1.4; }
+.weight-latest span { font-size: 1.1rem; font-weight: 500; }
+.weight-change { font-size: 1.3rem; font-weight: 650; }
+.weight-history > summary { cursor: pointer; font-weight: 650; }
+.weight-history-scroll { max-height: 320px; }
+.weight-notes { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 100px; max-width: 520px; }
+.weight-delete > summary { cursor: pointer; }
+.weight-delete form { min-width: 130px; }
+@media (max-width: 575px) {
+    .weight-history table, .weight-history tbody { display: block; }
+    .weight-history thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .weight-history tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; padding: .5rem 0; border-bottom: 1px solid var(--app-line); }
+    .weight-history td { padding: .35rem .2rem; border: 0; }
+    .weight-history td:nth-child(even) { text-align: right; }
+    .weight-notes { min-width: 0; }
+    .weight-delete form { max-width: 140px; }
+}

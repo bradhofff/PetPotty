@@ -1,0 +1,18 @@
+@model PetPotty.Models.CurrentPetContext
+@{
+    var pet = Model.Pets.FirstOrDefault(p => p.PetID == Model.SelectedPetID);
+}
+<div class="current-pet-context">
+    <label for="currentPet" class="form-label fw-semibold">Current pet</label>
+    <select id="currentPet" name="selectedPetID" class="form-select" aria-describedby="currentPetDescription" onchange="this.form.submit()">
+        <option value="0" selected="@(pet == null)">Select a pet</option>
+        @foreach (var option in Model.Pets)
+        {
+            <option value="@option.PetID" selected="@(option.PetID == pet?.PetID)">@option.Name</option>
+        }
+    </select>
+    <div class="d-flex align-items-center gap-2 mt-2">
+        <span aria-hidden="true">@(pet?.Type.ToLowerInvariant() switch { "dog" => "🐕", "cat" => "🐱", "bird" => "🐦", "rabbit" => "🐰", _ => "🐾" })</span>
+        <p id="currentPetDescription" class="text-secondary small mb-0">@(pet == null ? "Choose a pet to view their records." : $"{Model.Description} for {pet.Name}")</p>
+    </div>
+</div>

@@ -1,0 +1,28 @@
+@model PetPotty.Pages.HealthModel
+@using PetPotty.Models
+@{ var pet = Model.Pets.Single(); }
+<!doctype html><html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>@pet.Name — Care sheet</title>
+<style>
+* { box-sizing: border-box; } body { margin: 0; background: #eee; color: #202b32; font: 15px/1.5 system-ui, sans-serif; } main { max-width: 850px; margin: 24px auto; padding: 36px; background: white; } h1 { margin: 0; font-size: 30px; } h2 { font-size: 18px; margin: 24px 0 10px; border-bottom: 1px solid #ccc; padding-bottom: 5px; } .meta, dt { color: #555; } dl { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; } dl div, .medication { break-inside: avoid; } dt { font-size: 12px; font-weight: bold; } dd { margin: 2px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; } .no-print { max-width: 850px; margin: 20px auto; display: flex; gap: 18px; align-items: center; } button, a { font: inherit; } button { padding: 8px 16px; cursor: pointer; } .instructions { white-space: pre-wrap; overflow-wrap: anywhere; } .warning { border: 1px solid #a60; padding: 12px; }
+@@media(max-width: 600px) { main { margin: 0; padding: 20px; } dl { grid-template-columns: 1fr; } .no-print { padding: 10px; } }
+@@media print { @@page { margin: 15mm; } body { background: white; font-size: 10pt; line-height: 1.35; } main { margin: 0; padding: 0; max-width: none; } .no-print { display: none !important; } h1 { font-size: 24px; } h2 { break-after: avoid; font-size: 12pt; margin: 14px 0 7px; } p { margin: 8px 0; } dl { grid-template-columns: 1fr 1fr; margin: 7px 0; gap: 8px 22px; } }
+</style></head><body>
+<nav class="no-print" aria-label="Care sheet actions"><button type="button" onclick="window.print()">Print / Save as PDF</button><a href="/Health">Back to Health</a></nav>
+<main><h1>@pet.Name’s care sheet</h1><div class="meta">@string.Join(" · ", new[] { pet.Type, pet.Breed, string.IsNullOrWhiteSpace(pet.Age) ? null : pet.Age + " years", pet.Gender }.Where(s => !string.IsNullOrWhiteSpace(s)))</div>
+<p class="meta">Generated @Model.Local(DateTime.UtcNow).ToString("MMMM d, yyyy 'at' h:mm tt") · Local time</p>
+@if (Model.CareError != null) { <p class="warning" role="alert">@Model.CareError This sheet does not include saved care information.</p> }
+else {
+    @foreach (var section in new[] { "Important", "Routine", "Contacts" }) {
+        <h2>@(section == "Contacts" ? "Vet and emergency contacts" : PetCareProfile.SectionTitle(section))</h2><dl>
+        @foreach (var field in PetCareProfile.Fields.Where(f => f.Section == section && f.Name != "Microchip")) {
+            <div><dt>@field.Label</dt><dd>@(Model.CareProfile[field.Name] ?? "Not recorded")</dd></div>
+        }
+        </dl>
+    }
+}
+<h2>Current medications</h2>
+@if (!Model.MedicationOptions.Any()) { <p>No current medications recorded.</p> }
+@foreach (var med in Model.MedicationOptions) { <div class="medication"><strong>@med.MedicationName · @med.Dosage</strong><div>@med.FrequencyDisplay · @(med.TimingDoesNotMatter ? "Any time" : med.StartDate.ToString("h:mm tt"))</div><p class="instructions">@(string.IsNullOrWhiteSpace(med.Notes) ? "Instructions not recorded" : med.Notes)</p></div> }
+<h2>Next scheduled appointment</h2>
+@if (Model.NextVetVisit is { } visit) { <p><strong>@visit.VisitDate.ToString("ddd, MMM d, yyyy") · @(visit.IsAllDay ? "All day" : !visit.VisitTime.HasValue ? "Time not specified" : visit.AppointmentDateTime.ToString("h:mm tt"))</strong><br />@visit.VisitReason<br />@visit.ClinicName</p> } else { <p>No upcoming appointment recorded.</p> }
+</main></body></html>

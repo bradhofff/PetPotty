@@ -266,13 +266,13 @@ public sealed class HealthService : IHealthService
         DateTime endUtc,
         int utcOffsetMinutes,
         string? sourceType,
-        bool oldestFirst)
+        bool oldestFirst, string? search = null, int offset = 0, int? pageSize = null)
     {
         var householdID = GetAuthorizedHouseholdID(userID, HouseholdPermission.ViewPets);
         if (!householdID.HasValue)
             return [];
         using var connection = OpenConnection();
-        const string sql = """
+        var sql = $"""
             SELECT SourceType, SourceID, PetID, PetName, EventAtUtc, Title, Summary,
                    Attribution, Status, Severity
             FROM
@@ -323,6 +323,8 @@ public sealed class HealthService : IHealthService
                   ON medicationMember.HouseholdID = p.HouseholdID
                  AND medicationMember.UserID = @UserID AND medicationMember.Status = N'Active'
                 WHERE p.HouseholdID = @HouseholdID AND (@PetID IS NULL OR m.petID = @PetID)
+                  AND (@HistoryOnly = 0 OR ms.DoseStatus <> N'Due' OR m.TimingDoesNotMatter = 0
+                       OR ms.scheduleDate < CONVERT(date, DATEADD(MINUTE, -@UtcOffsetMinutes, @NowUtc)))
 
                 UNION ALL
 
@@ -345,9 +347,16 @@ public sealed class HealthService : IHealthService
                  AND visitMember.UserID = @UserID AND visitMember.Status = N'Active'
                 WHERE p.HouseholdID = @HouseholdID AND v.IsDeleted = 0
                   AND (@PetID IS NULL OR v.PetID = @PetID)
+                  AND (@HistoryOnly = 0 OR v.Status NOT IN (N'Scheduled', N'Confirmed', N'Rescheduled')
+                       OR NOT ((v.IsAllDay = 1 OR v.VisitTime IS NULL)
+                           AND v.VisitDate >= CONVERT(date, DATEADD(MINUTE, -@UtcOffsetMinutes, @NowUtc))))
             ) timeline
             WHERE EventAtUtc >= @StartUtc AND EventAtUtc < @EndUtc
-            ORDER BY EventAtUtc, SourceType, SourceID;
+              AND (@SourceType IS NULL OR SourceType = @SourceType)
+              AND (@Search IS NULL OR CHARINDEX(@Search,
+                  CONCAT(Title, N' ', Summary, N' ', PetName, N' ', Attribution, N' ', Status)) > 0)
+            ORDER BY EventAtUtc {(oldestFirst ? "ASC" : "DESC")}, SourceType, SourceID
+            OFFSET @Offset ROWS FETCH NEXT @Take ROWS ONLY;
             """;
         using var command = new SqlCommand(sql, connection);
         AddTimelineRangeParameters(command, userID, householdID.Value, petID, startUtc, endUtc);
@@ -356,6 +365,12 @@ public sealed class HealthService : IHealthService
         command.Parameters.Add("@NowUtc", SqlDbType.DateTime2).Value = DateTime.UtcNow;
         command.Parameters.Add("@MissedAfterMinutes", SqlDbType.Int).Value = _missedAfterMinutes;
 
+        command.Parameters.Add("@SourceType", SqlDbType.NVarChar, 30).Value =
+            string.IsNullOrWhiteSpace(sourceType) || sourceType.Equals("All", StringComparison.OrdinalIgnoreCase) ? DBNull.Value : sourceType;
+        command.Parameters.Add("@Search", SqlDbType.NVarChar, 200).Value = string.IsNullOrWhiteSpace(search) ? DBNull.Value : search.Trim();
+        command.Parameters.Add("@Offset", SqlDbType.Int).Value = Math.Clamp(offset, 0, int.MaxValue - 101);
+        command.Parameters.Add("@Take", SqlDbType.Int).Value = pageSize.HasValue ? Math.Clamp(pageSize.Value, 1, 100) + 1 : int.MaxValue;
+        command.Parameters.Add("@HistoryOnly", SqlDbType.Bit).Value = pageSize.HasValue;
         using var reader = command.ExecuteReader();
         var items = new List<HealthTimelineItem>();
         while (reader.Read())
@@ -389,6 +404,7 @@ public sealed class HealthService : IHealthService
                 .ToList();
         }
 
+        if (pageSize.HasValue) return items; // Preserve SQL page order, including the look-ahead row.
         return oldestFirst
             ? items.OrderBy(item => item.EventAtUtc).ThenBy(item => item.SourceID).ToList()
             : items.OrderByDescending(item => item.EventAtUtc).ThenByDescending(item => item.SourceID).ToList();

@@ -7,7 +7,6 @@ namespace PetPotty.Pages
 {
     public class MedicationsModel : PageModel
     {
-        private const string SelectedPetSessionKey = "medicationsSelectedPetID";
         private const string FocusMedicationSessionKey = "medications-focus-medication";
         private readonly IPetService _petService;
         private readonly IMedicationService _medService;
@@ -74,22 +73,39 @@ namespace PetPotty.Pages
 
             UserID = userID;
             UtcOffsetMinutes = _timeZone.GetUtcOffsetMinutes(Request);
+            var editMedID = HttpContext.Session.GetInt32(FocusMedicationSessionKey);
+            HttpContext.Session.Remove(FocusMedicationSessionKey);
+            Medication? medication = null;
+            if (editMedID.HasValue)
+            {
+                medication = FindAccessibleMedication(editMedID.Value);
+                if (medication == null) return NotFound();
+                SetSelectedPetID(medication.PetID);
+            }
             LoadData();
             if (NewMedPetID == 0 && SelectedPetID > 0)
                 NewMedPetID = SelectedPetID;
-
-            var editMedID = HttpContext.Session.GetInt32(FocusMedicationSessionKey);
-            HttpContext.Session.Remove(FocusMedicationSessionKey);
-            if (editMedID.HasValue)
+            if (medication != null)
             {
-                var medication = Medications.FirstOrDefault(med => med.MedID == editMedID.Value);
-                if (medication != null)
-                {
-                    PopulateEditMedFields(medication);
-                    ModalToOpen = "editMedModal";
-                }
+                PopulateEditMedFields(medication);
+                ModalToOpen = "editMedModal";
             }
             return Page();
+        }
+
+        public IActionResult OnPostReviewDose(int petID, int scheduleID)
+        {
+            if (!int.TryParse(HttpContext.Session.GetString("userID"), out var userID)) return RedirectToPage("/Login");
+            if (_petService.GetPetByID(userID, petID) == null) return NotFound();
+            var dose = _medService.GetScheduleByPetID(userID, petID, true, _timeZone.GetUtcOffsetMinutes(Request))
+                .FirstOrDefault(s => s.ScheduleID == scheduleID);
+            if (dose == null) return NotFound();
+            UserID = userID; SetSelectedPetID(petID);
+            HttpContext.Session.SetString("medicationsShowAllTime", "True");
+            TempData["StatusMessage"] = $"Review {dose.MedicationName} on {dose.ScheduleDate:MMM d, yyyy}."
+                + (dose.DoseStatus is MedicationDoseStatuses.Skipped or MedicationDoseStatuses.Missed
+                    ? " To correct a skipped or missed record, use Undo for that dose, then record Taken with the actual administration time." : "");
+            return Redirect($"/Medications#dose-{dose.ScheduleID}");
         }
 
         public IActionResult OnPostOpenMedication(int petID, int? medicationID)
@@ -104,10 +120,12 @@ namespace PetPotty.Pages
                     .FirstOrDefault(item => item.MedID == medicationID.Value);
                 if (medication == null)
                     return NotFound();
-                HttpContext.Session.SetInt32(FocusMedicationSessionKey, medicationID.Value);
             }
 
+            UserID = userID;
             SetSelectedPetID(petID);
+            if (medicationID.HasValue)
+                HttpContext.Session.SetInt32(FocusMedicationSessionKey, medicationID.Value);
             return RedirectToPage();
         }
 
@@ -116,6 +134,8 @@ namespace PetPotty.Pages
             if (!int.TryParse(HttpContext.Session.GetString("userID"), out int userID))
                 return RedirectToPage("/Login");
 
+            if (ModelState.TryGetValue("selectedPetID", out var selectionState) && selectionState.Errors.Count > 0)
+                return NotFound();
             UserID = userID;
             if (selectedPetID != 0 && _petService.GetPetByID(UserID, selectedPetID) == null)
                 return NotFound();
@@ -147,6 +167,7 @@ namespace PetPotty.Pages
                 return ShowMedicationModalError("addMedModal", "Choose a pet for this medication.");
             if (Pets.All(pet => pet.PetID != NewMedPetID))
                 return NotFound();
+            SetSelectedPetID(NewMedPetID);
 
             if (!TryNormalizeMedicationTiming(
                     NewMedFrequencyType,
@@ -211,7 +232,9 @@ namespace PetPotty.Pages
 
             UserID = userID;
             RestoreStateFromSession();
-            SetSelectedPetID(SelectedPetID);
+            var medication = FindAccessibleMedication(EditMedID);
+            if (medication == null) return NotFound();
+            SetSelectedPetID(medication.PetID);
 
             if (!TryNormalizeMedicationTiming(
                     EditMedFrequencyType,
@@ -271,6 +294,9 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            var medication = FindAccessibleMedication(medID);
+            if (medication == null) return NotFound();
+            SetSelectedPetID(medication.PetID);
             RestoreStateFromSession();
             if (!_medService.DeleteMedication(UserID, medID))
                 return NotFound();
@@ -285,15 +311,22 @@ namespace PetPotty.Pages
             DateTime logDate,
             DateTime confirmedAt,
             int utcOffsetMinutes,
-            string? notes)
+            string? notes, bool dashboardRequest = false)
         {
             if (!int.TryParse(HttpContext.Session.GetString("userID"), out int userID))
-                return RedirectToPage("/Login");
+                return dashboardRequest ? StatusCode(401, new { message = "Your session expired. Reload and sign in." }) : RedirectToPage("/Login");
 
             UserID = userID;
+            if (new[] { "medID", "logDate", "confirmedAt", "administeredAt", "utcOffsetMinutes" }.Any(key => ModelState.TryGetValue(key, out var entry) && entry.Errors.Count > 0) || logDate == default || utcOffsetMinutes is < -840 or > 840)
+                return BadRequest(new { message = "Check the dose date, time and outcome." });
+            var medication = FindAccessibleMedication(medID);
+            if (medication == null) return NotFound();
+            SetSelectedPetID(medication.PetID);
             RestoreStateFromSession();
             if (confirmedAt == default)
-                return ShowMedicationModalError("confirmDoseModal", "Choose the administration date and time.");
+                return dashboardRequest ? BadRequest(new { message = "Choose the administration date and time." }) : ShowMedicationModalError("confirmDoseModal", "Choose the administration date and time.");
+            try
+            {
             if (!_medService.ConfirmSchedule(
                     UserID,
                     medID,
@@ -301,10 +334,15 @@ namespace PetPotty.Pages
                     confirmedAt,
                     utcOffsetMinutes,
                     notes ?? string.Empty))
-                return NotFound();
+                return NotFound(new { message = "Unable to save this dose. Refresh the schedule and check your access." });
+            }
+            catch (Exception) when (dashboardRequest)
+            {
+                return StatusCode(500, new { message = "Could not confirm the save. Check the schedule before trying again." });
+            }
 
             TempData["StatusMessage"] = "Dose confirmed!";
-            return RedirectToPage();
+            return dashboardRequest ? new JsonResult(new { saved = true }) : RedirectToPage();
         }
 
         public IActionResult OnPostRecordDose(
@@ -314,12 +352,17 @@ namespace PetPotty.Pages
             DateTime? administeredAt,
             int utcOffsetMinutes,
             string? reason,
-            string? notes)
+            string? notes, bool dashboardRequest = false)
         {
             if (!int.TryParse(HttpContext.Session.GetString("userID"), out int userID))
-                return RedirectToPage("/Login");
+                return dashboardRequest ? StatusCode(401, new { message = "Your session expired. Reload and sign in." }) : RedirectToPage("/Login");
 
             UserID = userID;
+            if (new[] { "medID", "logDate", "confirmedAt", "administeredAt", "utcOffsetMinutes" }.Any(key => ModelState.TryGetValue(key, out var entry) && entry.Errors.Count > 0) || logDate == default || utcOffsetMinutes is < -840 or > 840)
+                return BadRequest(new { message = "Check the dose date, time and outcome." });
+            var medication = FindAccessibleMedication(medID);
+            if (medication == null) return NotFound();
+            SetSelectedPetID(medication.PetID);
             RestoreStateFromSession();
             if (!MedicationDoseStatuses.Recordable.Contains(status, StringComparer.OrdinalIgnoreCase))
                 return BadRequest();
@@ -327,10 +370,13 @@ namespace PetPotty.Pages
                     || status.Equals(MedicationDoseStatuses.Missed, StringComparison.OrdinalIgnoreCase))
                 && string.IsNullOrWhiteSpace(reason))
             {
+                if (dashboardRequest) return BadRequest(new { message = "Add a reason for a skipped or missed dose." });
                 MedicationError = "Add a short reason for a skipped or manually missed dose.";
                 LoadData();
                 return Page();
             }
+            try
+            {
             if (!_medService.RecordDose(
                     UserID,
                     medID,
@@ -340,10 +386,15 @@ namespace PetPotty.Pages
                     utcOffsetMinutes,
                     reason ?? string.Empty,
                     notes ?? string.Empty))
-                return NotFound();
+                return NotFound(new { message = "Unable to save this dose. Refresh the schedule and check your access." });
+            }
+            catch (Exception) when (dashboardRequest)
+            {
+                return StatusCode(500, new { message = "Could not confirm the save. Check the schedule before trying again." });
+            }
 
             TempData["StatusMessage"] = $"Dose marked {status.ToLowerInvariant()}.";
-            return RedirectToPage();
+            return dashboardRequest ? new JsonResult(new { saved = true }) : RedirectToPage();
         }
 
         // ── Unconfirm Schedule ───────────────────────────────────────
@@ -353,6 +404,9 @@ namespace PetPotty.Pages
                 return RedirectToPage("/Login");
 
             UserID = userID;
+            var medication = FindAccessibleMedication(medID);
+            if (medication == null) return NotFound();
+            SetSelectedPetID(medication.PetID);
             RestoreStateFromSession();
             if (!_medService.UnconfirmSchedule(UserID, medID, logDate))
                 return NotFound();
@@ -422,11 +476,6 @@ namespace PetPotty.Pages
             Pets = _petService.GetPetsByUser(UserID);
             RestoreStateFromSession();
 
-            if (SelectedPetID > 0 && Pets.All(pet => pet.PetID != SelectedPetID))
-            {
-                SetSelectedPetID(0);
-            }
-
             if (SelectedPetID > 0)
             {
                 Medications = _medService.GetMedicationsByPetID(UserID, SelectedPetID);
@@ -436,20 +485,21 @@ namespace PetPotty.Pages
 
         private void RestoreStateFromSession()
         {
-            if (SelectedPetID <= 0 && int.TryParse(HttpContext.Session.GetString(SelectedPetSessionKey), out var selectedPetID))
-                SelectedPetID = selectedPetID;
+            SelectedPetID = SelectedPetPreference.Get(HttpContext.Session, _petService.GetPetsByUser(UserID)) ?? 0;
 
             ShowAllTime = bool.TryParse(HttpContext.Session.GetString("medicationsShowAllTime"), out var showAllTime) && showAllTime;
         }
 
         private void SetSelectedPetID(int selectedPetID)
         {
-            SelectedPetID = selectedPetID;
-            if (selectedPetID > 0)
-                HttpContext.Session.SetString(SelectedPetSessionKey, selectedPetID.ToString());
-            else
-                HttpContext.Session.Remove(SelectedPetSessionKey);
+            if (SelectedPetPreference.TrySelect(HttpContext.Session, _petService.GetPetsByUser(UserID), selectedPetID))
+                SelectedPetID = selectedPetID;
         }
+
+        private Medication? FindAccessibleMedication(int medID) =>
+            _petService.GetPetsByUser(UserID)
+                .SelectMany(pet => _medService.GetMedicationsByPetID(UserID, pet.PetID))
+                .FirstOrDefault(med => med.MedID == medID);
 
         private void PopulateEditMedFields(Medication medication)
         {

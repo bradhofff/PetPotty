@@ -1,0 +1,131 @@
+@model PetPotty.Pages.HealthModel
+@{
+    var latest = Model.WeightEntries.FirstOrDefault();
+    var previous = Model.WeightEntries.Skip(1).FirstOrDefault();
+    var petName = Model.Pets.FirstOrDefault(p => p.PetID == Model.PetID)?.Name;
+
+}
+<div id="pet-weight" class="modal fade" tabindex="-1" aria-labelledby="weight-heading" aria-hidden="true" data-auto-open="@((Model.OpenWeightForm || Model.WeightSaveError != null).ToString().ToLowerInvariant())">
+    <div class="modal-dialog modal-dialog-scrollable modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div><h2 id="weight-heading" class="modal-title fs-5">Weight · @petName</h2><p class="text-secondary small mb-0">Log a weigh-in or review past weights.</p></div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close weight history"></button>
+            </div>
+            <div class="modal-body">
+    @if (TempData["StatusMessage"] is string status && status.StartsWith("Weight", StringComparison.Ordinal))
+    {
+        <div class="alert alert-success" role="status">@status</div>
+    }
+    @if (Model.WeightLoadError != null)
+    {
+        <div class="alert alert-warning" role="alert">@Model.WeightLoadError</div>
+    }
+    @if (Model.WeightSaveError != null)
+    {
+        <div class="alert alert-danger" role="alert">@Model.WeightSaveError</div>
+    }
+    @if (Model.CanRecordWeight && (Model.WeightLoadError == null || Model.OpenWeightForm))
+    {
+        <details id="weight-editor" class="weight-editor mb-3" open="@Model.OpenWeightForm">
+            <summary>@(Model.WeightEntry.WeightEntryID > 0 ? "Edit weight" : "Log weight")</summary>
+            <form method="post" asp-page="/Health" asp-page-handler="SaveWeight" asp-fragment="pet-weight" class="p-3" id="weight-form">
+                <input type="hidden" asp-for="WeightEntry.WeightEntryID" />
+                <input type="hidden" asp-for="WeightEntry.PetID" />
+                <input type="hidden" asp-for="WeightEntry.UtcOffsetMinutes" />
+                @if (Model.OpenWeightForm)
+                {
+                    <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+                }
+                <div class="row g-3">
+                    <div class="col-7 col-md-3">
+                        <label asp-for="WeightEntry.Weight" class="form-label">Weight</label>
+                        <input asp-for="WeightEntry.Weight" type="number" min="0.001" max="999999.999" step="0.001" class="form-control" required />
+                        <span asp-validation-for="WeightEntry.Weight" class="text-danger small"></span>
+                    </div>
+                    <div class="col-5 col-md-2">
+                        <label asp-for="WeightEntry.Unit" class="form-label">Unit</label>
+                        <select asp-for="WeightEntry.Unit" class="form-select"><option value="lb">lb</option><option value="kg">kg</option></select>
+                        <span asp-validation-for="WeightEntry.Unit" class="text-danger small"></span>
+                    </div>
+                    <div class="col-12 col-md-7">
+                        <label asp-for="WeightEntry.MeasuredAtLocal" class="form-label">Date and time weighed</label>
+                        <input asp-for="WeightEntry.MeasuredAtLocal" asp-format="{0:yyyy-MM-ddTHH:mm}" type="datetime-local" class="form-control" required />
+                        <span asp-validation-for="WeightEntry.MeasuredAtLocal" class="text-danger small"></span>
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="WeightEntry.Notes" class="form-label">Notes <span class="text-secondary">(optional)</span></label>
+                        <textarea asp-for="WeightEntry.Notes" class="form-control" rows="2" maxlength="1000" placeholder="For example, weighed at the vet"></textarea>
+                        <span asp-validation-for="WeightEntry.Notes" class="text-danger small"></span>
+                    </div>
+                </div>
+                <div class="d-flex gap-2 mt-3">
+                    <button type="submit" class="btn health-log-button">@(Model.WeightEntry.WeightEntryID > 0 ? "Save changes" : "Save weight")</button>
+                    <button type="button" class="btn btn-outline-secondary" data-weight-cancel>Cancel</button>
+                </div>
+            </form>
+        </details>
+    }
+    @if (Model.WeightLoadError == null && latest == null)
+    {
+        <div class="empty-health"><h3 class="h6">No weight readings yet</h3><p class="mb-0">Log a weigh-in to start tracking @petName’s weight over time.</p></div>
+    }
+    else if (latest != null)
+    {
+        <div class="weight-summary mb-3">
+            <div><span class="text-secondary small">Latest weight</span><div class="weight-latest">@latest.Weight.ToString("0.###") <span>@latest.Unit</span></div><div class="text-secondary small">@Model.Local(latest.MeasuredAtUtc).ToString("MMM d, yyyy · h:mm tt")</div></div>
+            <div>
+                @if (previous != null)
+                {
+                    var change = latest.Weight - previous.InUnit(latest.Unit);
+                    <span class="text-secondary small">Since previous weigh-in</span>
+                    <div class="weight-change">@change.ToString("+0.###;-0.###;0") @latest.Unit</div>
+                    <div class="text-secondary small">Compared with @Model.Local(previous.MeasuredAtUtc).ToString("MMM d, yyyy")</div>
+                }
+                else
+                {
+                    <p class="text-secondary small mb-0">Log another weigh-in to see the change.</p>
+                }
+            </div>
+        </div>
+        <details class="weight-history" open>
+            <summary>Weight history <span class="text-secondary">(@Model.WeightEntries.Count)</span></summary>
+            <div class="table-responsive mt-2 weight-history-scroll">
+                <table class="table align-middle mb-0">
+                    <caption class="visually-hidden">All weigh-ins for @petName, newest measurement first. Values use the unit recorded.</caption>
+                    <thead><tr><th scope="col">Weighed</th><th scope="col">Weight</th><th scope="col">Notes / recorded by</th>@if (Model.CanRecordWeight) { <th scope="col">Actions</th> }</tr></thead>
+                    <tbody>
+                    @foreach (var entry in Model.WeightEntries)
+                    {
+                        <tr id="weight-entry-@entry.WeightEntryID">
+                            <td class="text-nowrap">@Model.Local(entry.MeasuredAtUtc).ToString("MMM d, yyyy")<div class="text-secondary small">@Model.Local(entry.MeasuredAtUtc).ToString("h:mm tt")</div></td>
+                            <td class="text-nowrap fw-semibold">@entry.Weight.ToString("0.###") @entry.Unit</td>
+                            <td><div class="weight-notes">@entry.Notes</div><div class="text-secondary small">@entry.RecordedBy</div></td>
+                            @if (Model.CanRecordWeight)
+                            {
+                                <td>
+                                    <form method="post" asp-page="/Health" asp-page-handler="OpenWeight" asp-fragment="pet-weight">
+                                        <input type="hidden" name="petID" value="@entry.PetID" /><input type="hidden" name="weightEntryID" value="@entry.WeightEntryID" />
+                                        <button type="submit" class="btn btn-outline-secondary btn-sm" aria-label="Edit weight from @Model.Local(entry.MeasuredAtUtc).ToString("MMM d, yyyy h:mm tt")">Edit</button>
+                                    </form>
+                                    <details class="weight-delete mt-1">
+                                        <summary class="small">Delete</summary>
+                                        <form method="post" asp-page="/Health" asp-page-handler="DeleteWeight" asp-fragment="pet-weight" class="mt-2">
+                                            <input type="hidden" name="petID" value="@entry.PetID" /><input type="hidden" name="weightEntryID" value="@entry.WeightEntryID" />
+                                            <p class="small mb-1">Permanently delete this weigh-in?</p>
+                                            <button type="submit" class="btn btn-outline-danger btn-sm">Confirm delete</button>
+                                        </form>
+                                    </details>
+                                </td>
+                            }
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </details>
+    }
+            </div>
+        </div>
+    </div>
+</div>

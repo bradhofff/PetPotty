@@ -1,0 +1,22 @@
+@model PetPotty.Models.PetCardReminders
+@{ var doses = Model.Items.Where(i => i.Kind == "Medication").ToList();
+   var total = doses.Select(i => i.ReminderCount).DefaultIfEmpty(0).Max(); }
+@if (Model.Failed) {
+    <div class="small alert alert-warning" role="alert">Care reminders could not be loaded. <a href="/Home">Retry</a>.</div>
+} else if (Model.Items.Any() || Model.Offset > 0) {
+    <section class="pet-card-reminders" id="pet-reminders-@Model.PetID" aria-label="Care reminders">
+        @foreach (var item in Model.Items.Take(3)) { <partial name="_DashboardCareRow" model="item" /> }
+        @if (Model.Items.Count > 3) {
+            <details><summary>Show all @Model.Items.Count reminders on this page</summary>
+                @foreach (var item in Model.Items.Skip(3)) { <partial name="_DashboardCareRow" model="item" /> }
+            </details>
+        }
+        @if (total > 8 || Model.Offset > 0) {
+            <div class="small mt-2">Medication reminders: @(doses.Count > 0 ? $"{Model.Offset + 1}–{Model.Offset + doses.Count} of {total}" : "no more on this page")</div>
+            <nav class="d-flex gap-3 small" aria-label="Medication reminder pages">
+                @if (Model.Offset > 0) { <a href="/Home?carePetID=@Model.PetID&careOffset=@Math.Max(0, Model.Offset - 8)#pet-reminders-@Model.PetID">Previous doses</a> }
+                @if (Model.Offset + doses.Count < total) { <a href="/Home?carePetID=@Model.PetID&careOffset=@(Model.Offset + 8)#pet-reminders-@Model.PetID">Next doses</a> }
+            </nav>
+        }
+    </section>
+}

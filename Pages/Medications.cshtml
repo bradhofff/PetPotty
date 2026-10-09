@@ -144,36 +144,7 @@
 <div class="card app-panel med-selector mb-4" style="border: 2px solid var(--pet-secondary); border-radius: 14px; box-shadow: 0 2px 10px rgba(139,69,19,0.08);">
     <div class="card-body py-3 px-4">
         <form method="post" asp-page-handler="SelectPet">
-            <div class="row align-items-center g-3">
-                <div class="col-auto">
-                    <label class="form-label fw-semibold mb-0" style="color: var(--pet-dark); font-size: 0.95rem;">
-                        🐾 Choose a pet
-                    </label>
-                </div>
-                <div class="col-md-4">
-                    <select name="selectedPetID" class="form-select" onchange="this.form.submit()"
-                            style="border-radius: 30px; border: 2px solid var(--pet-secondary);">
-                        <option value="0">-- Select a Pet --</option>
-                        @foreach (var pet in Model.Pets)
-                        {
-                            string petEmoji = pet.Type?.ToLower() switch {
-                                "cat"   => "🐱",
-                                "dog"   => "🐕",
-                                "bird"  => "🐦",
-                                "fish"  => "🐟",
-                                "rabbit"=> "🐰",
-                                _       => "🐾"
-                            };
-                            string label = string.IsNullOrWhiteSpace(pet.Breed)
-                                ? $"{petEmoji} {pet.Name}"
-                                : $"{petEmoji} {pet.Name} — {pet.Breed}";
-                            <option value="@pet.PetID" selected="@(Model.SelectedPetID == pet.PetID)">
-                                @label
-                            </option>
-                        }
-                    </select>
-                </div>
-            </div>
+            <partial name="_CurrentPet" model='new CurrentPetContext(Model.Pets, Model.SelectedPetID, "Medications")' />
         </form>
     </div>
 </div>
@@ -328,13 +299,13 @@
                                 : s.ScheduleDate.ToString("MMM d, yyyy 'at' h:mm tt");
                             var isPastDue = s.IsLate(Model.UserNowLocal);
                             var displayStatus = s.DisplayStatus(Model.UserNowLocal);
-                            <tr class="@(isPastDue ? "med-schedule-overdue" : null)">
+                            <tr id="dose-@s.ScheduleID" class="@(isPastDue ? "med-schedule-overdue" : null)">
                                 <td class="schedule-medication fw-semibold">@s.MedicationName</td>
                                 <td class="schedule-scheduled">
                                     <span class="d-block">@scheduleDisplay</span>
                                     @if (isPastDue)
                                     {
-                                        <span class="med-overdue-badge">Late</span>
+                                        <span class="med-overdue-badge">@s.DueText(Model.UserNowLocal)</span>
                                     }
                                 </td>
                                 <td class="schedule-status">
@@ -613,63 +584,7 @@ else
         </div>
     </div>
 
-    @* CONFIRM DOSE MODAL *@
-    <div class="modal fade" id="confirmDoseModal" tabindex="-1" aria-labelledby="confirmDoseModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="confirmDoseModalLabel">Confirm Dose</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form method="post" asp-page-handler="ConfirmSchedule">
-                    <input type="hidden" name="medID" id="confirmDoseMedID" />
-                    <input type="hidden" name="logDate" id="confirmDoseLogDate" />
-                    <input type="hidden" name="utcOffsetMinutes" data-utc-offset />
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Medication</label>
-                            <input type="text" class="form-control" id="confirmDoseMedName" readonly />
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Scheduled Dose</label>
-                            <input type="text" class="form-control" id="confirmDoseScheduledDisplay" readonly />
-                        </div>
-                        <div>
-                            <label class="form-label fw-semibold">
-                                Confirmed Date & Time <span class="required-marker" aria-hidden="true">*</span>
-                            </label>
-                            <input type="datetime-local" name="confirmedAt" id="confirmDoseConfirmedAt"
-                                   class="form-control" required />
-                        </div>
-                        <div class="mt-3"><label for="confirmDoseNotes" class="form-label fw-semibold">Notes (optional)</label><textarea name="notes" id="confirmDoseNotes" class="form-control" rows="2" maxlength="1000"></textarea></div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-success">Confirm Dose</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="recordDoseModal" tabindex="-1" aria-labelledby="recordDoseModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <form method="post" asp-page-handler="RecordDose" class="modal-content">
-                <input type="hidden" name="medID" id="recordDoseMedID" />
-                <input type="hidden" name="logDate" id="recordDoseLogDate" />
-                <input type="hidden" name="utcOffsetMinutes" data-utc-offset />
-                <div class="modal-header"><h5 class="modal-title" id="recordDoseModalLabel">Record dose outcome</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-                <div class="modal-body">
-                    <div class="mb-3"><label class="form-label fw-semibold">Medication</label><input id="recordDoseMedName" class="form-control" readonly /></div>
-                    <div class="mb-3"><label class="form-label fw-semibold">Scheduled dose</label><input id="recordDoseScheduledDisplay" class="form-control" readonly /></div>
-                    <div class="mb-3"><label for="recordDoseStatus" class="form-label fw-semibold">Outcome</label><select name="status" id="recordDoseStatus" class="form-select" required><option value="Skipped">Skipped</option><option value="Missed">Missed</option></select></div>
-                    <div class="mb-3"><label for="recordDoseReason" class="form-label fw-semibold">Reason <span class="required-marker">*</span></label><input name="reason" id="recordDoseReason" class="form-control" maxlength="500" required placeholder="For example: pet refused it" /></div>
-                    <div><label for="recordDoseNotes" class="form-label fw-semibold">Notes (optional)</label><textarea name="notes" id="recordDoseNotes" class="form-control" rows="2" maxlength="1000"></textarea></div>
-                </div>
-                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Save outcome</button></div>
-            </form>
-        </div>
-    </div>
+    <partial name="_DoseModals" />
 
 } @* end @section Modals *@
 

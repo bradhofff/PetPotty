@@ -45,10 +45,12 @@ public sealed class HouseholdContextService : IHouseholdContextService
             using var fallbackReader = command.ExecuteReader();
             if (!fallbackReader.Read())
             {
+                if (session != null) SelectedPetPreference.Clear(session);
                 session?.Remove(ActiveHouseholdSessionKey);
                 return null;
             }
 
+            if (session != null) SelectedPetPreference.Clear(session);
             var fallback = Map(fallbackReader);
             session?.SetInt32(ActiveHouseholdSessionKey, fallback.HouseholdID);
             return fallback;
@@ -56,6 +58,7 @@ public sealed class HouseholdContextService : IHouseholdContextService
 
         if (!reader.HasRows)
         {
+            if (session != null) SelectedPetPreference.Clear(session);
             session?.Remove(ActiveHouseholdSessionKey);
             return null;
         }
@@ -95,14 +98,21 @@ public sealed class HouseholdContextService : IHouseholdContextService
         return command.ExecuteScalar() != null && TrySetSession(householdID);
     }
 
-    public void ClearActiveHousehold() =>
-        _httpContextAccessor.HttpContext?.Session.Remove(ActiveHouseholdSessionKey);
+    public void ClearActiveHousehold()
+    {
+        var session = _httpContextAccessor.HttpContext?.Session;
+        if (session == null) return;
+        SelectedPetPreference.Clear(session);
+        session.Remove(ActiveHouseholdSessionKey);
+    }
 
     private bool TrySetSession(int householdID)
     {
         var session = _httpContextAccessor.HttpContext?.Session;
         if (session == null)
             return false;
+        if (session.GetInt32(ActiveHouseholdSessionKey) != householdID)
+            SelectedPetPreference.Clear(session);
         session.SetInt32(ActiveHouseholdSessionKey, householdID);
         return true;
     }

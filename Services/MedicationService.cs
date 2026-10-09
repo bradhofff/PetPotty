@@ -99,6 +99,15 @@ namespace PetPotty.Services
         }
 
         public List<MedSchedule> GetScheduleByPetID(int userID, int petID, bool showAllTime, int utcOffsetMinutes = 0)
+            => ReadSchedule(userID, petID, showAllTime, utcOffsetMinutes, null, null);
+
+        // All outstanding history, counted and paged per pet. Start is retained for interface compatibility;
+        // deliberately no lower date cutoff and no medication end-date filter.
+        public List<MedSchedule> GetDashboardSchedule(int userID, DateTime start, DateTime end, int utcOffsetMinutes, int? pagePetID = null, int offset = 0)
+            => ReadSchedule(userID, null, false, utcOffsetMinutes, start, end, pagePetID, offset);
+
+        private List<MedSchedule> ReadSchedule(int userID, int? petID, bool showAllTime,
+            int utcOffsetMinutes, DateTime? start, DateTime? end, int? pagePetID = null, int offset = 0)
         {
             var household = GetAuthorizedHousehold(userID, HouseholdPermission.ViewPets);
             if (household == null)
@@ -106,23 +115,32 @@ namespace PetPotty.Services
             var list = new List<MedSchedule>();
             using var conn = new SqlConnection(_connStr);
             using var cmd = new SqlCommand($"""
-                SELECT ms.scheduleID, m.medID, m.medicationName, m.dosage, m.frequencyType,
+                {(start.HasValue ? "WITH Doses AS (" : string.Empty)}
+                SELECT ms.scheduleID, m.petID, m.medID, m.medicationName, m.dosage, m.frequencyType,
                        m.TimingDoesNotMatter, ms.scheduleDate, ms.isConfirmed, ms.confirmedAt,
                        ms.DoseStatus, ms.AdministeredAtUtc, ms.RecordedAtUtc,
                        ms.RecordedByUserID, u.name AS RecordedByName,
                        ms.StatusReason, ms.AdministrationNotes
+                       {(start.HasValue ? ", COUNT(*) OVER (PARTITION BY m.petID) AS ReminderCount, ROW_NUMBER() OVER (PARTITION BY m.petID ORDER BY CASE WHEN (m.TimingDoesNotMatter = 1 AND ms.scheduleDate < CAST(@NowLocal AS date)) OR (m.TimingDoesNotMatter = 0 AND ms.scheduleDate < @NowLocal) THEN 0 ELSE 1 END, ms.scheduleDate, ms.scheduleID) AS RowNumber" : string.Empty)}
                 FROM dbo.MedicationSchedule ms
                 INNER JOIN dbo.Medications m ON m.medID = ms.medID
                 INNER JOIN dbo.Pets p ON p.petID = m.petID
                 INNER JOIN dbo.HouseholdMembers hm
                   ON hm.HouseholdID = p.HouseholdID AND hm.UserID = @UserID AND hm.Status = N'Active'
                 LEFT JOIN dbo.Users u ON u.userID = ms.RecordedByUserID
-                WHERE m.petID = @PetID AND p.HouseholdID = @HouseholdID
-                {(showAllTime ? string.Empty : "AND ms.scheduleDate < DATEADD(MONTH, 2, @Today) AND (ms.DoseStatus = N'Due' OR ms.scheduleDate >= @Today)")}
-                ORDER BY ms.scheduleDate;
+                WHERE (@PetID IS NULL OR m.petID = @PetID) AND p.HouseholdID = @HouseholdID
+                {(start.HasValue ? "AND ms.scheduleDate < @End AND ms.DoseStatus NOT IN (N'Taken', N'Taken late')" : showAllTime ? string.Empty : "AND ms.scheduleDate < DATEADD(MONTH, 2, @Today) AND (ms.DoseStatus NOT IN (N'Taken', N'Taken late') OR ms.scheduleDate >= @Today)")}
+                {(start.HasValue ? ") SELECT * FROM Doses WHERE RowNumber > CASE WHEN petID = @PagePetID THEN @Offset ELSE 0 END AND RowNumber <= CASE WHEN petID = @PagePetID THEN @Offset ELSE 0 END + 8 ORDER BY scheduleDate, scheduleID;" : "ORDER BY ms.scheduleDate, ms.scheduleID;") }
                 """, conn);
             AddScopeParameters(cmd, userID, household.HouseholdID);
-            cmd.Parameters.Add("@PetID", SqlDbType.Int).Value = petID;
+            cmd.Parameters.Add("@PetID", SqlDbType.Int).Value = (object?)petID ?? DBNull.Value;
+            if (start.HasValue)
+            {
+                cmd.Parameters.Add("@NowLocal", SqlDbType.DateTime2).Value = _timeZone.ToLocal(DateTime.UtcNow, utcOffsetMinutes);
+                cmd.Parameters.Add("@PagePetID", SqlDbType.Int).Value = (object?)pagePetID ?? DBNull.Value;
+                cmd.Parameters.Add("@Offset", SqlDbType.Int).Value = Math.Clamp(offset, 0, int.MaxValue - 8);
+                cmd.Parameters.Add("@End", SqlDbType.DateTime2).Value = end!.Value;
+            }
             if (!showAllTime)
                 cmd.Parameters.Add("@Today", SqlDbType.Date).Value = _timeZone.ToLocal(DateTime.UtcNow, utcOffsetMinutes).Date;
             conn.Open();
@@ -131,6 +149,8 @@ namespace PetPotty.Services
             {
                 var schedule = new MedSchedule
                 {
+                    ReminderCount = start.HasValue ? reader.GetInt32(reader.GetOrdinal("ReminderCount")) : 0,
+                    PetID          = reader.GetInt32(reader.GetOrdinal("petID")),
                     ScheduleID     = reader.GetInt32(reader.GetOrdinal("scheduleID")),
                     MedID          = reader.GetInt32(reader.GetOrdinal("medID")),
                     MedicationName = reader["medicationName"].ToString() ?? string.Empty,

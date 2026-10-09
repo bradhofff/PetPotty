@@ -45,7 +45,12 @@ namespace PetPotty.Pages
         public List<Pet> Pets { get; set; } = new();
         public Dictionary<int, List<TaskItem>> PetTasks { get; set; } = new();
         public Dictionary<int, List<TaskItem>> PetAllTasks { get; set; } = new();
-        public Dictionary<int, List<DashboardCareItem>> PetCareItems { get; set; } = new();
+        public List<DashboardCareItem> CareItems { get; set; } = new();
+        public bool CareLoadFailed { get; set; }
+        [BindProperty(SupportsGet = true)] public int? CarePetID { get; set; }
+        [BindProperty(SupportsGet = true)] public int CareOffset { get; set; }
+        public DateTime CareStart => UserNowLocal;
+        public DateTime CareEnd => UserNowLocal.Date.AddDays(4);
         public DateTime UserNowLocal { get; set; }
         public bool CanManagePets { get; set; }
 
@@ -252,6 +257,7 @@ namespace PetPotty.Pages
             var documentPaths = _vetVisitService.GetDocumentPathsByPet(UserID, EditPetID);
             if (!_petService.DeletePet(UserID, EditPetID))
                 return NotFound();
+            SelectedPetPreference.Get(HttpContext.Session, _petService.GetPetsByUser(UserID));
             _petImageStorage.Delete(pet.ProfileImagePath);
             foreach (var path in documentPaths)
                 _vetVisitDocumentStorage.Delete(path);
@@ -286,19 +292,30 @@ namespace PetPotty.Pages
         // ============================================================
         // Quick Log — Pee or Poop at the client-local time selected in the popup
         // ============================================================
-        public IActionResult OnPostQuickLog(int petID, string taskType, string? localTime = null)
+        public IActionResult OnPostQuickLog(int petID, string taskType, string? localTime = null, bool dashboardRequest = false)
         {
             if (!int.TryParse(HttpContext.Session.GetString("userID"), out int userID))
                 return RedirectToPage("/Login");
 
             UserID = userID;
             ShowAllTime = GetShowAllTime();
-            var timestamp = (!string.IsNullOrEmpty(localTime) && DateTime.TryParse(localTime, out var parsed))
-                ? parsed
-                : DateTime.Now;
-            if (!_petService.AddTask(UserID, petID, taskType, string.Empty, timestamp))
-                return NotFound();
-
+            if (taskType is not ("Pee" or "Poop") || !DateTime.TryParse(localTime, out var timestamp))
+                return BadRequest(new { message = "Choose a valid activity and logging time." });
+            try
+            {
+                if (!_petService.AddTask(UserID, petID, taskType, string.Empty, timestamp))
+                    return NotFound(new { message = "This pet is no longer available to you." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Quick log failed for user {UserID}", UserID);
+                return StatusCode(500, new { message = "Could not confirm the save. Check recent activity before trying again." });
+            }
+            if (dashboardRequest)
+            {
+                TempData["StatusMessage"] = $"{taskType} logged.";
+                return new JsonResult(new { saved = true });
+            }
             var emoji = taskType == "Pee" ? "💧" : "💩";
             var petName = GetPetName(UserID, petID);
             TempData["StatusMessage"] = string.IsNullOrWhiteSpace(petName)
@@ -435,40 +452,6 @@ namespace PetPotty.Pages
             _ => string.Empty
         };
 
-        public static string CareItemLabel(DashboardCareItem item, DateTime userTodayLocal)
-        {
-            var days = (item.DueAt.Date - userTodayLocal.Date).Days;
-            var dayLabel = days switch
-            {
-                < -1 => $"was due {-days} days ago",
-                -1 => "was due yesterday",
-                0 => "due today",
-                1 => "due tomorrow",
-                _ => $"due in {days} days"
-            };
-            var timeLabel = item.DueAt.ToString("h:mm tt");
-
-            if (item.Kind == "Medication" && item.IsOverdue)
-            {
-                var daysOverdue = Math.Max(1, -days);
-                var dayUnit = daysOverdue == 1 ? "day" : "days";
-                return $"Past due: {item.Text} was due {daysOverdue} {dayUnit} ago";
-            }
-
-            if (item.Kind == "Medication")
-                return item.TimingDoesNotMatter
-                    ? $"{item.Text} {dayLabel}"
-                    : $"{item.Text} {dayLabel} at {timeLabel}";
-
-            var allDay = item.Text.Contains("(all day)", StringComparison.OrdinalIgnoreCase);
-            var reason = item.Text.Replace("Vet visit (all day) — ", string.Empty)
-                .Replace("Vet visit — ", string.Empty);
-            var visitTiming = allDay
-                ? dayLabel.Replace("due ", string.Empty)
-                : $"{dayLabel.Replace("due ", string.Empty)} at {timeLabel}";
-            return $"Vet visit {visitTiming} · {reason}";
-        }
-
         // ============================================================
         // Private helpers
         // ============================================================
@@ -520,7 +503,7 @@ namespace PetPotty.Pages
             return Page();
         }
 
-        // Assemble the dashboard. Session stores history preferences; reminder ranges
+        // Assemble the dashboard. Session stores history preferences; care ranges
         // and the latest Pee/Poop labels are independent of the selected task-history range.
         private void LoadData()
         {
@@ -534,9 +517,35 @@ namespace PetPotty.Pages
             HasOlderTasks = false;
             var taskHistoryStartDate = GetTaskHistoryStartDate(TaskHistoryStage, UserNowLocal);
             var today = UserNowLocal.Date;
-            var reminderWindowEnd = today.AddDays(4);
-            var vetReminderWindowEnd = today.AddDays(7);
-            var vetItems = _vetVisitService.GetDashboardVisits(UserID, today, vetReminderWindowEnd);
+            try
+            {
+                var medications = _medicationService.GetDashboardSchedule(UserID, CareStart, CareEnd, utcOffsetMinutes, CarePetID, Math.Clamp(CareOffset, 0, int.MaxValue - 8))
+                    .Where(dose => !dose.IsGiven && dose.ScheduleDate < CareEnd)
+                    .Select(dose => new DashboardCareItem
+                    {
+                        ScheduleID = dose.ScheduleID, ReminderCount = dose.ReminderCount,
+                        RecordedDoseStatus = dose.DoseStatus,
+                        PetID = dose.PetID, RecordID = dose.MedID, DueAt = dose.ScheduleDate,
+                        Kind = "Medication", Text = dose.MedicationName, Dosage = dose.Dosage,
+                        TimingDoesNotMatter = dose.TimingDoesNotMatter,
+                        IsOverdue = dose.IsLate(UserNowLocal),
+                        Status = dose.DueText(UserNowLocal)
+                    });
+                var visits = _vetVisitService.GetDashboardVisits(UserID, CareStart, CareEnd)
+                    .Where(visit => visit.IsEligibleVisit(UserNowLocal)).ToList();
+                foreach (var visit in visits)
+                    visit.Status = visit.DueAt.Date == today ? "Today" : "Upcoming";
+                var petNames = Pets.ToDictionary(p => p.PetID, p => p.Name);
+                CareItems = medications.Concat(visits).Where(i => petNames.ContainsKey(i.PetID))
+                    .OrderBy(i => i.IsOverdue ? 0 : 1).ThenBy(i => i.DueAt).ThenBy(i => i.PetID).ToList();
+                foreach (var item in CareItems) item.PetName = petNames[item.PetID];
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unable to load dashboard care for user {UserID}", UserID);
+                CareLoadFailed = true;
+                CareItems.Clear();
+            }
             foreach (var pet in Pets)
             {
                 if (ShowAllTime)
@@ -559,27 +568,6 @@ namespace PetPotty.Pages
 
                 PetAllTasks[pet.PetID] = _petService.GetLatestActivityTasksByPetID(UserID, pet.PetID);
 
-                var medicationItems = _medicationService.GetScheduleByPetID(UserID, pet.PetID, false, utcOffsetMinutes)
-                    .Where(schedule => !schedule.IsResolved
-                        && schedule.ScheduleDate < reminderWindowEnd)
-                    .Select(schedule => new DashboardCareItem
-                    {
-                        PetID = pet.PetID,
-                        DueAt = schedule.ScheduleDate,
-                        Kind = "Medication",
-                        Text = schedule.MedicationName,
-                        IsOverdue = schedule.TimingDoesNotMatter
-                            ? schedule.ScheduleDate.Date < today
-                            : schedule.ScheduleDate < UserNowLocal,
-                        TimingDoesNotMatter = schedule.TimingDoesNotMatter
-                    });
-
-                // Home.cshtml displays the first three reminders and counts the remainder.
-                PetCareItems[pet.PetID] = medicationItems
-                    .Concat(vetItems.Where(item => item.PetID == pet.PetID))
-                    .OrderBy(item => item.DueAt)
-                    .ThenBy(item => item.Kind)
-                    .ToList();
             }
         }
     }

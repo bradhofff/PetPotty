@@ -1,0 +1,60 @@
+using System.Reflection;
+using PetPotty.Models;
+using PetPotty.Pages;
+using PetPotty.Services;
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = args, ApplicationName = typeof(HomeModel).Assembly.FullName, WebRootPath = Path.Combine(Environment.GetEnvironmentVariable("PACKTRACKER_ROOT")!, "wwwroot") });
+builder.Services.AddRazorPages().AddApplicationPart(typeof(HomeModel).Assembly);
+builder.Services.AddDistributedMemoryCache(); builder.Services.AddSession(); builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<IUserTimeZoneService, BrowserTimeZoneService>();
+void Fake<T>() where T : class => builder.Services.AddScoped<T>(sp => { var proxy = DispatchProxy.Create<T, Fixture>(); ((Fixture)(object)proxy).Context = sp.GetRequiredService<IHttpContextAccessor>().HttpContext!; return proxy; });
+Fake<IPetWeightService>(); Fake<IHealthService>(); Fake<IPetCareService>(); Fake<IPetService>(); Fake<IMedicationService>(); Fake<IVetVisitService>(); Fake<IPetImageStorage>(); Fake<IVetVisitDocumentStorage>(); Fake<IHouseholdContextService>();
+var app = builder.Build(); app.UseStaticFiles(); app.UseRouting(); app.UseSession();
+app.Use(async (ctx, next) => { ctx.Session.SetString("userID", "1"); ctx.Session.SetString("name", "Alex"); ctx.Session.SetString("darkMode", ctx.Request.Query["theme"] == "dark" ? "true" : "false"); await next(); });
+// Deterministic boundary checks use the production timezone and dose rules.
+var zone = app.Services.GetRequiredService<IUserTimeZoneService>();
+var boundary = zone.ToLocal(new DateTime(2026, 10, 3, 2, 0, 0), 240);
+if (boundary.Date != new DateTime(2026, 10, 2)) throw new Exception("Local midnight regression");
+var anyTime = new MedSchedule { ScheduleDate = boundary.Date, TimingDoesNotMatter = true };
+if (anyTime.IsLate(boundary) || !anyTime.IsLate(boundary.Date.AddDays(1))) throw new Exception("Any-time boundary regression");
+if (!new MedSchedule { ScheduleDate = boundary.AddMinutes(-1) }.IsLate(boundary)) throw new Exception("Timed dose regression");
+// Test-only boundaries; this host has no SQL services or real care data.
+app.MapGet("/fixture/clear", (HttpContext ctx) => { SelectedPetPreference.Clear(ctx.Session); return Results.Ok(); });
+app.MapGet("/fixture/stale", (HttpContext ctx) => { ctx.Session.SetInt32(SelectedPetPreference.SessionKey, 999); return Results.Ok(); });
+app.MapGet("/fixture/account", (HttpContext ctx) => { ctx.Session.SetString("care-selected-pet-user", "2"); return Results.Ok(); });
+app.MapGet("/fixture/household", (HttpContext ctx) => { ctx.Session.SetInt32("activeHouseholdID", 2); return Results.Ok(); });
+app.MapGet("/fixture/legacy", (HttpContext ctx) => { ctx.Session.SetInt32("health-selected-pet", 1); ctx.Session.SetString("medicationsSelectedPetID", "1"); ctx.Session.SetInt32("vet-visits-selected-pet", 1); return Results.Ok(); });
+app.MapRazorPages(); app.Run();
+public class Fixture : DispatchProxy {
+ public HttpContext Context = null!;
+ protected override object? Invoke(MethodInfo? method, object?[]? args) {
+  var scenario = Context.Request.Query["scenario"].ToString(); var today = DateTime.UtcNow.AddHours(-4).Date;
+  var pets = scenario == "no-pets" ? new List<Pet>() : new List<Pet> { new() { PetID=1, Name="Abby", Type="Dog", Breed="Golden Retriever", Age="4", Gender="Male" }, new() { PetID=2, Name="Bella", Type="Cat", Breed="Domestic Shorthair", Age="2", Gender="Female" } };
+  switch(method!.Name) {
+   case "Get": return new PetCareProfile();
+   case "GetWeights": return new List<PetWeightEntry>();
+   case "GetTimeline": return new List<HealthTimelineItem>();
+   case "GetHealthEvents": return new List<HealthEvent>();
+   case "GetVisits": return new List<VetVisit>();
+   case "GetVisit": return (int)args![1]! == 11 ? new VetVisit { VetVisitID=11, PetID=1, PetName="Abby", VisitDate=today.AddDays(1) } : null;
+   case "GetMedicationsByPetID": return new List<Medication> { new() { MedID=(int)args![1]!, PetID=(int)args[1]!, MedicationName="Fixture medication", FrequencyType="Daily", StartDate=today } };
+   case "OwnsMedication": return (int)args![1]! is 1 or 2;
+   case "GetScheduleByPetID": return new List<MedSchedule>();
+   case "GetActiveHousehold": return new HouseholdContext { HouseholdID=1, Name="Our household", Role=scenario=="caregiver" ? HouseholdRole.Caregiver : HouseholdRole.Owner };
+   case "GetPetsByUser": return pets;
+   case "GetPetByID": return pets.FirstOrDefault(p=>p.PetID==(int)args![1]!);
+   case "GetLatestActivityTasksByPetID": return new List<TaskItem>{ new() { TaskType="Pee", CreatedAt=today.AddHours(8).AddMinutes(15) }, new() { TaskType="Poop", CreatedAt=today.AddHours(7).AddMinutes(40) } };
+   case "GetTasksByPetIDSince": args![3]=false; goto case "GetTasksByPetID";
+   case "GetTasksByPetID": return scenario=="older" && method.Name=="GetTasksByPetID" ? new List<TaskItem>() : new List<TaskItem> { new() { TaskID=1, TaskType="Pee", CreatedAt=today.AddHours(8).AddMinutes(15), RecordedByName="Alex" }, new() { TaskID=2, TaskType="Walk", CreatedAt=today.AddDays(-1).AddHours(18), RecordedByName="Sam", Notes="A relaxed walk around the neighborhood. Stopped for water, then spent a little extra time exploring the park. " + new string('a',120) } };
+   case "GetDashboardSchedule":
+    if(scenario=="error") throw new Exception("Isolated fixture read failure");
+    if(scenario is "empty" or "no-pets") return new List<MedSchedule>();
+    return new List<MedSchedule> { new() { PetID=1, MedID=1, MedicationName="Joint supplement", Dosage="1 chew", ScheduleDate=today.AddDays(-12).AddHours(9) }, new() { PetID=2, MedID=2, MedicationName="Daily supplement", Dosage="1 tablet", TimingDoesNotMatter=true, ScheduleDate=today }, new() { PetID=1, MedID=3, MedicationName="Resolved skipped dose", EffectiveStatus="Skipped", DoseStatus="Skipped", ScheduleDate=today }, new() { PetID=1, MedID=4, MedicationName="Monthly preventative", Dosage="1 chew", ScheduleDate=today.AddDays(3).AddHours(9) } }.Concat(Enumerable.Range(0,8).Select(i=>new MedSchedule { PetID=1, MedID=10+i, MedicationName="Scheduled dose", Dosage="As prescribed", ScheduleDate=today.AddDays(-i-1).AddHours(9) })).ToList();
+   case "GetDashboardVisits": return scenario is "empty" or "no-pets" ? new List<DashboardCareItem>() : new List<DashboardCareItem> { new() { PetID=2, RecordID=8, Kind="VetVisit", Text="Annual wellness exam", DueAt=today.AddHours(16) }, new() { PetID=1, RecordID=9, Kind="VetVisit", Text="Follow-up consultation", DueAt=today.AddDays(-2), TimeUnknown=true }, new() { PetID=2, RecordID=10, Kind="VetVisit", Text="Clinic check-in", DueAt=today.AddDays(2), TimeUnknown=true } };
+   case "AddMedication": case "UpdateMedication": case "UpdateVisit": case "UpdateHealthEvent": return true;
+   case "AddHealthEvent": return 1;
+   case "AddVisit": return 11;
+   case "GetHealthEventByID": return (int)args![1]! == 1 ? new HealthEvent { HealthEventID=1, PetID=1, EventKind="Symptom", EventType="Coughing", OccurredAtUtc=DateTime.UtcNow } : null;
+  }
+  throw new NotSupportedException("Fixture does not allow " + method.Name);
+ }
+}
