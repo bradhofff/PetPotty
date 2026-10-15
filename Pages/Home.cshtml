@@ -535,7 +535,7 @@
     .home-dashboard .task-row {
         display: grid;
         grid-template-columns: 31px minmax(0, 1fr) 30px;
-        align-items: flex-start;
+        align-items: center;
         gap: 8px;
         padding: 5px 0;
         border-bottom: 1px solid var(--app-line, #eee9e4);
@@ -544,9 +544,9 @@
     .task-row:last-child { border-bottom: none; }
     .task-content {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
         align-items: center;
-        gap: 0 8px;
+        gap: 8px;
         min-width: 0;
         min-height: 31px;
     }
@@ -558,6 +558,7 @@
     }
     .task-meta {
         display: flex;
+        grid-column: 3;
         flex-wrap: wrap;
         justify-content: flex-end;
         gap: 2px 6px;
@@ -568,11 +569,10 @@
     .task-time { white-space: nowrap; }
     .task-logger { overflow-wrap: anywhere; }
     .task-notes {
-        grid-column: 1 / -1;
-        margin: 10px 0 4px;
         font-size: .8rem;
-        line-height: 1.5;
+        line-height: 1.25;
         overflow-wrap: anywhere;
+        text-align: center;
         white-space: pre-line;
     }
 
@@ -1011,6 +1011,10 @@ else
                                         <div class="task-icon">@taskEmoji</div>
                                         <div class="task-content">
                                             <span class="task-title">@task.TaskType</span>
+                                            @if (!string.IsNullOrWhiteSpace(task.Notes))
+                                            {
+                                                <div class="task-notes text-muted">@task.Notes</div>
+                                            }
                                             <div class="task-meta text-muted">
                                                 <time class="task-time" datetime="@task.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss")">@taskTimeLabel</time>
                                                 @if (!string.IsNullOrWhiteSpace(task.RecordedByName))
@@ -1018,10 +1022,6 @@ else
                                                     <span class="task-logger">· @task.RecordedByName</span>
                                                 }
                                             </div>
-                                            @if (!string.IsNullOrWhiteSpace(task.Notes))
-                                            {
-                                                <div class="task-notes text-muted">@task.Notes</div>
-                                            }
                                         </div>
                                         <button class="edit-task-btn"
                                                 data-bs-toggle="modal"

@@ -19,5 +19,6 @@ obj/
 .vs/
 *.suo
 
-# Local deployment documentation
-DEPLOYMENT.md
+# Private development settings and runtime data (case-sensitive hosts too)
+appsettings.development.json
+PetPotty-Mac-private.zip
